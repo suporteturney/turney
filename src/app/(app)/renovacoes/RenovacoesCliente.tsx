@@ -13,6 +13,7 @@ type Linha = {
   inicio: string | null; prazo: string | null; negociacao: string | null; negociacaoEm: string | null;
   renovacaoStatus: string | null;
   duracao: number | null;
+  renovacoes: { data: string; acao: string; destino: string; novoPrazo: string | null }[];
 };
 
 const fmt = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -37,6 +38,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
   const [filtMes, setFiltMes] = useState("");
   const [filtAno, setFiltAno] = useState("");
   const [soVencidos, setSoVencidos] = useState(false);
+  const [fixadas, setFixadas] = useState<Set<string>>(new Set());
   const [jornada, setJornada] = useState<string | null>(null);
   const [cadastro, setCadastro] = useState<string | null>(null);
 
@@ -59,21 +61,34 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
     return Array.from({ length: max - min + 1 }, (_, i) => String(max - i));
   }, [linhas]);
 
+  const temPeriodo = !!(filtMes || filtAno);
+  const noPeriodo = useMemo(
+    () => (iso: string | null) =>
+      !!iso && (!filtAno || iso.slice(0, 4) === filtAno) && (!filtMes || iso.slice(5, 7) === filtMes),
+    [filtMes, filtAno]
+  );
+  const renovacoesNoPeriodo = (m: Linha) => (temPeriodo ? m.renovacoes.filter(r => noPeriodo(r.data)) : []);
+
   const lista = useMemo(
     () =>
       linhas.filter(m => {
+        if (fixadas.has(m.id)) return true;
         if (filtTipo && !casaTipo(m.tipo, filtTipo)) return false;
         if (filtStatus === ATIVOS_KEY ? !ATIVOS.includes(m.status) : filtStatus && m.status !== filtStatus) return false;
-        if (filtAno && m.prazo?.slice(0, 4) !== filtAno) return false;
-        if (filtMes && m.prazo?.slice(5, 7) !== filtMes) return false;
+        if (temPeriodo && !noPeriodo(m.prazo) && !m.renovacoes.some(r => noPeriodo(r.data))) return false;
         if (soVencidos && (diasRestantes(m.prazo) ?? 0) >= 0) return false;
         return true;
       }),
-    [linhas, filtTipo, filtStatus, filtMes, filtAno, soVencidos]
+    [linhas, fixadas, filtTipo, filtStatus, temPeriodo, noPeriodo, soVencidos]
   );
 
+  const mesAtual = new Date().toISOString().slice(0, 7);
+  const renovaramNoPeriodo = lista.filter(m =>
+    m.renovacoes.some(r => (temPeriodo ? noPeriodo(r.data) : r.data.slice(0, 7) === mesAtual))
+  ).length;
+
   const temFiltro = !!(filtTipo || filtStatus !== ATIVOS_KEY || filtMes || filtAno || soVencidos);
-  const limpar = () => { setFiltTipo(""); setFiltStatus(ATIVOS_KEY); setFiltMes(""); setFiltAno(""); setSoVencidos(false); };
+  const limpar = () => { setFiltTipo(""); setFiltStatus(ATIVOS_KEY); setFiltMes(""); setFiltAno(""); setSoVencidos(false); setFixadas(new Set()); };
   const periodoTxt = filtMes || filtAno
     ? ` · vencimento em ${filtMes ? MESES[+filtMes - 1].toLowerCase() : "qualquer mês"}${filtAno ? ` de ${filtAno}` : " (todos os anos)"}`
     : "";
@@ -94,7 +109,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
         </div>
       </div>
       <div className={styles.content}>
-        <div className={`${styles.kpiGrid} ${styles.kpi3}`}>
+        <div className={`${styles.kpiGrid} ${styles.kpi4}`}>
           <div className={styles.kpi} style={{ "--kpi-color": "#EF4444" } as React.CSSProperties}>
             <div className={styles.kpiLabel}>Vencem em 30 dias</div>
             <div className={styles.kpiValue}>{em30}</div>
@@ -110,6 +125,11 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
             <div className={styles.kpiValue}>{emRenovacao}</div>
             <div className={styles.kpiDelta}>Em processo de decisão</div>
           </div>
+          <div className={styles.kpi} style={{ "--kpi-color": "#10B981" } as React.CSSProperties}>
+            <div className={styles.kpiLabel}>Renovaram{temPeriodo ? " no período" : " neste mês"}</div>
+            <div className={styles.kpiValue}>{renovaramNoPeriodo}</div>
+            <div className={styles.kpiDelta}>{temPeriodo ? "Renovações registradas no período filtrado" : "Renovações registradas no mês atual"}</div>
+          </div>
         </div>
 
         <div className={styles.tblCard}>
@@ -121,7 +141,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
               <select
                 className={r.select}
                 value={filtTipo}
-                onChange={e => setFiltTipo(e.target.value)}
+                onChange={e => { setFiltTipo(e.target.value); setFixadas(new Set()); }}
                 aria-label="Filtrar por programa"
               >
                 <option value="">Todos os programas</option>
@@ -131,7 +151,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
               <select
                 className={r.select}
                 value={filtStatus}
-                onChange={e => setFiltStatus(e.target.value)}
+                onChange={e => { setFiltStatus(e.target.value); setFixadas(new Set()); }}
                 aria-label="Filtrar por status"
               >
                 <option value={ATIVOS_KEY}>Contratos ativos</option>
@@ -141,7 +161,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
               <select
                 className={r.select}
                 value={filtMes}
-                onChange={e => setFiltMes(e.target.value)}
+                onChange={e => { setFiltMes(e.target.value); setFixadas(new Set()); }}
                 aria-label="Filtrar por mês de vencimento"
               >
                 <option value="">Todos os meses</option>
@@ -150,14 +170,14 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
               <select
                 className={r.select}
                 value={filtAno}
-                onChange={e => setFiltAno(e.target.value)}
+                onChange={e => { setFiltAno(e.target.value); setFixadas(new Set()); }}
                 aria-label="Filtrar por ano de vencimento"
               >
                 <option value="">Todos os anos</option>
                 {anos.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
               <label className={r.toggle}>
-                <input type="checkbox" checked={soVencidos} onChange={e => setSoVencidos(e.target.checked)} />
+                <input type="checkbox" checked={soVencidos} onChange={e => { setSoVencidos(e.target.checked); setFixadas(new Set()); }} />
                 Só vencidos
               </label>
               {temFiltro && <button className={r.clear} onClick={limpar}>Limpar</button>}
@@ -206,7 +226,16 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                         ) : "—"}
                       </td>
                       <td>{fmt(m.inicio)}</td>
-                      <td>{fmt(m.prazo)}</td>
+                      <td>
+                        <div className={r.prazoCell}>
+                          <span>{fmt(m.prazo)}</span>
+                          {(temPeriodo ? renovacoesNoPeriodo(m) : m.renovacoes.filter(x => (diasRestantes(x.data) ?? -999) >= -90).slice(0, 1)).map((x, k) => (
+                            <span key={k} className={r.renovChip} title={`${x.acao} → ${x.destino}${x.novoPrazo ? ` · acesso até ${fmt(x.novoPrazo)}` : ""}`}>
+                              ↻ {x.acao === "RENOVAÇÃO" ? "Renovou" : x.acao === "UPGRADE" ? "Upgrade" : x.acao === "DOWNGRADE" ? "Downgrade" : "Cross"} em {fmt(x.data)}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
                       <td>
                         {dias !== null ? (
                           <span style={{ background: urgBg, color: dias <= 60 ? urgFg : "var(--txt2)", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
@@ -219,8 +248,12 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                           mentorada={m}
                           valor={m.renovacaoStatus}
                           onSalvo={renovacaoStatus => atualizarLinha(m.id, { renovacaoStatus })}
-                          onRenovado={r => {
-                            atualizarLinha(m.id, { status: r.status, tipo: r.tipo, prazo: r.prazo, duracao: r.duracao, renovacaoStatus: r.renovacaoStatus });
+                          onRenovado={rn => {
+                            atualizarLinha(m.id, {
+                              status: rn.status, tipo: rn.tipo, prazo: rn.prazo, duracao: rn.duracao, renovacaoStatus: rn.renovacaoStatus,
+                              renovacoes: [rn.renovacao, ...m.renovacoes],
+                            });
+                            setFixadas(s => new Set(s).add(m.id));
                             router.refresh();
                           }}
                         />

@@ -11,7 +11,10 @@ const ACOES = [
 ];
 const DURACOES = ["6", "7", "8", "12"];
 
-export type Renovado = { status: string; tipo: string; prazo: string | null; duracao: number | null; renovacaoStatus: string | null };
+export type Renovado = {
+  status: string; tipo: string; prazo: string | null; duracao: number | null; renovacaoStatus: string | null;
+  renovacao: { data: string; acao: string; destino: string; novoPrazo: string | null };
+};
 
 function hoje() {
   const d = new Date();
@@ -94,6 +97,7 @@ export default function RenovarModal({
         prazo: j.mentorada?.prazo ?? prazo,
         duracao: j.mentorada?.duracao ?? +duracao,
         renovacaoStatus: j.mentorada?.renovacaoStatus ?? "Renovou",
+        renovacao: { data: j.data ?? data, acao, destino, novoPrazo: j.novoPrazo ?? prazo },
       });
     } catch (err) {
       setErro((err as Error).message);

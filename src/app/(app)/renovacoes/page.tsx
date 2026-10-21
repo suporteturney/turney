@@ -8,6 +8,7 @@ export default async function RenovacoesPage() {
     select: {
       id: true, nome: true, codigo: true, tipo: true, status: true, saude: true,
       inicio: true, prazo: true, negociacao: true, negociacaoEm: true, renovacaoStatus: true, duracao: true,
+      renovacoes: { orderBy: { data: "desc" }, select: { data: true, acao: true, destino: true, novoPrazo: true } },
     },
   });
 
@@ -16,6 +17,7 @@ export default async function RenovacoesPage() {
     inicio: m.inicio?.toISOString() ?? null,
     prazo: m.prazo?.toISOString() ?? null,
     negociacaoEm: m.negociacaoEm?.toISOString() ?? null,
+    renovacoes: m.renovacoes.map(r => ({ ...r, data: r.data.toISOString(), novoPrazo: r.novoPrazo?.toISOString() ?? null })),
   }));
 
   return <RenovacoesCliente data={data} />;
