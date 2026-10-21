@@ -24,6 +24,7 @@ function diasRestantes(prazo: string | null): number | null {
   return Math.round((Date.parse(prazo.slice(0, 10)) - h) / 86400000);
 }
 
+const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const casaTipo = (tipo: string, filtro: string) => tipo === filtro || tipo.startsWith(`${filtro} `);
 
 export default function RenovacoesCliente({ data }: { data: Linha[] }) {
@@ -31,6 +32,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
   const [linhas, setLinhas] = useState(data);
   const [filtTipo, setFiltTipo] = useState("");
   const [filtStatus, setFiltStatus] = useState("");
+  const [filtMes, setFiltMes] = useState("");
   const [jornada, setJornada] = useState<string | null>(null);
   const [cadastro, setCadastro] = useState<string | null>(null);
 
@@ -45,9 +47,36 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
     [linhas]
   );
 
-  const lista = useMemo(
-    () => linhas.filter(m => (!filtTipo || casaTipo(m.tipo, filtTipo)) && (!filtStatus || m.status === filtStatus)),
-    [linhas, filtTipo, filtStatus]
+  const periodos = useMemo(() => {
+    const porAno = new Map<string, Map<string, number>>();
+    for (const m of linhas) {
+      if (!m.prazo) continue;
+      const ym = m.prazo.slice(0, 7);
+      const ano = ym.slice(0, 4);
+      if (!porAno.has(ano)) porAno.set(ano, new Map());
+      const meses = porAno.get(ano)!;
+      meses.set(ym, (meses.get(ym) ?? 0) + 1);
+    }
+    return [...porAno.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ano, meses]) => ({
+        ano,
+        total: [...meses.values()].reduce((x, y) => x + y, 0),
+        meses: [...meses.entries()].sort(([a], [b]) => a.localeCompare(b)),
+      }));
+  }, [linhas]);
+
+  const lista = useMemo(() => {
+    const casaPeriodo = (prazo: string | null) => {
+      if (!filtMes) return true;
+      if (!prazo) return false;
+      if (filtMes === "vencidos") return (diasRestantes(prazo) ?? 0) < 0;
+      if (filtMes.startsWith("ano:")) return prazo.startsWith(filtMes.slice(4));
+      return prazo.startsWith(filtMes);
+    };
+    return linhas.filter(m => (!filtTipo || casaTipo(m.tipo, filtTipo)) && (!filtStatus || m.status === filtStatus) && casaPeriodo(m.prazo));
+  },
+    [linhas, filtTipo, filtStatus, filtMes]
   );
 
   const em30 = lista.filter(m => { const d = diasRestantes(m.prazo); return d !== null && d >= 0 && d <= 30; }).length;
@@ -107,8 +136,25 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                 <option value="">Todos os status</option>
                 {statusOpts.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              {(filtTipo || filtStatus) && (
-                <button className={r.clear} onClick={() => { setFiltTipo(""); setFiltStatus(""); }}>Limpar</button>
+              <select
+                className={r.select}
+                value={filtMes}
+                onChange={e => setFiltMes(e.target.value)}
+                aria-label="Filtrar por mês e ano de vencimento"
+              >
+                <option value="">Todos os vencimentos</option>
+                <option value="vencidos">Já vencidos</option>
+                {periodos.map(p => (
+                  <optgroup key={p.ano} label={p.ano}>
+                    <option value={`ano:${p.ano}`}>{p.ano} inteiro ({p.total})</option>
+                    {p.meses.map(([ym, n]) => (
+                      <option key={ym} value={ym}>{MESES[+ym.slice(5, 7) - 1]} {p.ano} ({n})</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              {(filtTipo || filtStatus || filtMes) && (
+                <button className={r.clear} onClick={() => { setFiltTipo(""); setFiltStatus(""); setFiltMes(""); }}>Limpar</button>
               )}
             </div>
             <span className={styles.tblCount}>{lista.length} mentoradas</span>
