@@ -143,6 +143,8 @@ model Acompanhamento {
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
   data        DateTime
   tipo        String?
+  marco       Boolean   @default(false)
+  marcoTitulo String?
   texto       String
   autor       String?
   createdAt   DateTime  @default(now())

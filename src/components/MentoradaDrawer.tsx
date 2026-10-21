@@ -4,7 +4,10 @@ import s from "./MentoradaDrawer.module.css";
 
 type Etapa = { id: string; nome: string; data: string | null };
 type Presenca = { id: string; encontro: string; presente: boolean };
-type Acomp = { id: string; data: string; tipo: string | null; texto: string; autor: string | null };
+type Acomp = {
+  id: string; data: string; tipo: string | null; texto: string; autor: string | null;
+  marco: boolean; marcoTitulo: string | null;
+};
 type Obs = { id: string; data: string; texto: string; autor: string | null };
 type Renov = { id: string; acao: string; destino: string; data: string; novoPrazo: string | null; obs: string | null };
 
@@ -114,8 +117,9 @@ function paraForm(d: Detalhe): Form {
   return f;
 }
 
-type Aba = "dados" | "etapas" | "presenca" | "renovacoes" | "acomp";
+export type Aba = "jornada" | "dados" | "etapas" | "presenca" | "renovacoes" | "acomp";
 const ABAS: { k: Aba; label: string }[] = [
+  { k: "jornada", label: "Jornada" },
   { k: "dados", label: "Dados" },
   { k: "etapas", label: "Etapas do Programa" },
   { k: "presenca", label: "Presença nos Encontros" },
@@ -123,24 +127,86 @@ const ABAS: { k: Aba; label: string }[] = [
   { k: "acomp", label: "Acompanhamento" },
 ];
 
+type Evento = {
+  key: string;
+  data: string;
+  titulo: string;
+  texto?: string;
+  meta?: string;
+  nivel: "marco" | "etapa" | "rotina" | "futuro" | "alerta";
+  acompId?: string;
+};
+
+const ETAPA_LABEL: Record<string, string> = {
+  onboarding: "Onboarding concluído",
+  sessao: "Mentoria Estratégica realizada",
+  devolutiva: "Devolutiva Comportamental realizada",
+  correcao: "Correção de Materiais entregue",
+};
+
+function montarJornada(d: Detalhe): Evento[] {
+  const ev: Evento[] = [];
+  if (d.inicio) ev.push({ key: "inicio", data: d.inicio, titulo: `Início no ${d.tipo}`, nivel: "etapa" });
+  for (const e of d.etapas) {
+    if (!e.data) continue;
+    const label = ETAPA_LABEL[e.nome] ?? (e.nome.startsWith("encontro") ? `Encontro Individual ${e.nome.slice(8)}` : e.nome);
+    ev.push({ key: `et-${e.id}`, data: e.data, titulo: label, nivel: "etapa" });
+  }
+  for (const a of d.acompanhamentos) {
+    ev.push({
+      key: `ac-${a.id}`,
+      data: a.data,
+      titulo: a.marco ? a.marcoTitulo || "Evolução significativa" : `Acompanhamento${a.tipo ? ` · ${a.tipo}` : ""}`,
+      texto: a.texto,
+      meta: [a.marco && a.tipo ? a.tipo : null, a.autor].filter(Boolean).join(" · ") || undefined,
+      nivel: a.marco ? "marco" : "rotina",
+      acompId: a.id,
+    });
+  }
+  for (const o of d.observacoes) {
+    ev.push({ key: `ob-${o.id}`, data: o.data, titulo: "Observação", texto: o.texto, meta: o.autor ?? undefined, nivel: "rotina" });
+  }
+  for (const r of d.renovacoes) {
+    ev.push({
+      key: `rn-${r.id}`, data: r.data, titulo: `${r.acao[0]}${r.acao.slice(1).toLowerCase()} → ${r.destino}`,
+      texto: r.obs ?? undefined, meta: r.novoPrazo ? `Novo prazo ${fmt(r.novoPrazo)}` : undefined, nivel: "marco",
+    });
+  }
+  if (d.vagaData || d.vagaCargo || d.vagaEmpresa) {
+    ev.push({
+      key: "vaga", data: d.vagaData ?? d.prazo ?? new Date().toISOString(),
+      titulo: "Aprovada em vaga", texto: [d.vagaCargo, d.vagaEmpresa].filter(Boolean).join(" · ") || undefined, nivel: "marco",
+    });
+  }
+  if (d.cancelamento) ev.push({ key: "cancel", data: d.cancelamento, titulo: "Cancelamento", nivel: "alerta" });
+  if (d.prazo) {
+    const futuro = d.prazo.slice(0, 10) > hojeISO();
+    ev.push({ key: "prazo", data: d.prazo, titulo: futuro ? "Encerramento previsto" : "Fim do programa", nivel: futuro ? "futuro" : "etapa" });
+  }
+  return ev.sort((a, b) => a.data.localeCompare(b.data));
+}
+
 export default function MentoradaDrawer({
   id,
+  abaInicial = "dados",
   onClose,
   onChanged,
 }: {
   id: string;
+  abaInicial?: Aba;
   onClose: () => void;
   onChanged?: () => void;
 }) {
   const [d, setD] = useState<Detalhe | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [aba, setAba] = useState<Aba>("dados");
+  const [aba, setAba] = useState<Aba>(abaInicial);
+  const [soEvolucoes, setSoEvolucoes] = useState(false);
   const [form, setForm] = useState<Form>({});
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const [novaObs, setNovaObs] = useState("");
-  const [acomp, setAcomp] = useState({ data: hojeISO(), tipo: "WhatsApp", texto: "", autor: "" });
+  const [acomp, setAcomp] = useState({ data: hojeISO(), tipo: "Sessão", texto: "", autor: "", marco: false, marcoTitulo: "" });
   const [renov, setRenov] = useState({ acao: "RENOVAÇÃO", destino: "", data: hojeISO(), novoPrazo: "", obs: "" });
   const [renovAberto, setRenovAberto] = useState(false);
 
@@ -161,17 +227,24 @@ export default function MentoradaDrawer({
   }, [id]);
 
   useEffect(() => {
-    setD(null);
-    setErro(null);
-    setAba("dados");
-    carregar().then(json => {
-      if (json) {
+    let vivo = true;
+    fetch(`/api/mentorados/${id}`, { cache: "no-store" })
+      .then(async r => {
+        if (!vivo) return;
+        if (!r.ok) {
+          setErro(r.status === 404 ? "Mentorada não encontrada." : "Não foi possível carregar os dados. Recarregue a página.");
+          return;
+        }
+        const json: Detalhe = await r.json();
+        if (!vivo) return;
+        setD(json);
         setForm(paraForm(json));
         setAcomp(a => ({ ...a, autor: json.resp ?? "" }));
         setRenov(r => ({ ...r, destino: json.tipo }));
-      }
-    });
-  }, [carregar]);
+      })
+      .catch(() => vivo && setErro("Sem conexão com o servidor. Verifique a internet e tente de novo."));
+    return () => { vivo = false; };
+  }, [id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -251,6 +324,22 @@ export default function MentoradaDrawer({
     }
   }
 
+  async function alternarMarco(a: Acomp) {
+    if (!d) return;
+    let titulo: string | null = null;
+    if (!a.marco) {
+      titulo = window.prompt("Qual foi a evolução? (ex: Currículo aprovado, 1ª entrevista)", "");
+      if (titulo === null) return;
+    }
+    try {
+      await chamar(`/api/mentorados/${d.id}/acompanhamentos`, "PATCH", { item: a.id, marco: !a.marco, marcoTitulo: titulo });
+      await carregar();
+      avisar(a.marco ? "Evolução desmarcada" : "Marcada como evolução");
+    } catch (e) {
+      avisar((e as Error).message);
+    }
+  }
+
   async function remover(rota: string, item: string) {
     if (!d) return;
     if (!window.confirm("Remover este registro? Essa ação não pode ser desfeita.")) return;
@@ -325,6 +414,98 @@ export default function MentoradaDrawer({
         <div className={s.body}>
           {erro && <div className={s.empty}>{erro}</div>}
           {!d && !erro && <div className={s.skeleton}><div /><div /><div /><div /></div>}
+
+          {d && aba === "jornada" && (() => {
+            const todos = montarJornada(d);
+            const eventos = soEvolucoes ? todos.filter(e => e.nivel !== "rotina") : todos;
+            const marcos = d.acompanhamentos.filter(a => a.marco).length + d.renovacoes.length + (d.vagaData || d.vagaCargo ? 1 : 0);
+            const ultimo = d.acompanhamentos[0]?.data ?? null;
+            const diasSemAcomp = ultimo ? diasEntre(ultimo, hojeISO()) : null;
+            const ativa = d.status === "Ativo" || d.status === "Em Andamento" || d.status === "Em Renovação";
+            const semanaAtual = d.inicio ? Math.max(1, Math.floor(diasEntre(d.inicio, hojeISO()) / 7) + 1) : null;
+            const semanasTotal = d.inicio && d.prazo ? Math.max(1, Math.round(diasEntre(d.inicio, d.prazo) / 7)) : null;
+            const hoje = hojeISO();
+            const idxHoje = eventos.findIndex(e => e.data.slice(0, 10) > hoje);
+            return (
+              <div>
+                <div className={s.jStats}>
+                  <div>
+                    <span>Semana</span>
+                    <strong>
+                      {semanaAtual === null ? "—" : semanasTotal && semanaAtual > semanasTotal ? `${semanasTotal}/${semanasTotal}` : `${semanaAtual}${semanasTotal ? `/${semanasTotal}` : ""}`}
+                    </strong>
+                  </div>
+                  <div><span>Acompanhamentos</span><strong>{d.acompanhamentos.length}</strong></div>
+                  <div><span>Evoluções</span><strong className={s.txtGold}>{marcos}</strong></div>
+                  <div>
+                    <span>Último contato</span>
+                    <strong className={ativa && (diasSemAcomp === null || diasSemAcomp > 7) ? s.txtWarn : ""}>
+                      {diasSemAcomp === null ? "Nunca" : diasSemAcomp === 0 ? "Hoje" : `há ${diasSemAcomp}d`}
+                    </strong>
+                  </div>
+                </div>
+
+                {ativa && (diasSemAcomp === null || diasSemAcomp > 7) && (
+                  <div className={s.jAlert}>
+                    {diasSemAcomp === null
+                      ? "Nenhum acompanhamento registrado ainda."
+                      : `Sem acompanhamento há ${diasSemAcomp} dias — o ritmo combinado é semanal.`}
+                  </div>
+                )}
+
+                <div className={s.jToolbar}>
+                  <div className={s.seg}>
+                    <button className={!soEvolucoes ? s.segOn : ""} onClick={() => setSoEvolucoes(false)}>Tudo</button>
+                    <button className={soEvolucoes ? s.segOn : ""} onClick={() => setSoEvolucoes(true)}>Só marcos</button>
+                  </div>
+                  <div className={s.jActions}>
+                    <button className={s.btnGhost} onClick={() => { setAcomp(a => ({ ...a, marco: false, marcoTitulo: "" })); setAba("acomp"); }}>
+                      + Acompanhamento
+                    </button>
+                    <button className={s.btnDark} onClick={() => { setAcomp(a => ({ ...a, marco: true })); setAba("acomp"); }}>
+                      ★ Registrar evolução
+                    </button>
+                  </div>
+                </div>
+
+                {eventos.length === 0 ? (
+                  <div className={s.empty}>A jornada ainda está vazia.<br />Registre o primeiro acompanhamento para começar a linha do tempo.</div>
+                ) : (
+                  <ol className={s.timeline}>
+                    {eventos.map((e, i) => (
+                      <li key={e.key} className={`${s.tItem} ${s[`t_${e.nivel}`]}`}>
+                        {i === idxHoje && <div className={s.tHoje}><span>Hoje · {fmt(hoje)}</span></div>}
+                        <span className={s.tDot}>{e.nivel === "marco" ? "★" : ""}</span>
+                        <div className={s.tCard}>
+                          <div className={s.tHead}>
+                            <span className={s.tTitle}>{e.titulo}</span>
+                            <span className={s.tDate}>{fmt(e.data)}</span>
+                          </div>
+                          {e.texto && <div className={s.tText}>{e.texto}</div>}
+                          {(e.meta || e.acompId) && (
+                            <div className={s.tMeta}>
+                              {e.meta && <span>{e.meta}</span>}
+                              {e.acompId && (
+                                <button
+                                  className={s.tStar}
+                                  onClick={() => {
+                                    const a = d.acompanhamentos.find(x => x.id === e.acompId);
+                                    if (a) alternarMarco(a);
+                                  }}
+                                >
+                                  {e.nivel === "marco" ? "Desmarcar evolução" : "★ Marcar como evolução"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            );
+          })()}
 
           {d && aba === "dados" && (
             <div>
@@ -666,18 +847,44 @@ export default function MentoradaDrawer({
                 <div className={s.row1}>
                   <F label="Responsável"><input value={acomp.autor} onChange={e => setAcomp({ ...acomp, autor: e.target.value })} /></F>
                 </div>
+                <label className={`${s.marcoToggle} ${acomp.marco ? s.marcoOn : ""}`}>
+                  <input type="checkbox" checked={acomp.marco} onChange={e => setAcomp({ ...acomp, marco: e.target.checked })} />
+                  <span>
+                    <strong>★ Evolução significativa</strong>
+                    <small>Aparece em destaque na Jornada da mentorada</small>
+                  </span>
+                </label>
+                {acomp.marco && (
+                  <div className={s.row1}>
+                    <F label="Qual foi a evolução?">
+                      <input value={acomp.marcoTitulo} onChange={e => setAcomp({ ...acomp, marcoTitulo: e.target.value })} placeholder="Ex: Currículo aprovado, 1ª entrevista, Oferta recebida" />
+                    </F>
+                  </div>
+                )}
                 <button
                   className={s.btnDark}
-                  onClick={async () => { if (await adicionar("acompanhamentos", acomp, "Acompanhamento salvo")) setAcomp({ ...acomp, texto: "" }); }}
+                  onClick={async () => {
+                    if (await adicionar("acompanhamentos", acomp, acomp.marco ? "Evolução registrada" : "Acompanhamento salvo"))
+                      setAcomp({ ...acomp, texto: "", marco: false, marcoTitulo: "" });
+                  }}
                 >
                   Salvar acompanhamento
                 </button>
               </div>
               {d.acompanhamentos.map(a => (
-                <div key={a.id} className={s.entry}>
+                <div key={a.id} className={`${s.entry} ${a.marco ? s.entryMarco : ""}`}>
                   <div className={s.entryHead}>
+                    <button
+                      className={`${s.star} ${a.marco ? s.starOn : ""}`}
+                      onClick={() => alternarMarco(a)}
+                      title={a.marco ? "Desmarcar evolução" : "Marcar como evolução significativa"}
+                      aria-label={a.marco ? "Desmarcar evolução" : "Marcar como evolução significativa"}
+                    >
+                      ★
+                    </button>
                     <span className={s.entryDate}>{fmt(a.data)}</span>
                     {a.tipo && <span className={s.chipGold}>{a.tipo}</span>}
+                    {a.marco && a.marcoTitulo && <span className={s.entryStrong}>{a.marcoTitulo}</span>}
                     {a.autor && <span className={s.entryMuted} style={{ marginLeft: "auto" }}>{a.autor}</span>}
                     <button className={s.remove} style={a.autor ? { marginLeft: 6 } : undefined} onClick={() => remover("acompanhamentos", a.id)} aria-label="Remover acompanhamento">✕</button>
                   </div>

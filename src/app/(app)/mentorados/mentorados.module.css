@@ -208,3 +208,102 @@
 .rowAtiva :global(td) {
   background: rgba(201, 168, 118, 0.1) !important;
 }
+
+.nomeBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--navy-mid);
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px dashed transparent;
+  transition: color 0.12s, border-color 0.12s;
+}
+.nomeBtn:hover {
+  color: var(--brown);
+  border-bottom-color: var(--champagne);
+}
+.nomeBtn:focus-visible,
+.ic:focus-visible,
+.clearBtn:focus-visible {
+  outline: 2px solid var(--champagne);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.icons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.ic {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid var(--bdr);
+  background: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  color: var(--txt2);
+  transition: color 0.12s, background 0.12s, border-color 0.12s, transform 0.12s;
+}
+.ic svg { width: 14px; height: 14px; }
+.ic:hover { transform: translateY(-1px); }
+.icWa { color: #1DA851; }
+.icWa:hover { background: #E8F8EE; border-color: #25D366; }
+.icMail { color: var(--navy-mid); }
+.icMail:hover { background: var(--champ-dim); border-color: var(--champagne); color: var(--brown); }
+.icAsana { color: #F06A6A; }
+.icAsana:hover { background: #FDEEEE; border-color: #F06A6A; }
+.icDrive { color: #1A73E8; }
+.icDrive:hover { background: #E8F0FE; border-color: #1A73E8; }
+.icOff {
+  color: #D6CCBC;
+  border-style: dashed;
+  background: transparent;
+}
+.icOff:hover { color: var(--txt3); border-color: var(--txt3); transform: none; }
+
+.areaSelect { max-width: 220px; }
+.areaCell {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--txt2) !important;
+}
+.muted { color: var(--txt3); }
+
+.clearBtn {
+  padding: 6px 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  background: white;
+  color: var(--txt3);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.clearBtn:hover { border-color: var(--champagne); color: var(--navy-mid); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--navy-mid);
+  color: var(--champagne);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(6, 10, 31, 0.25);
+  z-index: 200;
+}

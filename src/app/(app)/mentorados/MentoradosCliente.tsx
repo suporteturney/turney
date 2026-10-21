@@ -1,8 +1,8 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { Mentorada } from "@/lib/generated/prisma";
-import MentoradaDrawer from "@/components/MentoradaDrawer";
+import MentoradaDrawer, { type Aba } from "@/components/MentoradaDrawer";
 import styles from "./mentorados.module.css";
 
 const BADGE: Record<string, string> = {
@@ -25,7 +25,7 @@ function Badge({ label }: { label: string }) {
 
 function formatData(d: Date | string | null) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("pt-BR");
+  return new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
 function diasPrazo(prazo: Date | string | null): number | null {
@@ -37,19 +37,99 @@ function diasPrazo(prazo: Date | string | null): number | null {
   return Math.round((p.getTime() - hoje.getTime()) / 86400000);
 }
 
+const normArea = (a: string | null) => (a ?? "").trim().toLocaleLowerCase("pt-BR");
+const SEM_AREA = "__sem__";
+
+function casaTipo(tipo: string, filtro: string) {
+  return tipo === filtro || tipo.startsWith(`${filtro} `);
+}
+
+function linkExterno(v: string | null) {
+  if (!v) return null;
+  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
+}
+function linkWhats(v: string | null) {
+  const n = (v ?? "").replace(/\D/g, "");
+  return n.length >= 8 ? `https://wa.me/${n}` : null;
+}
+
+const IconWhats = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" d="M12 2a9.9 9.9 0 0 0-8.5 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.8-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z" />
+  </svg>
+);
+const IconMail = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="5" width="18" height="14" rx="2.5" />
+    <path d="m4 7 8 6 8-6" />
+  </svg>
+);
+const IconAsana = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="7" r="4" fill="currentColor" />
+    <circle cx="6" cy="16" r="4" fill="currentColor" />
+    <circle cx="18" cy="16" r="4" fill="currentColor" />
+  </svg>
+);
+const IconDrive = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+    <path d="M8.5 3h7l6 10.5-3.5 6h-12L2.5 13.5Z" />
+    <path d="M8.5 3 15 14.5h6.5M15.5 3 9 14.5l-3 5M2.5 13.5H15" />
+  </svg>
+);
+
 export default function MentoradosCliente({
   mentorados,
-  filtroTipo,
+  tipoInicial = "",
+  statusInicial = "",
+  buscaInicial = "",
 }: {
   mentorados: Mentorada[];
-  filtroTipo?: string;
+  tipoInicial?: string;
+  statusInicial?: string;
+  buscaInicial?: string;
 }) {
   const router = useRouter();
-  const [busca, setBusca] = useState("");
-  const [filtStatus, setFiltStatus] = useState("");
+  const [busca, setBusca] = useState(buscaInicial);
+  const [filtStatus, setFiltStatus] = useState(statusInicial);
+  const [filtTipo, setFiltTipo] = useState(tipoInicial);
+  const [filtArea, setFiltArea] = useState("");
   const [pagina, setPagina] = useState(1);
-  const [aberta, setAberta] = useState<string | null>(null);
+  const [aberta, setAberta] = useState<{ id: string; aba: Aba } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const POR_PAG = 30;
+
+  const avisar = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(t => (t === msg ? null : t)), 2200);
+  }, []);
+
+  const tipos = useMemo(() => {
+    const set = [...new Set(mentorados.map(m => m.tipo).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    const grupos = [...new Set(set.filter(t => / \d+$/.test(t)).map(t => t.replace(/ \d+$/, "")))];
+    return { set, grupos };
+  }, [mentorados]);
+
+  const statusOpts = useMemo(
+    () => [...new Set(mentorados.map(m => m.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [mentorados]
+  );
+
+  const areas = useMemo(() => {
+    const map = new Map<string, { label: string; n: number }>();
+    let sem = 0;
+    for (const m of mentorados) {
+      const k = normArea(m.area);
+      if (!k) { sem++; continue; }
+      const cur = map.get(k);
+      if (cur) cur.n++;
+      else map.set(k, { label: (m.area ?? "").trim(), n: 1 });
+    }
+    const lista = [...map.entries()]
+      .map(([k, v]) => ({ k, ...v }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
+    return { lista, sem };
+  }, [mentorados]);
 
   const lista = useMemo(() => {
     let r = mentorados;
@@ -59,20 +139,40 @@ export default function MentoradosCliente({
         (m) =>
           m.nome.toLowerCase().includes(b) ||
           (m.email ?? "").toLowerCase().includes(b) ||
-          (m.codigo ?? "").toLowerCase().includes(b)
+          (m.codigo ?? "").toLowerCase().includes(b) ||
+          (m.area ?? "").toLowerCase().includes(b)
       );
     }
     if (filtStatus) r = r.filter((m) => m.status === filtStatus);
+    if (filtTipo) r = r.filter((m) => casaTipo(m.tipo, filtTipo));
+    if (filtArea === SEM_AREA) r = r.filter((m) => !normArea(m.area));
+    else if (filtArea) r = r.filter((m) => normArea(m.area) === filtArea);
     return r;
-  }, [mentorados, busca, filtStatus]);
+  }, [mentorados, busca, filtStatus, filtTipo, filtArea]);
 
   const total = lista.length;
   const paginas = Math.ceil(total / POR_PAG);
   const visivel = lista.slice((pagina - 1) * POR_PAG, pagina * POR_PAG);
+  const temFiltro = !!(busca || filtStatus || filtTipo || filtArea);
 
-  const titulo = filtroTipo
-    ? `Mentorados · ${filtroTipo}`
-    : "Mentorados";
+  const titulo = filtTipo ? `Mentorados · ${filtTipo}` : "Mentorados";
+
+  async function copiarEmail(email: string) {
+    try {
+      await navigator.clipboard.writeText(email);
+      avisar(`E-mail copiado: ${email}`);
+    } catch {
+      window.prompt("Copie o e-mail:", email);
+    }
+  }
+
+  function limpar() {
+    setBusca("");
+    setFiltStatus("");
+    setFiltTipo("");
+    setFiltArea("");
+    setPagina(1);
+  }
 
   return (
     <>
@@ -80,7 +180,7 @@ export default function MentoradosCliente({
         <div>
           <div className={styles.pageTitle}>{titulo}</div>
           <div className={styles.pageSub}>
-            Gestão completa da base — clique na linha para detalhes
+            Clique no nome para ver a jornada · na linha para abrir o cadastro
           </div>
         </div>
         <div className={styles.topbarRight}>
@@ -101,21 +201,39 @@ export default function MentoradosCliente({
             <div className={styles.filters}>
               <input
                 type="search"
-                placeholder="Buscar nome, e-mail, código…"
+                placeholder="Buscar nome, e-mail, código, área…"
                 value={busca}
                 onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
                 className={styles.searchInput}
               />
               <select
+                value={filtTipo}
+                onChange={(e) => { setFiltTipo(e.target.value); setPagina(1); }}
+                aria-label="Filtrar por programa"
+              >
+                <option value="">Todos os programas</option>
+                {tipos.grupos.map(g => <option key={`g-${g}`} value={g}>{g} (todos)</option>)}
+                {tipos.set.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select
                 value={filtStatus}
                 onChange={(e) => { setFiltStatus(e.target.value); setPagina(1); }}
+                aria-label="Filtrar por status"
               >
                 <option value="">Todos os status</option>
-                <option value="Ativo">Ativo</option>
-                <option value="Em Renovação">Em Renovação</option>
-                <option value="Encerrado">Encerrado</option>
-                <option value="Churn">Churn</option>
+                {statusOpts.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              <select
+                value={filtArea}
+                onChange={(e) => { setFiltArea(e.target.value); setPagina(1); }}
+                aria-label="Filtrar por área de atuação"
+                className={styles.areaSelect}
+              >
+                <option value="">Todas as áreas</option>
+                {areas.lista.map(a => <option key={a.k} value={a.k}>{a.label} ({a.n})</option>)}
+                {areas.sem > 0 && <option value={SEM_AREA}>Sem área informada ({areas.sem})</option>}
+              </select>
+              {temFiltro && <button className={styles.clearBtn} onClick={limpar}>Limpar filtros</button>}
             </div>
             <span className={styles.tblCount}>{total} mentorados</span>
           </div>
@@ -125,34 +243,78 @@ export default function MentoradosCliente({
               <thead>
                 <tr>
                   <th>Nome</th>
+                  <th>Contato</th>
                   <th>Tipo</th>
+                  <th>Área de atuação</th>
                   <th>Status</th>
                   <th>Saúde</th>
                   <th>Início</th>
                   <th>Prazo</th>
-                  <th>Localização</th>
                 </tr>
               </thead>
               <tbody>
                 {visivel.map((m) => {
                   const dias = diasPrazo(m.prazo);
+                  const wa = linkWhats(m.whatsapp);
+                  const asana = linkExterno(m.asana);
+                  const drive = linkExterno(m.drive);
+                  const abrirCadastro = () => setAberta({ id: m.id, aba: "dados" });
                   return (
                     <tr
                       key={m.id}
-                      onClick={() => setAberta(m.id)}
-                      className={aberta === m.id ? styles.rowAtiva : undefined}
+                      onClick={abrirCadastro}
+                      className={aberta?.id === m.id ? styles.rowAtiva : undefined}
                     >
                       <td>
-                        <div className={styles.nomeMain}>{m.nome}</div>
+                        <button
+                          className={styles.nomeBtn}
+                          onClick={(e) => { e.stopPropagation(); setAberta({ id: m.id, aba: "jornada" }); }}
+                          title="Ver jornada da mentorada"
+                        >
+                          {m.nome}
+                        </button>
                         {m.codigo && (
                           <div className={styles.nomeId}>{m.codigo}</div>
                         )}
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.icons}>
+                          {wa ? (
+                            <a href={wa} target="_blank" rel="noopener noreferrer" className={`${styles.ic} ${styles.icWa}`} title={`WhatsApp: ${m.whatsapp}`} aria-label="Abrir WhatsApp">
+                              <IconWhats />
+                            </a>
+                          ) : (
+                            <button className={`${styles.ic} ${styles.icOff}`} onClick={abrirCadastro} title="WhatsApp não cadastrado — clique para adicionar" aria-label="Adicionar WhatsApp"><IconWhats /></button>
+                          )}
+                          {m.email ? (
+                            <button className={`${styles.ic} ${styles.icMail}`} onClick={() => copiarEmail(m.email!)} title={`Copiar e-mail: ${m.email}`} aria-label="Copiar e-mail">
+                              <IconMail />
+                            </button>
+                          ) : (
+                            <button className={`${styles.ic} ${styles.icOff}`} onClick={abrirCadastro} title="E-mail não cadastrado — clique para adicionar" aria-label="Adicionar e-mail"><IconMail /></button>
+                          )}
+                          {asana ? (
+                            <a href={asana} target="_blank" rel="noopener noreferrer" className={`${styles.ic} ${styles.icAsana}`} title="Abrir no Asana" aria-label="Abrir no Asana">
+                              <IconAsana />
+                            </a>
+                          ) : (
+                            <button className={`${styles.ic} ${styles.icOff}`} onClick={abrirCadastro} title="Asana não cadastrado — clique para adicionar" aria-label="Adicionar link do Asana"><IconAsana /></button>
+                          )}
+                          {drive ? (
+                            <a href={drive} target="_blank" rel="noopener noreferrer" className={`${styles.ic} ${styles.icDrive}`} title="Abrir pasta no Drive" aria-label="Abrir pasta no Drive">
+                              <IconDrive />
+                            </a>
+                          ) : (
+                            <button className={`${styles.ic} ${styles.icOff}`} onClick={abrirCadastro} title="Drive não cadastrado — clique para adicionar" aria-label="Adicionar link do Drive"><IconDrive /></button>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <span className={`${styles.badge} ${styles.bSilver}`}>
                           {m.tipo}
                         </span>
                       </td>
+                      <td className={styles.areaCell}>{m.area?.trim() || <span className={styles.muted}>—</span>}</td>
                       <td>
                         <Badge label={m.status} />
                       </td>
@@ -177,14 +339,13 @@ export default function MentoradosCliente({
                           "—"
                         )}
                       </td>
-                      <td>{m.localizacao ?? "—"}</td>
                     </tr>
                   );
                 })}
                 {visivel.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: "center", color: "var(--txt3)", padding: "24px" }}>
-                      Nenhum resultado encontrado
+                    <td colSpan={8} style={{ textAlign: "center", color: "var(--txt3)", padding: "24px" }}>
+                      Nenhuma mentorada com esses filtros.
                     </td>
                   </tr>
                 )}
@@ -240,11 +401,15 @@ export default function MentoradosCliente({
 
       {aberta && (
         <MentoradaDrawer
-          id={aberta}
+          key={`${aberta.id}-${aberta.aba}`}
+          id={aberta.id}
+          abaInicial={aberta.aba}
           onClose={() => setAberta(null)}
           onChanged={() => router.refresh()}
         />
       )}
+
+      {toast && <div className={styles.toast} role="status">{toast}</div>}
     </>
   );
 }
