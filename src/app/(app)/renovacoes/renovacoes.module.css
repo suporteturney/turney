@@ -51,3 +51,18 @@
 
 .thNegoc { min-width: 280px; }
 .tdNegoc { width: 32%; min-width: 280px; }
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--txt2);
+  padding: 6px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle input { accent-color: var(--navy-mid); }

@@ -25,14 +25,18 @@ function diasRestantes(prazo: string | null): number | null {
 }
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const ATIVOS_KEY = "__ativos__";
+const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação"];
 const casaTipo = (tipo: string, filtro: string) => tipo === filtro || tipo.startsWith(`${filtro} `);
 
 export default function RenovacoesCliente({ data }: { data: Linha[] }) {
   const router = useRouter();
   const [linhas, setLinhas] = useState(data);
   const [filtTipo, setFiltTipo] = useState("");
-  const [filtStatus, setFiltStatus] = useState("");
+  const [filtStatus, setFiltStatus] = useState(ATIVOS_KEY);
   const [filtMes, setFiltMes] = useState("");
+  const [filtAno, setFiltAno] = useState("");
+  const [soVencidos, setSoVencidos] = useState(false);
   const [jornada, setJornada] = useState<string | null>(null);
   const [cadastro, setCadastro] = useState<string | null>(null);
 
@@ -47,37 +51,32 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
     [linhas]
   );
 
-  const periodos = useMemo(() => {
-    const porAno = new Map<string, Map<string, number>>();
-    for (const m of linhas) {
-      if (!m.prazo) continue;
-      const ym = m.prazo.slice(0, 7);
-      const ano = ym.slice(0, 4);
-      if (!porAno.has(ano)) porAno.set(ano, new Map());
-      const meses = porAno.get(ano)!;
-      meses.set(ym, (meses.get(ym) ?? 0) + 1);
-    }
-    return [...porAno.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([ano, meses]) => ({
-        ano,
-        total: [...meses.values()].reduce((x, y) => x + y, 0),
-        meses: [...meses.entries()].sort(([a], [b]) => a.localeCompare(b)),
-      }));
+  const anos = useMemo(() => {
+    const ys = linhas.filter(m => m.prazo).map(m => +m.prazo!.slice(0, 4));
+    const atual = new Date().getFullYear();
+    const min = Math.min(atual, ...ys);
+    const max = Math.max(atual + 1, ...ys);
+    return Array.from({ length: max - min + 1 }, (_, i) => String(max - i));
   }, [linhas]);
 
-  const lista = useMemo(() => {
-    const casaPeriodo = (prazo: string | null) => {
-      if (!filtMes) return true;
-      if (!prazo) return false;
-      if (filtMes === "vencidos") return (diasRestantes(prazo) ?? 0) < 0;
-      if (filtMes.startsWith("ano:")) return prazo.startsWith(filtMes.slice(4));
-      return prazo.startsWith(filtMes);
-    };
-    return linhas.filter(m => (!filtTipo || casaTipo(m.tipo, filtTipo)) && (!filtStatus || m.status === filtStatus) && casaPeriodo(m.prazo));
-  },
-    [linhas, filtTipo, filtStatus, filtMes]
+  const lista = useMemo(
+    () =>
+      linhas.filter(m => {
+        if (filtTipo && !casaTipo(m.tipo, filtTipo)) return false;
+        if (filtStatus === ATIVOS_KEY ? !ATIVOS.includes(m.status) : filtStatus && m.status !== filtStatus) return false;
+        if (filtAno && m.prazo?.slice(0, 4) !== filtAno) return false;
+        if (filtMes && m.prazo?.slice(5, 7) !== filtMes) return false;
+        if (soVencidos && (diasRestantes(m.prazo) ?? 0) >= 0) return false;
+        return true;
+      }),
+    [linhas, filtTipo, filtStatus, filtMes, filtAno, soVencidos]
   );
+
+  const temFiltro = !!(filtTipo || filtStatus !== ATIVOS_KEY || filtMes || filtAno || soVencidos);
+  const limpar = () => { setFiltTipo(""); setFiltStatus(ATIVOS_KEY); setFiltMes(""); setFiltAno(""); setSoVencidos(false); };
+  const periodoTxt = filtMes || filtAno
+    ? ` · vencimento em ${filtMes ? MESES[+filtMes - 1].toLowerCase() : "qualquer mês"}${filtAno ? ` de ${filtAno}` : " (todos os anos)"}`
+    : "";
 
   const em30 = lista.filter(m => { const d = diasRestantes(m.prazo); return d !== null && d >= 0 && d <= 30; }).length;
   const em60 = lista.filter(m => { const d = diasRestantes(m.prazo); return d !== null && d > 30 && d <= 60; }).length;
@@ -116,7 +115,9 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
         <div className={styles.tblCard}>
           <div className={styles.tblHead}>
             <div className={r.headLeft}>
-              <span className={styles.tblTitle}>Contratos ativos com prazo</span>
+              <span className={styles.tblTitle}>
+                {filtStatus === ATIVOS_KEY ? "Contratos ativos" : filtStatus || "Todos os contratos"}{periodoTxt}
+              </span>
               <select
                 className={r.select}
                 value={filtTipo}
@@ -133,6 +134,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                 onChange={e => setFiltStatus(e.target.value)}
                 aria-label="Filtrar por status"
               >
+                <option value={ATIVOS_KEY}>Contratos ativos</option>
                 <option value="">Todos os status</option>
                 {statusOpts.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -140,22 +142,25 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                 className={r.select}
                 value={filtMes}
                 onChange={e => setFiltMes(e.target.value)}
-                aria-label="Filtrar por mês e ano de vencimento"
+                aria-label="Filtrar por mês de vencimento"
               >
-                <option value="">Todos os vencimentos</option>
-                <option value="vencidos">Já vencidos</option>
-                {periodos.map(p => (
-                  <optgroup key={p.ano} label={p.ano}>
-                    <option value={`ano:${p.ano}`}>{p.ano} inteiro ({p.total})</option>
-                    {p.meses.map(([ym, n]) => (
-                      <option key={ym} value={ym}>{MESES[+ym.slice(5, 7) - 1]} {p.ano} ({n})</option>
-                    ))}
-                  </optgroup>
-                ))}
+                <option value="">Todos os meses</option>
+                {MESES.map((nome, i) => <option key={nome} value={String(i + 1).padStart(2, "0")}>{nome}</option>)}
               </select>
-              {(filtTipo || filtStatus || filtMes) && (
-                <button className={r.clear} onClick={() => { setFiltTipo(""); setFiltStatus(""); setFiltMes(""); }}>Limpar</button>
-              )}
+              <select
+                className={r.select}
+                value={filtAno}
+                onChange={e => setFiltAno(e.target.value)}
+                aria-label="Filtrar por ano de vencimento"
+              >
+                <option value="">Todos os anos</option>
+                {anos.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <label className={r.toggle}>
+                <input type="checkbox" checked={soVencidos} onChange={e => setSoVencidos(e.target.checked)} />
+                Só vencidos
+              </label>
+              {temFiltro && <button className={r.clear} onClick={limpar}>Limpar</button>}
             </div>
             <span className={styles.tblCount}>{lista.length} mentoradas</span>
           </div>
