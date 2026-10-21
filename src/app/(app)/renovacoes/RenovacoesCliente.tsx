@@ -12,6 +12,7 @@ type Linha = {
   id: string; nome: string; codigo: string | null; tipo: string; status: string; saude: string | null;
   inicio: string | null; prazo: string | null; negociacao: string | null; negociacaoEm: string | null;
   renovacaoStatus: string | null;
+  duracao: number | null;
 };
 
 const fmt = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -164,10 +165,13 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                       </td>
                       <td>
                         <StatusRenovacao
-                          mentoradaId={m.id}
+                          mentorada={m}
                           valor={m.renovacaoStatus}
-                          nome={m.nome}
                           onSalvo={renovacaoStatus => atualizarLinha(m.id, { renovacaoStatus })}
+                          onRenovado={r => {
+                            atualizarLinha(m.id, { status: r.status, tipo: r.tipo, prazo: r.prazo, duracao: r.duracao, renovacaoStatus: r.renovacaoStatus });
+                            router.refresh();
+                          }}
                         />
                       </td>
                       <td className={r.tdNegoc}>

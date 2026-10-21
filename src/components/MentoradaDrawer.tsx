@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Jornada, {
   type Acomp, type Campo, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, fmt, hojeISO, toInput,
 } from "./Jornada";
+import RenovarModal from "./RenovarModal";
 import s from "./MentoradaDrawer.module.css";
 
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
@@ -12,7 +13,6 @@ const DISC = ["D", "I", "S", "C", "DI", "DC", "ID", "IC", "IS", "SC", "SI", "CD"
 const ORIGENS = ["Fluxo de Vendas", "Indicação", "Lives / Eventos", "Instagram", "LinkedIn", "YouTube", "Parceria", "Upsell / Upgrade", "Downgrade", "Cross-sell", "Workshop A Revolução Atlas", "Outra"];
 const DURACOES = ["6", "7", "8", "12"];
 const ACOMP_TIPOS = ["WhatsApp", "Sessão", "E-mail", "Outro"];
-const ACOES = ["RENOVAÇÃO", "UPGRADE", "DOWNGRADE", "CROSS"];
 const ACAO_COR: Record<string, string> = { "RENOVAÇÃO": "#10B981", UPGRADE: "#8B5CF6", DOWNGRADE: "#F59E0B", CROSS: "#3B82F6" };
 
 const STATUS_CLS: Record<string, string> = {
@@ -112,7 +112,6 @@ export default function MentoradaDrawer({
 
   const [novaObs, setNovaObs] = useState("");
   const [acomp, setAcomp] = useState({ data: hojeISO(), tipo: "Sessão", texto: "", autor: "", marco: false, marcoTitulo: "" });
-  const [renov, setRenov] = useState({ acao: "RENOVAÇÃO", destino: "", data: hojeISO(), novoPrazo: "", obs: "" });
   const [renovAberto, setRenovAberto] = useState(false);
 
   const avisar = useCallback((msg: string) => {
@@ -145,7 +144,6 @@ export default function MentoradaDrawer({
         setD(json);
         setForm(paraForm(json));
         setAcomp(a => ({ ...a, autor: json.resp ?? "" }));
-        setRenov(r => ({ ...r, destino: json.tipo }));
       })
       .catch(() => vivo && setErro("Sem conexão com o servidor. Verifique a internet e tente de novo."));
     return () => { vivo = false; };
@@ -223,8 +221,7 @@ export default function MentoradaDrawer({
     if (!d) return false;
     try {
       await chamar(`/api/mentorados/${d.id}/${rota}`, "POST", body);
-      const json = await carregar();
-      if (json && rota === "renovacoes") setForm(paraForm(json));
+      await carregar();
       onChanged?.();
       avisar(ok);
       return true;
@@ -602,46 +599,22 @@ export default function MentoradaDrawer({
               <div className={s.renovHead}>
                 <div>
                   <div className={s.blockTitle}>Histórico de renovações</div>
-                  <div className={s.blockSub}>Registre cada renovação ou upgrade com data e novo prazo</div>
+                  <div className={s.blockSub}>Ao registrar, o cadastro é atualizado: status Ativo, programa, tempo de acesso e novo encerramento</div>
                 </div>
-                {!renovAberto && <button className={s.btnDark} onClick={() => setRenovAberto(true)}>+ Registrar renovação</button>}
+                <button className={s.btnDark} onClick={() => setRenovAberto(true)}>+ Registrar renovação</button>
               </div>
               {renovAberto && (
-                <div className={s.formBox}>
-                  <div className={s.row}>
-                    <F label="Ação">
-                      <select value={renov.acao} onChange={e => setRenov({ ...renov, acao: e.target.value })}>
-                        {ACOES.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </F>
-                    <F label="Programa de destino">
-                      <select value={renov.destino} onChange={e => setRenov({ ...renov, destino: e.target.value })}>
-                        {opcoes(PROGRAMAS, renov.destino).map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </F>
-                  </div>
-                  <div className={s.row}>
-                    <F label="Data da renovação"><input type="date" value={renov.data} onChange={e => setRenov({ ...renov, data: e.target.value })} /></F>
-                    <F label="Novo prazo" hint="Atualiza a data de encerramento"><input type="date" value={renov.novoPrazo} onChange={e => setRenov({ ...renov, novoPrazo: e.target.value })} /></F>
-                  </div>
-                  <div className={s.row1}>
-                    <F label="Observação"><input value={renov.obs} onChange={e => setRenov({ ...renov, obs: e.target.value })} /></F>
-                  </div>
-                  <div className={s.formActions}>
-                    <button className={s.btnGhost} onClick={() => setRenovAberto(false)}>Cancelar</button>
-                    <button
-                      className={s.btnDark}
-                      onClick={async () => {
-                        if (await adicionar("renovacoes", renov, "Renovação registrada")) {
-                          setRenovAberto(false);
-                          setRenov({ acao: "RENOVAÇÃO", destino: d.tipo, data: hojeISO(), novoPrazo: "", obs: "" });
-                        }
-                      }}
-                    >
-                      Salvar renovação
-                    </button>
-                  </div>
-                </div>
+                <RenovarModal
+                  mentorada={d}
+                  onClose={() => setRenovAberto(false)}
+                  onRenovado={async () => {
+                    setRenovAberto(false);
+                    const json = await carregar();
+                    if (json) setForm(paraForm(json));
+                    onChanged?.();
+                    avisar("Renovação registrada · cadastro atualizado");
+                  }}
+                />
               )}
               {d.renovacoes.map(r => {
                 const cor = ACAO_COR[r.acao] ?? "#6B7280";
@@ -660,7 +633,7 @@ export default function MentoradaDrawer({
                   </div>
                 );
               })}
-              {d.renovacoes.length === 0 && !renovAberto && (
+              {d.renovacoes.length === 0 && (
                 <div className={s.empty}>Nenhuma renovação registrada ainda.<br />Clique em <strong>+ Registrar renovação</strong> para adicionar.</div>
               )}
             </div>

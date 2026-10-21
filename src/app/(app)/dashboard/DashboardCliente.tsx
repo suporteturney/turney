@@ -468,7 +468,7 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
                           ) : "—"}
                         </td>
                         <td>
-                          <StatusRenovacao mentoradaId={m.id} valor={m.renovacaoStatus} nome={m.nome} />
+                          <StatusRenovacao mentorada={m} valor={m.renovacaoStatus} onRenovado={() => router.refresh()} />
                         </td>
                         <td className={styles.tdNegoc}>
                           <TextoInline

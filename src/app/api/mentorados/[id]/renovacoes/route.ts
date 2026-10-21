@@ -7,16 +7,27 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function POST(req: NextRequest, { params }: Ctx) {
   await exigirUsuario();
   const { id } = await params;
-  const { acao, destino, data, novoPrazo, obs } = await req.json();
+  const { acao, destino, data, novoPrazo, obs, duracao, atualizarCadastro } = await req.json();
   if (!acao || !destino || !data) {
     return NextResponse.json({ erro: "Informe ação, programa e data da renovação" }, { status: 400 });
+  }
+  if (atualizarCadastro && !novoPrazo) {
+    return NextResponse.json({ erro: "Informe a nova data de encerramento do acesso." }, { status: 400 });
   }
 
   const updates: Record<string, unknown> = {};
   if (acao === "RENOVAÇÃO") updates.status = "Ativo";
   if (novoPrazo) updates.prazo = new Date(novoPrazo);
+  if (atualizarCadastro) {
+    const meses = parseInt(duracao, 10);
+    updates.status = "Ativo";
+    updates.tipo = destino;
+    updates.renovacaoStatus = "Renovou";
+    updates.cancelamento = null;
+    if (Number.isFinite(meses) && meses > 0) updates.duracao = meses;
+  }
 
-  const [r] = await prisma.$transaction([
+  const [r, mentorada] = await prisma.$transaction([
     prisma.renovacao.create({
       data: {
         mentoradaId: id,
@@ -27,9 +38,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         obs: (obs || "").trim() || null,
       },
     }),
-    prisma.mentorada.update({ where: { id }, data: updates }),
+    prisma.mentorada.update({
+      where: { id },
+      data: updates,
+      select: { status: true, tipo: true, prazo: true, duracao: true, renovacaoStatus: true },
+    }),
   ]);
-  return NextResponse.json(r);
+  return NextResponse.json({ ...r, mentorada });
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
