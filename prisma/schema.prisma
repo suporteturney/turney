@@ -1,0 +1,112 @@
+// Turney — Painel de Mentoradas
+// Banco: PostgreSQL (Neon). A URL vem de prisma.config.ts / lib/prisma.ts.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Autenticação
+// ---------------------------------------------------------------------------
+
+model Usuario {
+  id           String    @id @default(cuid())
+  nome         String
+  email        String    @unique
+  senhaHash    String
+  papel        String    @default("equipe") // admin | equipe
+  ativo        Boolean   @default(true)
+  ultimoAcesso DateTime?
+  createdAt    DateTime  @default(now())
+
+  sessoes Sessao[]
+}
+
+model Sessao {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiraEm  DateTime
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+}
+
+// ---------------------------------------------------------------------------
+// Mentorada — cada estudante/mentorada acompanhada
+// ---------------------------------------------------------------------------
+
+model Mentorada {
+  id   String @id @default(cuid())
+  // Código legado do HTML (ex: NX001, AT001)
+  codigo String? @unique
+
+  nome      String
+  email     String?
+  whatsapp  String?
+  tipo      String  // Nexus | Atlas | ...
+  status    String  // Ativo | Encerrado | Churn | Em Renovação
+  saude     String? // Ativo | Risco | Crítico | Encerrado
+
+  inicio  DateTime?
+  prazo   DateTime?
+  duracao Int?      // meses
+
+  area            String?
+  localizacao     String?
+  turma           String?
+  produtoAnterior String?
+  origem          String?
+  resp            String? // responsável
+  obs             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  etapas    Etapa[]
+  presencas Presenca[]
+  acompanhamentos Acompanhamento[]
+}
+
+model Etapa {
+  id          String    @id @default(cuid())
+  mentoradaId String
+  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  nome        String    // onboarding | kick_off | trilha1 | ...
+  data        DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([mentoradaId, nome])
+  @@index([mentoradaId])
+}
+
+model Presenca {
+  id          String    @id @default(cuid())
+  mentoradaId String
+  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  encontro    String    // chave do encontro (ex: e1, e2, ...)
+  presente    Boolean   @default(false)
+  data        DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([mentoradaId, encontro])
+  @@index([mentoradaId])
+}
+
+model Acompanhamento {
+  id          String    @id @default(cuid())
+  mentoradaId String
+  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  data        DateTime
+  texto       String
+  autor       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([mentoradaId])
+}

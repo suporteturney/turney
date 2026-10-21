@@ -1,0 +1,113 @@
+.page {
+  min-height: 100vh;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 380px;
+  padding: 36px 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.logoMark {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--navy);
+  border: 1px solid var(--champ-bdr);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--champagne);
+  margin-bottom: 14px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--navy-mid);
+  letter-spacing: 0.06em;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--txt3);
+  margin-top: 4px;
+  margin-bottom: 28px;
+}
+
+.form {
+  text-align: left;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--txt3);
+  margin-bottom: 5px;
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--txt);
+  background: white;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.field input:focus {
+  border-color: var(--champagne);
+}
+
+.erro {
+  font-size: 12px;
+  color: var(--danger);
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: var(--danger-bg);
+  border-radius: 6px;
+}
+
+.btn {
+  width: 100%;
+  padding: 11px;
+  background: var(--navy-mid);
+  color: var(--champagne);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-top: 4px;
+}
+
+.btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
