@@ -16,6 +16,7 @@ export default async function DashboardPage() {
       duracao: true,
       resp: true,
       obs: true,
+      negociacao: true,
     },
   });
 

@@ -1,0 +1,75 @@
+.headLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.select {
+  padding: 6px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  font-size: 12px;
+  background: white;
+  color: var(--txt);
+  outline: none;
+  font-family: inherit;
+}
+.select:focus { border-color: var(--champagne); }
+
+.clear {
+  padding: 5px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  background: white;
+  color: var(--txt3);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.clear:hover { border-color: var(--champagne); color: var(--navy-mid); }
+
+.table :global(td) { vertical-align: top; }
+
+.nomeBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--navy-mid);
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px dashed var(--champ-bdr);
+  transition: color 0.12s, border-color 0.12s;
+}
+.nomeBtn:hover { color: var(--brown); border-bottom-color: var(--champagne); }
+.nomeBtn:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; border-radius: 3px; }
+.cod { font-size: 10px; color: var(--txt3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.thNegoc { min-width: 280px; }
+.tdNegoc { width: 32%; min-width: 280px; }
+
+.negoc { display: flex; flex-direction: column; gap: 3px; }
+.negocInput {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--linen);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--txt);
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+.negocInput::placeholder { color: var(--txt3); font-style: italic; }
+.negocInput:hover { border-color: var(--bdr); }
+.negocInput:focus { border-color: var(--champagne); background: white; }
+.negocFilled { background: #FFFDF8; border-color: var(--champ-bdr); }
+.negocMeta { font-size: 10px; color: var(--txt3); min-height: 13px; }
+.negocErro { color: var(--danger); font-weight: 600; }

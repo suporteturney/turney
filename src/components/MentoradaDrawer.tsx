@@ -1,26 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Jornada, {
+  type Acomp, type Campo, type Detalhe, diasEntre, etapaFields, fmt, hojeISO, toInput,
+} from "./Jornada";
 import s from "./MentoradaDrawer.module.css";
-
-type Etapa = { id: string; nome: string; data: string | null };
-type Presenca = { id: string; encontro: string; presente: boolean };
-type Acomp = {
-  id: string; data: string; tipo: string | null; texto: string; autor: string | null;
-  marco: boolean; marcoTitulo: string | null;
-};
-type Obs = { id: string; data: string; texto: string; autor: string | null };
-type Renov = { id: string; acao: string; destino: string; data: string; novoPrazo: string | null; obs: string | null };
-
-type Detalhe = {
-  id: string; codigo: string | null; nome: string; tipo: string; status: string; saude: string | null;
-  email: string | null; whatsapp: string | null; area: string | null; localizacao: string | null;
-  turma: string | null; produtoAnterior: string | null; origem: string | null; resp: string | null;
-  obs: string | null; linkedin: string | null; drive: string | null; asana: string | null; disc: string | null;
-  duracao: number | null; mesesAntes: number | null;
-  inicio: string | null; prazo: string | null; cancelamento: string | null;
-  vagaCargo: string | null; vagaEmpresa: string | null; vagaData: string | null;
-  etapas: Etapa[]; presencas: Presenca[]; acompanhamentos: Acomp[]; observacoes: Obs[]; renovacoes: Renov[];
-};
 
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
 const STATUS = ["Ativo", "Em Andamento", "Em Renovação", "Encerrado", "Churn"];
@@ -37,17 +20,6 @@ const STATUS_CLS: Record<string, string> = {
 };
 const SAUDE_CLS: Record<string, string> = { Saudável: s.bAtivo, Atenção: s.bRenov, Risco: s.bChurn };
 
-type Campo = { key: string; label: string };
-
-function etapaFields(tipo: string): Campo[] {
-  const f: Campo[] = [{ key: "onboarding", label: "Onboarding" }];
-  if (tipo === "Nexus 1" || tipo === "Nexus 2" || tipo === "Atlas") f.push({ key: "sessao", label: "Mentoria Estratégica" });
-  if (tipo === "Atlas") f.push({ key: "devolutiva", label: "Devolutiva Comportamental" });
-  if (tipo === "Nexus 1") f.push({ key: "correcao", label: "Correção de Materiais" });
-  if (tipo === "Delta") for (let i = 1; i <= 4; i++) f.push({ key: `encontro${i}`, label: `Encontro Individual ${i}` });
-  return f;
-}
-
 const GRUPO: Record<string, { grupo: string[]; opcional: string[] }> = {
   Atlas: { grupo: ["Encontro semanal em grupo (durante 6 meses)"], opcional: [] },
   "Nexus 1": { grupo: ["Evolution Day (mensal)", "Masterclass Day (mensal)"], opcional: ["O Código da Aprovação (mensal — opcional)"] },
@@ -63,14 +35,6 @@ const EVENTOS_NEXUS: Campo[] = [
 ];
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-const toInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
-const fmt = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
-const hojeISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-const diasEntre = (a: string, b: string) => Math.round((Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 86400000);
 
 function mesesDoContrato(inicio: string | null, prazo: string | null): string[] {
   const hoje = new Date();
@@ -127,65 +91,6 @@ const ABAS: { k: Aba; label: string }[] = [
   { k: "acomp", label: "Acompanhamento" },
 ];
 
-type Evento = {
-  key: string;
-  data: string;
-  titulo: string;
-  texto?: string;
-  meta?: string;
-  nivel: "marco" | "etapa" | "rotina" | "futuro" | "alerta";
-  acompId?: string;
-};
-
-const ETAPA_LABEL: Record<string, string> = {
-  onboarding: "Onboarding concluído",
-  sessao: "Mentoria Estratégica realizada",
-  devolutiva: "Devolutiva Comportamental realizada",
-  correcao: "Correção de Materiais entregue",
-};
-
-function montarJornada(d: Detalhe): Evento[] {
-  const ev: Evento[] = [];
-  if (d.inicio) ev.push({ key: "inicio", data: d.inicio, titulo: `Início no ${d.tipo}`, nivel: "etapa" });
-  for (const e of d.etapas) {
-    if (!e.data) continue;
-    const label = ETAPA_LABEL[e.nome] ?? (e.nome.startsWith("encontro") ? `Encontro Individual ${e.nome.slice(8)}` : e.nome);
-    ev.push({ key: `et-${e.id}`, data: e.data, titulo: label, nivel: "etapa" });
-  }
-  for (const a of d.acompanhamentos) {
-    ev.push({
-      key: `ac-${a.id}`,
-      data: a.data,
-      titulo: a.marco ? a.marcoTitulo || "Evolução significativa" : `Acompanhamento${a.tipo ? ` · ${a.tipo}` : ""}`,
-      texto: a.texto,
-      meta: [a.marco && a.tipo ? a.tipo : null, a.autor].filter(Boolean).join(" · ") || undefined,
-      nivel: a.marco ? "marco" : "rotina",
-      acompId: a.id,
-    });
-  }
-  for (const o of d.observacoes) {
-    ev.push({ key: `ob-${o.id}`, data: o.data, titulo: "Observação", texto: o.texto, meta: o.autor ?? undefined, nivel: "rotina" });
-  }
-  for (const r of d.renovacoes) {
-    ev.push({
-      key: `rn-${r.id}`, data: r.data, titulo: `${r.acao[0]}${r.acao.slice(1).toLowerCase()} → ${r.destino}`,
-      texto: r.obs ?? undefined, meta: r.novoPrazo ? `Novo prazo ${fmt(r.novoPrazo)}` : undefined, nivel: "marco",
-    });
-  }
-  if (d.vagaData || d.vagaCargo || d.vagaEmpresa) {
-    ev.push({
-      key: "vaga", data: d.vagaData ?? d.prazo ?? new Date().toISOString(),
-      titulo: "Aprovada em vaga", texto: [d.vagaCargo, d.vagaEmpresa].filter(Boolean).join(" · ") || undefined, nivel: "marco",
-    });
-  }
-  if (d.cancelamento) ev.push({ key: "cancel", data: d.cancelamento, titulo: "Cancelamento", nivel: "alerta" });
-  if (d.prazo) {
-    const futuro = d.prazo.slice(0, 10) > hojeISO();
-    ev.push({ key: "prazo", data: d.prazo, titulo: futuro ? "Encerramento previsto" : "Fim do programa", nivel: futuro ? "futuro" : "etapa" });
-  }
-  return ev.sort((a, b) => a.data.localeCompare(b.data));
-}
-
 export default function MentoradaDrawer({
   id,
   abaInicial = "dados",
@@ -200,7 +105,6 @@ export default function MentoradaDrawer({
   const [d, setD] = useState<Detalhe | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aba, setAba] = useState<Aba>(abaInicial);
-  const [soEvolucoes, setSoEvolucoes] = useState(false);
   const [form, setForm] = useState<Form>({});
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -415,97 +319,22 @@ export default function MentoradaDrawer({
           {erro && <div className={s.empty}>{erro}</div>}
           {!d && !erro && <div className={s.skeleton}><div /><div /><div /><div /></div>}
 
-          {d && aba === "jornada" && (() => {
-            const todos = montarJornada(d);
-            const eventos = soEvolucoes ? todos.filter(e => e.nivel !== "rotina") : todos;
-            const marcos = d.acompanhamentos.filter(a => a.marco).length + d.renovacoes.length + (d.vagaData || d.vagaCargo ? 1 : 0);
-            const ultimo = d.acompanhamentos[0]?.data ?? null;
-            const diasSemAcomp = ultimo ? diasEntre(ultimo, hojeISO()) : null;
-            const ativa = d.status === "Ativo" || d.status === "Em Andamento" || d.status === "Em Renovação";
-            const semanaAtual = d.inicio ? Math.max(1, Math.floor(diasEntre(d.inicio, hojeISO()) / 7) + 1) : null;
-            const semanasTotal = d.inicio && d.prazo ? Math.max(1, Math.round(diasEntre(d.inicio, d.prazo) / 7)) : null;
-            const hoje = hojeISO();
-            const idxHoje = eventos.findIndex(e => e.data.slice(0, 10) > hoje);
-            return (
-              <div>
-                <div className={s.jStats}>
-                  <div>
-                    <span>Semana</span>
-                    <strong>
-                      {semanaAtual === null ? "—" : semanasTotal && semanaAtual > semanasTotal ? `${semanasTotal}/${semanasTotal}` : `${semanaAtual}${semanasTotal ? `/${semanasTotal}` : ""}`}
-                    </strong>
-                  </div>
-                  <div><span>Acompanhamentos</span><strong>{d.acompanhamentos.length}</strong></div>
-                  <div><span>Evoluções</span><strong className={s.txtGold}>{marcos}</strong></div>
-                  <div>
-                    <span>Último contato</span>
-                    <strong className={ativa && (diasSemAcomp === null || diasSemAcomp > 7) ? s.txtWarn : ""}>
-                      {diasSemAcomp === null ? "Nunca" : diasSemAcomp === 0 ? "Hoje" : `há ${diasSemAcomp}d`}
-                    </strong>
-                  </div>
-                </div>
-
-                {ativa && (diasSemAcomp === null || diasSemAcomp > 7) && (
-                  <div className={s.jAlert}>
-                    {diasSemAcomp === null
-                      ? "Nenhum acompanhamento registrado ainda."
-                      : `Sem acompanhamento há ${diasSemAcomp} dias — o ritmo combinado é semanal.`}
-                  </div>
-                )}
-
-                <div className={s.jToolbar}>
-                  <div className={s.seg}>
-                    <button className={!soEvolucoes ? s.segOn : ""} onClick={() => setSoEvolucoes(false)}>Tudo</button>
-                    <button className={soEvolucoes ? s.segOn : ""} onClick={() => setSoEvolucoes(true)}>Só marcos</button>
-                  </div>
-                  <div className={s.jActions}>
-                    <button className={s.btnGhost} onClick={() => { setAcomp(a => ({ ...a, marco: false, marcoTitulo: "" })); setAba("acomp"); }}>
-                      + Acompanhamento
-                    </button>
-                    <button className={s.btnDark} onClick={() => { setAcomp(a => ({ ...a, marco: true })); setAba("acomp"); }}>
-                      ★ Registrar evolução
-                    </button>
-                  </div>
-                </div>
-
-                {eventos.length === 0 ? (
-                  <div className={s.empty}>A jornada ainda está vazia.<br />Registre o primeiro acompanhamento para começar a linha do tempo.</div>
-                ) : (
-                  <ol className={s.timeline}>
-                    {eventos.map((e, i) => (
-                      <li key={e.key} className={`${s.tItem} ${s[`t_${e.nivel}`]}`}>
-                        {i === idxHoje && <div className={s.tHoje}><span>Hoje · {fmt(hoje)}</span></div>}
-                        <span className={s.tDot}>{e.nivel === "marco" ? "★" : ""}</span>
-                        <div className={s.tCard}>
-                          <div className={s.tHead}>
-                            <span className={s.tTitle}>{e.titulo}</span>
-                            <span className={s.tDate}>{fmt(e.data)}</span>
-                          </div>
-                          {e.texto && <div className={s.tText}>{e.texto}</div>}
-                          {(e.meta || e.acompId) && (
-                            <div className={s.tMeta}>
-                              {e.meta && <span>{e.meta}</span>}
-                              {e.acompId && (
-                                <button
-                                  className={s.tStar}
-                                  onClick={() => {
-                                    const a = d.acompanhamentos.find(x => x.id === e.acompId);
-                                    if (a) alternarMarco(a);
-                                  }}
-                                >
-                                  {e.nivel === "marco" ? "Desmarcar evolução" : "★ Marcar como evolução"}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-            );
-          })()}
+          {d && aba === "jornada" && (
+            <Jornada
+              d={d}
+              onToggleMarco={alternarMarco}
+              acoes={
+                <>
+                  <button className={s.btnGhost} onClick={() => { setAcomp(a => ({ ...a, marco: false, marcoTitulo: "" })); setAba("acomp"); }}>
+                    + Acompanhamento
+                  </button>
+                  <button className={s.btnDark} onClick={() => { setAcomp(a => ({ ...a, marco: true })); setAba("acomp"); }}>
+                    ★ Registrar evolução
+                  </button>
+                </>
+              }
+            />
+          )}
 
           {d && aba === "dados" && (
             <div>

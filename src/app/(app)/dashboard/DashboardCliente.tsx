@@ -14,6 +14,7 @@ type Mentorada = {
   duracao: number | null;
   resp: string | null;
   obs: string | null;
+  negociacao: string | null;
 };
 
 function getLast12Months(referenceDate?: Date): { key: string; label: string }[] {
@@ -400,7 +401,7 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
                     <th>Programa</th>
                     <th>Prazo</th>
                     <th>Status</th>
-                    <th>Observação</th>
+                    <th>Andamento da negociação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -429,7 +430,7 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
                         <td>
                           <span className={styles.pipeStatus}>Em Renovação</span>
                         </td>
-                        <td className={styles.obsCell}>{m.obs ?? "—"}</td>
+                        <td className={styles.obsCell}>{m.negociacao || m.obs || "—"}</td>
                       </tr>
                     );
                   })}

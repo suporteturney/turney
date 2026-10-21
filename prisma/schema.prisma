@@ -75,6 +75,8 @@ model Mentorada {
   vagaCargo    String?
   vagaEmpresa  String?
   vagaData     DateTime?
+  negociacao   String?
+  negociacaoEm DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

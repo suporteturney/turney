@@ -28,6 +28,7 @@ const CAMPOS_TEXTO = [
   "nome", "email", "whatsapp", "status", "saude", "area",
   "localizacao", "turma", "produtoAnterior", "origem", "resp", "obs",
   "tipo", "linkedin", "drive", "asana", "disc", "vagaCargo", "vagaEmpresa",
+  "negociacao",
 ];
 const CAMPOS_INT = ["duracao", "mesesAntes"];
 const CAMPOS_DATA = ["inicio", "prazo", "cancelamento", "vagaData"];
@@ -61,6 +62,7 @@ export async function PATCH(
     if (campo in data) updates[campo] = data[campo] ? new Date(data[campo]) : null;
   }
   if (updates.cancelamento) updates.status = "Churn";
+  if ("negociacao" in updates) updates.negociacaoEm = updates.negociacao ? new Date() : null;
 
   const mentorado = await prisma.mentorada.update({ where: { id }, data: updates });
   return NextResponse.json(mentorado);
