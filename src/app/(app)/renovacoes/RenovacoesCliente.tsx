@@ -1,8 +1,9 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import JornadaModal from "@/components/JornadaModal";
 import MentoradaDrawer from "@/components/MentoradaDrawer";
+import TextoInline from "@/components/TextoInline";
 import styles from "../shared.module.css";
 import r from "./renovacoes.module.css";
 
@@ -26,6 +27,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
   const router = useRouter();
   const [linhas, setLinhas] = useState(data);
   const [filtTipo, setFiltTipo] = useState("");
+  const [filtStatus, setFiltStatus] = useState("");
   const [jornada, setJornada] = useState<string | null>(null);
   const [cadastro, setCadastro] = useState<string | null>(null);
 
@@ -35,9 +37,14 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
     return { set, grupos };
   }, [linhas]);
 
+  const statusOpts = useMemo(
+    () => [...new Set(linhas.map(m => m.status))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [linhas]
+  );
+
   const lista = useMemo(
-    () => (filtTipo ? linhas.filter(m => casaTipo(m.tipo, filtTipo)) : linhas),
-    [linhas, filtTipo]
+    () => linhas.filter(m => (!filtTipo || casaTipo(m.tipo, filtTipo)) && (!filtStatus || m.status === filtStatus)),
+    [linhas, filtTipo, filtStatus]
   );
 
   const em30 = lista.filter(m => { const d = diasRestantes(m.prazo); return d !== null && d >= 0 && d <= 30; }).length;
@@ -88,7 +95,18 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                 {tipos.grupos.map(g => <option key={`g-${g}`} value={g}>{g} (todos)</option>)}
                 {tipos.set.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-              {filtTipo && <button className={r.clear} onClick={() => setFiltTipo("")}>Limpar</button>}
+              <select
+                className={r.select}
+                value={filtStatus}
+                onChange={e => setFiltStatus(e.target.value)}
+                aria-label="Filtrar por status"
+              >
+                <option value="">Todos os status</option>
+                {statusOpts.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              {(filtTipo || filtStatus) && (
+                <button className={r.clear} onClick={() => { setFiltTipo(""); setFiltStatus(""); }}>Limpar</button>
+              )}
             </div>
             <span className={styles.tblCount}>{lista.length} mentoradas</span>
           </div>
@@ -142,8 +160,13 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                         ) : "—"}
                       </td>
                       <td className={r.tdNegoc}>
-                        <NegociacaoCell
-                          linha={m}
+                        <TextoInline
+                          mentoradaId={m.id}
+                          campo="negociacao"
+                          valor={m.negociacao}
+                          atualizadoEm={m.negociacaoEm}
+                          placeholder="Escreva como está a negociação…"
+                          ariaLabel={`Status da negociação de ${m.nome}`}
                           onSalvo={(negociacao, negociacaoEm) => atualizarLinha(m.id, { negociacao, negociacaoEm })}
                         />
                       </td>
@@ -153,7 +176,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                 {lista.length === 0 && (
                   <tr>
                     <td colSpan={8} style={{ textAlign: "center", color: "var(--txt3)", padding: 24 }}>
-                      Nenhum contrato com prazo neste programa.
+                      Nenhum contrato com esses filtros.
                     </td>
                   </tr>
                 )}
@@ -180,61 +203,5 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
         />
       )}
     </>
-  );
-}
-
-function NegociacaoCell({
-  linha,
-  onSalvo,
-}: {
-  linha: Linha;
-  onSalvo: (negociacao: string | null, negociacaoEm: string | null) => void;
-}) {
-  const [texto, setTexto] = useState(linha.negociacao ?? "");
-  const [estado, setEstado] = useState<"ok" | "salvando" | "erro">("ok");
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  async function salvar() {
-    const novo = texto.trim();
-    if (novo === (linha.negociacao ?? "")) return;
-    setEstado("salvando");
-    try {
-      const res = await fetch(`/api/mentorados/${linha.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ negociacao: novo }),
-      });
-      if (!res.ok) throw new Error();
-      const json = await res.json();
-      onSalvo(json.negociacao ?? null, json.negociacaoEm ?? null);
-      setTexto(json.negociacao ?? "");
-      setEstado("ok");
-    } catch {
-      setEstado("erro");
-    }
-  }
-
-  return (
-    <div className={r.negoc}>
-      <textarea
-        ref={ref}
-        className={`${r.negocInput} ${texto ? r.negocFilled : ""}`}
-        value={texto}
-        rows={texto.length > 70 ? 3 : 2}
-        placeholder="Escreva como está a negociação…"
-        onChange={e => { setTexto(e.target.value); if (estado === "erro") setEstado("ok"); }}
-        onBlur={salvar}
-        onKeyDown={e => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ref.current?.blur();
-          if (e.key === "Escape") { setTexto(linha.negociacao ?? ""); ref.current?.blur(); }
-        }}
-        aria-label={`Status da negociação de ${linha.nome}`}
-      />
-      <div className={r.negocMeta}>
-        {estado === "salvando" && <span>Salvando…</span>}
-        {estado === "erro" && <span className={r.negocErro}>Não salvou — clique fora de novo para tentar</span>}
-        {estado === "ok" && linha.negociacaoEm && <span>Atualizado em {fmt(linha.negociacaoEm)}</span>}
-      </div>
-    </div>
   );
 }

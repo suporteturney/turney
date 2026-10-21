@@ -12,7 +12,6 @@ const MENU = [
       { href: "/mentorados", label: "Mentorados", icon: "users" },
       { href: "/renovacoes", label: "Renovações", icon: "refresh" },
       { href: "/acompanhamento", label: "Acompanhamento", icon: "file" },
-      { href: "/encerrados", label: "Encerrados", icon: "x-circle" },
       { href: "/saude", label: "Saúde da Base", icon: "heart" },
       { href: "/assiduidade", label: "Assiduidade", icon: "calendar" },
       { href: "/jornada", label: "Jornada", icon: "clock" },
@@ -54,12 +53,6 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <polyline points="14 2 14 8 20 8" />
       <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
-    </svg>
-  ),
-  "x-circle": (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
     </svg>
   ),
   heart: (

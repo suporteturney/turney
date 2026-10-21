@@ -20,10 +20,12 @@ export type Detalhe = {
   inicio: string | null; prazo: string | null; cancelamento: string | null;
   vagaCargo: string | null; vagaEmpresa: string | null; vagaData: string | null;
   negociacao: string | null; negociacaoEm: string | null;
+  saudeMotivo: string | null; saudeMotivoEm: string | null;
   etapas: Etapa[]; presencas: Presenca[]; acompanhamentos: Acomp[]; observacoes: Obs[]; renovacoes: Renov[];
 };
 
 export type Campo = { key: string; label: string };
+export type CampoEtapa = Campo & { campoMentorada?: "vagaData" };
 
 export const toInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
 export const fmt = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -34,13 +36,31 @@ export const hojeISO = () => {
 export const diasEntre = (a: string, b: string) =>
   Math.round((Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 86400000);
 
-export function etapaFields(tipo: string): Campo[] {
-  const f: Campo[] = [{ key: "onboarding", label: "Onboarding" }];
-  if (tipo === "Nexus 1" || tipo === "Nexus 2" || tipo === "Atlas") f.push({ key: "sessao", label: "Mentoria Estratégica" });
-  if (tipo === "Atlas") f.push({ key: "devolutiva", label: "Devolutiva Comportamental" });
-  if (tipo === "Nexus 1") f.push({ key: "correcao", label: "Correção de Materiais" });
-  if (tipo === "Delta") for (let i = 1; i <= 4; i++) f.push({ key: `encontro${i}`, label: `Encontro Individual ${i}` });
-  return f;
+const E = {
+  onboarding: { key: "onboarding", label: "Onboarding" },
+  devolutiva: { key: "devolutiva", label: "Devolutiva Comportamental" },
+  mentoria: { key: "sessao", label: "Mentoria Individual" },
+  correcao: { key: "correcao", label: "Correção de Materiais" },
+  analise: { key: "analise", label: "Análise Integrativa de Perfil" },
+  entrevista: { key: "entrevista", label: "1ª Entrevista" },
+  aprovacao: { key: "aprovacao", label: "Aprovação", campoMentorada: "vagaData" },
+} satisfies Record<string, CampoEtapa>;
+
+export function etapaFields(tipo: string): CampoEtapa[] {
+  switch (tipo) {
+    case "Nexus 1": return [E.onboarding, E.mentoria, E.correcao, E.entrevista, E.aprovacao];
+    case "Nexus 2": return [E.onboarding, E.mentoria, E.entrevista, E.aprovacao];
+    case "Nexus 3": return [E.onboarding, E.analise, E.entrevista, E.aprovacao];
+    case "Atlas": return [E.onboarding, E.devolutiva, E.mentoria, E.entrevista, E.aprovacao];
+    case "Delta":
+      return [E.onboarding, ...[1, 2, 3, 4].map(i => ({ key: `encontro${i}`, label: `Encontro Individual ${i}` }))];
+    default: return [E.onboarding];
+  }
+}
+
+export function dataEtapa(d: Pick<Detalhe, "etapas" | "vagaData">, f: CampoEtapa): string | null {
+  if (f.campoMentorada) return d[f.campoMentorada];
+  return d.etapas.find(e => e.nome === f.key)?.data ?? null;
 }
 
 type Evento = {
@@ -55,9 +75,11 @@ type Evento = {
 
 const ETAPA_LABEL: Record<string, string> = {
   onboarding: "Onboarding concluído",
-  sessao: "Mentoria Estratégica realizada",
+  sessao: "Mentoria Individual realizada",
   devolutiva: "Devolutiva Comportamental realizada",
   correcao: "Correção de Materiais entregue",
+  analise: "Análise Integrativa de Perfil realizada",
+  entrevista: "1ª entrevista",
 };
 
 function montarJornada(d: Detalhe): Evento[] {
@@ -109,10 +131,9 @@ type Fase = { key: string; label: string; data: string | null; estado: "feito" |
 
 function montarFases(d: Detalhe): Fase[] {
   const hoje = hojeISO();
-  const etapas = new Map(d.etapas.map(e => [e.nome, e.data]));
   const fases: Fase[] = [{ key: "inicio", label: "Início", data: d.inicio, estado: d.inicio ? "feito" : "pendente" }];
   for (const f of etapaFields(d.tipo)) {
-    const data = etapas.get(f.key) ?? null;
+    const data = dataEtapa(d, f);
     fases.push({ key: f.key, label: f.label, data, estado: data ? "feito" : "pendente" });
   }
   const fim = d.cancelamento ?? d.prazo;

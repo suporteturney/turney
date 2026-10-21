@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Jornada, {
-  type Acomp, type Campo, type Detalhe, diasEntre, etapaFields, fmt, hojeISO, toInput,
+  type Acomp, type Campo, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, fmt, hojeISO, toInput,
 } from "./Jornada";
 import s from "./MentoradaDrawer.module.css";
 
@@ -67,6 +67,7 @@ type Form = Record<string, string>;
 const CAMPOS_FORM = [
   "nome", "tipo", "status", "saude", "area", "localizacao", "email", "linkedin", "drive", "asana",
   "whatsapp", "disc", "produtoAnterior", "origem", "resp", "turma", "vagaCargo", "vagaEmpresa",
+  "saudeMotivo",
 ] as const;
 
 function paraForm(d: Detalhe): Form {
@@ -186,10 +187,15 @@ export default function MentoradaDrawer({
     }
   }
 
-  async function salvarEtapa(nome: string, data: string) {
+  async function salvarEtapa(f: CampoEtapa, data: string) {
     if (!d) return;
     try {
-      await chamar(`/api/mentorados/${d.id}/etapas`, "PUT", { nome, data: data || null });
+      if (f.campoMentorada) {
+        await chamar(`/api/mentorados/${d.id}`, "PATCH", { [f.campoMentorada]: data || null });
+        setForm(fm => ({ ...fm, [f.campoMentorada!]: data }));
+      } else {
+        await chamar(`/api/mentorados/${d.id}/etapas`, "PUT", { nome: f.key, data: data || null });
+      }
       await carregar();
       onChanged?.();
       avisar(data ? "Etapa salva" : "Etapa removida");
@@ -264,7 +270,6 @@ export default function MentoradaDrawer({
       return n;
     });
 
-  const etapasMap = useMemo(() => new Map((d?.etapas ?? []).map(e => [e.nome, e.data])), [d]);
   const presMap = useMemo(() => new Map((d?.presencas ?? []).map(p => [p.encontro, p.presente])), [d]);
 
   const diasRestantes = d?.prazo ? diasEntre(hojeISO(), d.prazo) : null;
@@ -424,6 +429,11 @@ export default function MentoradaDrawer({
                 </F>
               </div>
               <div className={s.row1}>
+                <F label="Por que está nessa condição de saúde?" hint={d.saudeMotivoEm ? `Atualizado em ${fmt(d.saudeMotivoEm)}` : undefined}>
+                  <textarea rows={2} value={form.saudeMotivo ?? ""} onChange={set("saudeMotivo")} placeholder="Ex: faltou aos 2 últimos encontros e não respondeu no WhatsApp" />
+                </F>
+              </div>
+              <div className={s.row1}>
                 <F label="CS responsável"><input value={form.resp ?? ""} onChange={set("resp")} /></F>
               </div>
 
@@ -478,7 +488,7 @@ export default function MentoradaDrawer({
             const fields = etapaFields(d.tipo);
             const chaves = new Set(fields.map(f => f.key));
             const extras = d.etapas.filter(e => !chaves.has(e.nome) && e.data);
-            const feitas = fields.filter(f => etapasMap.get(f.key)).length;
+            const feitas = fields.filter(f => dataEtapa(d, f)).length;
             const pct = fields.length ? Math.round((feitas / fields.length) * 100) : 0;
             const info = GRUPO[d.tipo];
             return (
@@ -486,15 +496,15 @@ export default function MentoradaDrawer({
                 {fields.length > 0 && (
                   <div className={s.progress}>
                     <div className={s.progressTop}>
-                      <span>Progresso dos encontros individuais</span>
+                      <span>Progresso da jornada</span>
                       <strong>{feitas}/{fields.length} · {pct}%</strong>
                     </div>
                     <div className={s.track}><div style={{ width: `${pct}%`, background: pct === 100 ? "var(--ok)" : "var(--champagne)" }} /></div>
                   </div>
                 )}
-                <div className={s.sectionTitle}>Encontros individuais — {d.tipo}</div>
+                <div className={s.sectionTitle}>Etapas acompanhadas — {d.tipo}</div>
                 {fields.map(f => {
-                  const val = etapasMap.get(f.key) ?? null;
+                  const val = dataEtapa(d, f);
                   const dias = val && d.inicio ? diasEntre(d.inicio, val) : null;
                   return (
                     <div key={f.key} className={s.etapaRow}>
@@ -508,7 +518,7 @@ export default function MentoradaDrawer({
                         className={`${s.etapaInput} ${val ? s.filled : ""}`}
                         defaultValue={toInput(val)}
                         key={`${f.key}-${val}`}
-                        onChange={e => salvarEtapa(f.key, e.target.value)}
+                        onChange={e => salvarEtapa(f, e.target.value)}
                       />
                     </div>
                   );

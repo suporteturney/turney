@@ -51,25 +51,3 @@
 
 .thNegoc { min-width: 280px; }
 .tdNegoc { width: 32%; min-width: 280px; }
-
-.negoc { display: flex; flex-direction: column; gap: 3px; }
-.negocInput {
-  width: 100%;
-  padding: 6px 9px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: var(--linen);
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--txt);
-  font-family: inherit;
-  resize: vertical;
-  outline: none;
-  transition: border-color 0.12s, background 0.12s;
-}
-.negocInput::placeholder { color: var(--txt3); font-style: italic; }
-.negocInput:hover { border-color: var(--bdr); }
-.negocInput:focus { border-color: var(--champagne); background: white; }
-.negocFilled { background: #FFFDF8; border-color: var(--champ-bdr); }
-.negocMeta { font-size: 10px; color: var(--txt3); min-height: 13px; }
-.negocErro { color: var(--danger); font-weight: 600; }

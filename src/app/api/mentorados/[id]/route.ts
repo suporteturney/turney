@@ -28,7 +28,7 @@ const CAMPOS_TEXTO = [
   "nome", "email", "whatsapp", "status", "saude", "area",
   "localizacao", "turma", "produtoAnterior", "origem", "resp", "obs",
   "tipo", "linkedin", "drive", "asana", "disc", "vagaCargo", "vagaEmpresa",
-  "negociacao",
+  "negociacao", "saudeMotivo",
 ];
 const CAMPOS_INT = ["duracao", "mesesAntes"];
 const CAMPOS_DATA = ["inicio", "prazo", "cancelamento", "vagaData"];
@@ -62,7 +62,15 @@ export async function PATCH(
     if (campo in data) updates[campo] = data[campo] ? new Date(data[campo]) : null;
   }
   if (updates.cancelamento) updates.status = "Churn";
-  if ("negociacao" in updates) updates.negociacaoEm = updates.negociacao ? new Date() : null;
+  const atual = await prisma.mentorada.findUnique({
+    where: { id },
+    select: { negociacao: true, saudeMotivo: true },
+  });
+  if (!atual) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
+  if ("negociacao" in updates && updates.negociacao !== atual.negociacao)
+    updates.negociacaoEm = updates.negociacao ? new Date() : null;
+  if ("saudeMotivo" in updates && updates.saudeMotivo !== atual.saudeMotivo)
+    updates.saudeMotivoEm = updates.saudeMotivo ? new Date() : null;
 
   const mentorado = await prisma.mentorada.update({ where: { id }, data: updates });
   return NextResponse.json(mentorado);
