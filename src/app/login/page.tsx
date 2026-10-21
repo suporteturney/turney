@@ -21,7 +21,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, senha }),
       });
       if (res.ok) {
-        router.push("/mentorados");
+        router.push("/dashboard");
       } else {
         const data = await res.json();
         setErro(data.erro ?? "Credenciais inválidas");
