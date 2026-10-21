@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Mentorada } from "@/lib/generated/prisma";
+import MentoradaDrawer from "@/components/MentoradaDrawer";
 import styles from "./mentorados.module.css";
 
 const BADGE: Record<string, string> = {
@@ -47,6 +48,7 @@ export default function MentoradosCliente({
   const [busca, setBusca] = useState("");
   const [filtStatus, setFiltStatus] = useState("");
   const [pagina, setPagina] = useState(1);
+  const [aberta, setAberta] = useState<string | null>(null);
   const POR_PAG = 30;
 
   const lista = useMemo(() => {
@@ -137,7 +139,8 @@ export default function MentoradosCliente({
                   return (
                     <tr
                       key={m.id}
-                      onClick={() => router.push(`/mentorados/${m.id}`)}
+                      onClick={() => setAberta(m.id)}
+                      className={aberta === m.id ? styles.rowAtiva : undefined}
                     >
                       <td>
                         <div className={styles.nomeMain}>{m.nome}</div>
@@ -234,6 +237,14 @@ export default function MentoradosCliente({
           )}
         </div>
       </div>
+
+      {aberta && (
+        <MentoradaDrawer
+          id={aberta}
+          onClose={() => setAberta(null)}
+          onChanged={() => router.refresh()}
+        />
+      )}
     </>
   );
 }

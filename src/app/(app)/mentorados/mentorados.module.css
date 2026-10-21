@@ -204,3 +204,7 @@
 }
 
 .pb:disabled { opacity: 0.35; cursor: default; }
+
+.rowAtiva :global(td) {
+  background: rgba(201, 168, 118, 0.1) !important;
+}

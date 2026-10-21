@@ -66,12 +66,50 @@ model Mentorada {
   resp            String? // responsável
   obs             String?
 
+  linkedin     String?
+  drive        String?
+  asana        String?
+  disc         String?
+  mesesAntes   Int?
+  cancelamento DateTime?
+  vagaCargo    String?
+  vagaEmpresa  String?
+  vagaData     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   etapas    Etapa[]
   presencas Presenca[]
   acompanhamentos Acompanhamento[]
+  observacoes Observacao[]
+  renovacoes  Renovacao[]
+}
+
+model Observacao {
+  id          String    @id @default(cuid())
+  mentoradaId String
+  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  data        DateTime
+  texto       String
+  autor       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([mentoradaId])
+}
+
+model Renovacao {
+  id          String    @id @default(cuid())
+  mentoradaId String
+  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  acao        String    // RENOVAÇÃO | UPGRADE | DOWNGRADE | CROSS
+  destino     String
+  data        DateTime
+  novoPrazo   DateTime?
+  obs         String?
+  createdAt   DateTime  @default(now())
+
+  @@index([mentoradaId])
 }
 
 model Etapa {
@@ -104,6 +142,7 @@ model Acompanhamento {
   mentoradaId String
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
   data        DateTime
+  tipo        String?
   texto       String
   autor       String?
   createdAt   DateTime  @default(now())
