@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import JornadaModal from "@/components/JornadaModal";
 import MentoradaDrawer from "@/components/MentoradaDrawer";
 import TextoInline from "@/components/TextoInline";
+import StatusRenovacao from "@/components/StatusRenovacao";
 import styles from "../shared.module.css";
 import r from "./renovacoes.module.css";
 
 type Linha = {
   id: string; nome: string; codigo: string | null; tipo: string; status: string; saude: string | null;
   inicio: string | null; prazo: string | null; negociacao: string | null; negociacaoEm: string | null;
+  renovacaoStatus: string | null;
 };
 
 const fmt = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -121,7 +123,8 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                   <th>Início</th>
                   <th>Prazo</th>
                   <th>Dias restantes</th>
-                  <th className={r.thNegoc}>Status da negociação</th>
+                  <th>Status de renovação</th>
+                  <th className={r.thNegoc}>Andamento da negociação</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,6 +162,14 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                           </span>
                         ) : "—"}
                       </td>
+                      <td>
+                        <StatusRenovacao
+                          mentoradaId={m.id}
+                          valor={m.renovacaoStatus}
+                          nome={m.nome}
+                          onSalvo={renovacaoStatus => atualizarLinha(m.id, { renovacaoStatus })}
+                        />
+                      </td>
                       <td className={r.tdNegoc}>
                         <TextoInline
                           mentoradaId={m.id}
@@ -166,7 +177,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                           valor={m.negociacao}
                           atualizadoEm={m.negociacaoEm}
                           placeholder="Escreva como está a negociação…"
-                          ariaLabel={`Status da negociação de ${m.nome}`}
+                          ariaLabel={`Andamento da negociação de ${m.nome}`}
                           onSalvo={(negociacao, negociacaoEm) => atualizarLinha(m.id, { negociacao, negociacaoEm })}
                         />
                       </td>
@@ -175,7 +186,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                 })}
                 {lista.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", color: "var(--txt3)", padding: 24 }}>
+                    <td colSpan={9} style={{ textAlign: "center", color: "var(--txt3)", padding: 24 }}>
                       Nenhum contrato com esses filtros.
                     </td>
                   </tr>

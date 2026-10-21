@@ -1,93 +1,114 @@
 import { prisma } from "@/lib/prisma";
-import styles from "../shared.module.css";
+import { exigirUsuario } from "@/lib/auth";
+import AcompanhamentoCliente from "./AcompanhamentoCliente";
 
-export default async function AcompanhamentoPage() {
+const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação"];
+
+export default async function AcompanhamentoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ programa?: string; v?: string }>;
+}) {
+  const usuario = await exigirUsuario();
+  const { programa = "", v = "" } = await searchParams;
+
+  const [varreduras, base] = await Promise.all([
+    prisma.varredura.findMany({
+      orderBy: { data: "desc" },
+      select: { id: true, data: true, programa: true, titulo: true, autor: true, _count: { select: { itens: true } } },
+    }),
+    prisma.mentorada.findMany({
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, tipo: true, status: true, codigo: true, whatsapp: true, prazo: true },
+    }),
+  ]);
+
+  const ultimaPorPrograma = new Map<string, (typeof varreduras)[number]>();
+  for (const s of varreduras) {
+    const k = s.programa ?? "Sem programa";
+    if (!ultimaPorPrograma.has(k)) ultimaPorPrograma.set(k, s);
+  }
+
+  const doPrograma = programa ? varreduras.filter(s => (s.programa ?? "Sem programa") === programa) : [];
+  const selecionada = programa ? doPrograma.find(s => s.id === v) ?? doPrograma[0] ?? null : null;
+  const idsVista = programa ? (selecionada ? [selecionada.id] : []) : [...ultimaPorPrograma.values()].map(s => s.id);
+
+  const itens = idsVista.length
+    ? await prisma.varreduraItem.findMany({
+        where: { varreduraId: { in: idsVista } },
+        include: { varredura: { select: { id: true, data: true, programa: true } } },
+      })
+    : [];
+
+  const comMentorada = itens.filter(i => i.mentoradaId);
+  const anteriores = comMentorada.length
+    ? await prisma.varreduraItem.findMany({
+        where: {
+          mentoradaId: { in: comMentorada.map(i => i.mentoradaId!) },
+          varreduraId: { notIn: idsVista },
+        },
+        orderBy: { varredura: { data: "desc" } },
+        select: { mentoradaId: true, banda: true, tag: true, varredura: { select: { data: true } } },
+      })
+    : [];
+  const anteriorDe = (mentoradaId: string, antesDe: Date) =>
+    anteriores.find(a => a.mentoradaId === mentoradaId && a.varredura.data < antesDe) ?? null;
+
+  const ultimasItens = await prisma.varreduraItem.findMany({
+    where: { varreduraId: { in: [...ultimaPorPrograma.values()].map(s => s.id) } },
+    select: { nome: true, banda: true, tag: true, varreduraId: true },
+  });
+
+  const programasCobertos = new Set(
+    programa ? [programa] : [...ultimaPorPrograma.keys()]
+  );
+  const naVista = new Set(comMentorada.map(i => i.mentoradaId));
+  const casa = (tipo: string, p: string) => tipo === p || tipo.startsWith(`${p} `);
+  const semVarredura = base.filter(
+    m => ATIVOS.includes(m.status) && [...programasCobertos].some(p => casa(m.tipo, p)) && !naVista.has(m.id)
+  );
+
   const registros = await prisma.acompanhamento.findMany({
+    where: { varreduraId: null },
     orderBy: { data: "desc" },
-    take: 100,
-    include: {
-      mentorada: { select: { nome: true, tipo: true, status: true, codigo: true } },
-    },
+    take: 30,
+    include: { mentorada: { select: { id: true, nome: true, tipo: true } } },
   });
 
-  // Mentoradas ativas para formulário
-  const mentoradas = await prisma.mentorada.findMany({
-    where: { status: { in: ["Ativo", "Em Andamento", "Em Renovação"] } },
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true, tipo: true },
-  });
+  const porId = new Map(base.map(m => [m.id, m]));
+  const iso = (d: Date | null) => d?.toISOString() ?? null;
 
   return (
-    <>
-      <div className={styles.topbar}>
-        <div>
-          <div className={styles.pageTitle}>Acompanhamento</div>
-          <div className={styles.pageSub}>Histórico de acompanhamentos individuais</div>
-        </div>
-      </div>
-      <div className={styles.content}>
-        <div className={styles.row2}>
-          <div>
-            {registros.length === 0 ? (
-              <div className={styles.card} style={{ textAlign: "center", padding: "40px 20px" }}>
-                <div style={{ fontSize: 13, color: "var(--txt3)" }}>Nenhum acompanhamento registrado ainda.</div>
-                <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 6 }}>
-                  Acesse o perfil individual de cada mentorada para adicionar anotações.
-                </div>
-              </div>
-            ) : (
-              <div>
-                {registros.map(r => (
-                  <div key={r.id} className={styles.card} style={{ marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: "var(--navy-mid)" }}>
-                          {r.mentorada.nome}
-                        </div>
-                        <div style={{ fontSize: 10, color: "var(--txt3)", marginTop: 1 }}>
-                          {r.mentorada.tipo} · {r.mentorada.status}
-                          {r.mentorada.codigo && ` · ${r.mentorada.codigo}`}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 11, color: "var(--txt3)" }}>
-                          {new Date(r.data).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}
-                        </div>
-                        {r.autor && <div style={{ fontSize: 10, color: "var(--txt3)" }}>{r.autor}</div>}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--txt)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-                      {r.texto}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className={styles.card}>
-              <div className={styles.cardTitle}>Como registrar acompanhamentos</div>
-              <div className={styles.cardSub}>Passos para adicionar notas</div>
-              <div style={{ fontSize: 12, color: "var(--txt2)", lineHeight: 1.8 }}>
-                <p>1. Acesse a lista de <strong>Mentorados</strong> no menu lateral</p>
-                <p>2. Clique na mentorada desejada para abrir o perfil</p>
-                <p>3. Na aba <strong>Acompanhamento</strong>, registre as notas da sessão</p>
-              </div>
-              <div className={styles.divider} />
-              <div className={styles.cardTitle} style={{ fontSize: 12 }}>Mentoradas Ativas</div>
-              <div style={{ marginTop: 8, maxHeight: 300, overflowY: "auto" }}>
-                {mentoradas.map(m => (
-                  <div key={m.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--brd, #F0EAE0)" }}>
-                    <div style={{ fontSize: 12, color: "var(--navy-mid)", fontWeight: 600 }}>{m.nome}</div>
-                    <span className={`${styles.badge} ${styles.bSilver}`} style={{ fontSize: 10 }}>{m.tipo}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+    <AcompanhamentoCliente
+      key={`${programa}|${selecionada?.id ?? ""}`}
+      programa={programa}
+      assinatura={usuario.nome.split(" ")[0]}
+      varreduras={varreduras.map(s => ({
+        id: s.id, data: s.data.toISOString(), programa: s.programa, titulo: s.titulo, autor: s.autor, total: s._count.itens,
+      }))}
+      selecionadaId={selecionada?.id ?? null}
+      programasVista={[...ultimaPorPrograma.entries()].map(([p, s]) => ({ programa: p, id: s.id, data: s.data.toISOString() }))}
+      itens={itens.map(i => {
+        const m = i.mentoradaId ? porId.get(i.mentoradaId) : null;
+        const ant = i.mentoradaId ? anteriorDe(i.mentoradaId, i.varredura.data) : null;
+        return {
+          ...i,
+          varredura: { id: i.varredura.id, data: i.varredura.data.toISOString(), programa: i.varredura.programa },
+          mentorada: m ? { id: m.id, tipo: m.tipo, status: m.status, codigo: m.codigo, whatsapp: m.whatsapp, prazo: iso(m.prazo) } : null,
+          anterior: ant ? { banda: ant.banda, tag: ant.tag, data: ant.varredura.data.toISOString() } : null,
+        };
+      })}
+      semVarredura={semVarredura.map(m => ({ id: m.id, nome: m.nome, tipo: m.tipo, status: m.status }))}
+      base={base.map(m => ({ id: m.id, nome: m.nome, tipo: m.tipo, status: m.status }))}
+      ultimas={[...ultimaPorPrograma.entries()].map(([p, s]) => ({
+        programa: p,
+        data: s.data.toISOString().slice(0, 10),
+        itens: ultimasItens.filter(i => i.varreduraId === s.id).map(i => ({ nome: i.nome, banda: i.banda, tag: i.tag })),
+      }))}
+      registros={registros.map(r => ({
+        id: r.id, data: r.data.toISOString(), tipo: r.tipo, texto: r.texto, autor: r.autor, marco: r.marco,
+        marcoTitulo: r.marcoTitulo, mentorada: r.mentorada,
+      }))}
+    />
   );
 }

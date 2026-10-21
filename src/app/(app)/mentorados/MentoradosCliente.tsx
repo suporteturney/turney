@@ -94,6 +94,7 @@ export default function MentoradosCliente({
   const [filtStatus, setFiltStatus] = useState(statusInicial);
   const [filtTipo, setFiltTipo] = useState(tipoInicial);
   const [filtArea, setFiltArea] = useState("");
+  const [filtLocal, setFiltLocal] = useState("");
   const [pagina, setPagina] = useState(1);
   const [aberta, setAberta] = useState<{ id: string; aba: Aba } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -131,6 +132,22 @@ export default function MentoradosCliente({
     return { lista, sem };
   }, [mentorados]);
 
+  const locais = useMemo(() => {
+    const map = new Map<string, { label: string; n: number }>();
+    let sem = 0;
+    for (const m of mentorados) {
+      const k = normArea(m.localizacao);
+      if (!k) { sem++; continue; }
+      const cur = map.get(k);
+      if (cur) cur.n++;
+      else map.set(k, { label: (m.localizacao ?? "").trim(), n: 1 });
+    }
+    const lista = [...map.entries()]
+      .map(([k, v]) => ({ k, ...v }))
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
+    return { lista, sem };
+  }, [mentorados]);
+
   const lista = useMemo(() => {
     let r = mentorados;
     if (busca) {
@@ -140,20 +157,23 @@ export default function MentoradosCliente({
           m.nome.toLowerCase().includes(b) ||
           (m.email ?? "").toLowerCase().includes(b) ||
           (m.codigo ?? "").toLowerCase().includes(b) ||
-          (m.area ?? "").toLowerCase().includes(b)
+          (m.area ?? "").toLowerCase().includes(b) ||
+          (m.localizacao ?? "").toLowerCase().includes(b)
       );
     }
     if (filtStatus) r = r.filter((m) => m.status === filtStatus);
     if (filtTipo) r = r.filter((m) => casaTipo(m.tipo, filtTipo));
     if (filtArea === SEM_AREA) r = r.filter((m) => !normArea(m.area));
     else if (filtArea) r = r.filter((m) => normArea(m.area) === filtArea);
+    if (filtLocal === SEM_AREA) r = r.filter((m) => !normArea(m.localizacao));
+    else if (filtLocal) r = r.filter((m) => normArea(m.localizacao) === filtLocal);
     return r;
-  }, [mentorados, busca, filtStatus, filtTipo, filtArea]);
+  }, [mentorados, busca, filtStatus, filtTipo, filtArea, filtLocal]);
 
   const total = lista.length;
   const paginas = Math.ceil(total / POR_PAG);
   const visivel = lista.slice((pagina - 1) * POR_PAG, pagina * POR_PAG);
-  const temFiltro = !!(busca || filtStatus || filtTipo || filtArea);
+  const temFiltro = !!(busca || filtStatus || filtTipo || filtArea || filtLocal);
 
   const titulo = filtTipo ? `Mentorados · ${filtTipo}` : "Mentorados";
 
@@ -171,6 +191,7 @@ export default function MentoradosCliente({
     setFiltStatus("");
     setFiltTipo("");
     setFiltArea("");
+    setFiltLocal("");
     setPagina(1);
   }
 
@@ -201,7 +222,7 @@ export default function MentoradosCliente({
             <div className={styles.filters}>
               <input
                 type="search"
-                placeholder="Buscar nome, e-mail, código, área…"
+                placeholder="Buscar nome, e-mail, código, área, local…"
                 value={busca}
                 onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
                 className={styles.searchInput}
@@ -233,6 +254,16 @@ export default function MentoradosCliente({
                 {areas.lista.map(a => <option key={a.k} value={a.k}>{a.label} ({a.n})</option>)}
                 {areas.sem > 0 && <option value={SEM_AREA}>Sem área informada ({areas.sem})</option>}
               </select>
+              <select
+                value={filtLocal}
+                onChange={(e) => { setFiltLocal(e.target.value); setPagina(1); }}
+                aria-label="Filtrar por localização"
+                className={styles.areaSelect}
+              >
+                <option value="">Todas as localizações</option>
+                {locais.lista.map(a => <option key={a.k} value={a.k}>{a.label} ({a.n})</option>)}
+                {locais.sem > 0 && <option value={SEM_AREA}>Sem localização ({locais.sem})</option>}
+              </select>
               {temFiltro && <button className={styles.clearBtn} onClick={limpar}>Limpar filtros</button>}
             </div>
             <span className={styles.tblCount}>{total} mentorados</span>
@@ -246,6 +277,7 @@ export default function MentoradosCliente({
                   <th>Contato</th>
                   <th>Tipo</th>
                   <th>Área de atuação</th>
+                  <th>Localização</th>
                   <th>Status</th>
                   <th>Saúde</th>
                   <th>Início</th>
@@ -315,6 +347,7 @@ export default function MentoradosCliente({
                         </span>
                       </td>
                       <td className={styles.areaCell}>{m.area?.trim() || <span className={styles.muted}>—</span>}</td>
+                      <td className={styles.areaCell}>{m.localizacao?.trim() || <span className={styles.muted}>—</span>}</td>
                       <td>
                         <Badge label={m.status} />
                       </td>
@@ -344,7 +377,7 @@ export default function MentoradosCliente({
                 })}
                 {visivel.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", color: "var(--txt3)", padding: "24px" }}>
+                    <td colSpan={9} style={{ textAlign: "center", color: "var(--txt3)", padding: "24px" }}>
                       Nenhuma mentorada com esses filtros.
                     </td>
                   </tr>

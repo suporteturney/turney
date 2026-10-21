@@ -15,7 +15,7 @@ const MENU = [
       { href: "/saude", label: "Saúde da Base", icon: "heart" },
       { href: "/assiduidade", label: "Assiduidade", icon: "calendar" },
       { href: "/jornada", label: "Jornada", icon: "clock" },
-      { href: "/relatorios", label: "Relatórios", icon: "bar-chart" },
+      { href: "/analises", label: "Análises", icon: "bar-chart" },
     ],
   },
   {

@@ -69,7 +69,7 @@ type Evento = {
   titulo: string;
   texto?: string;
   meta?: string;
-  nivel: "marco" | "etapa" | "rotina" | "futuro" | "alerta";
+  nivel: "marco" | "etapa" | "rotina" | "futuro" | "alerta" | "entrada";
   acompId?: string;
 };
 
@@ -85,6 +85,19 @@ const ETAPA_LABEL: Record<string, string> = {
 function montarJornada(d: Detalhe): Evento[] {
   const ev: Evento[] = [];
   if (d.inicio) ev.push({ key: "inicio", data: d.inicio, titulo: `Início no ${d.tipo}`, nivel: "etapa" });
+  const anterior = d.produtoAnterior?.trim();
+  if (anterior && !/^[-.]$/.test(anterior)) {
+    const o = (d.origem ?? "").toLowerCase();
+    const movimento = /downgrade/.test(o) ? "Downgrade" : /upsell|upgrade/.test(o) ? "Upsell" : /cross/.test(o) ? "Cross-sell" : null;
+    ev.push({
+      key: "entrada",
+      data: d.inicio ?? d.prazo ?? new Date().toISOString(),
+      titulo: movimento ? `${movimento}: ${anterior} → ${d.tipo}` : `Veio do ${anterior} para o ${d.tipo}`,
+      texto: (d.mesesAntes ?? 0) > 0 ? `${d.mesesAntes} meses em programas anteriores da Turney.` : undefined,
+      meta: d.origem ? `Origem: ${d.origem}` : undefined,
+      nivel: movimento === "Upsell" ? "marco" : "entrada",
+    });
+  }
   for (const e of d.etapas) {
     if (!e.data) continue;
     const label = ETAPA_LABEL[e.nome] ?? (e.nome.startsWith("encontro") ? `Encontro Individual ${e.nome.slice(8)}` : e.nome);
@@ -107,7 +120,8 @@ function montarJornada(d: Detalhe): Evento[] {
   for (const r of d.renovacoes) {
     ev.push({
       key: `rn-${r.id}`, data: r.data, titulo: `${r.acao[0]}${r.acao.slice(1).toLowerCase()} → ${r.destino}`,
-      texto: r.obs ?? undefined, meta: r.novoPrazo ? `Novo prazo ${fmt(r.novoPrazo)}` : undefined, nivel: "marco",
+      texto: r.obs ?? undefined, meta: r.novoPrazo ? `Novo prazo ${fmt(r.novoPrazo)}` : undefined,
+      nivel: r.acao === "DOWNGRADE" || r.acao === "CROSS" ? "entrada" : "marco",
     });
   }
   if (d.negociacao && d.negociacaoEm) {
@@ -124,7 +138,8 @@ function montarJornada(d: Detalhe): Evento[] {
     const futuro = d.prazo.slice(0, 10) > hojeISO();
     ev.push({ key: "prazo", data: d.prazo, titulo: futuro ? "Encerramento previsto" : "Fim do programa", nivel: futuro ? "futuro" : "etapa" });
   }
-  return ev.sort((a, b) => a.data.localeCompare(b.data));
+  const ordem = (e: Evento) => (e.key === "inicio" ? 0 : e.key === "entrada" ? 1 : 2);
+  return ev.sort((a, b) => a.data.slice(0, 10).localeCompare(b.data.slice(0, 10)) || ordem(a) - ordem(b));
 }
 
 type Fase = { key: string; label: string; data: string | null; estado: "feito" | "pendente" | "futuro" };

@@ -275,3 +275,7 @@
 @media (max-width: 600px) {
   .stats { grid-template-columns: 1fr 1fr; }
 }
+
+.t_entrada .tDot { background: var(--brown); border-color: var(--brown); }
+.t_entrada .tCard { border-color: rgba(115, 69, 43, 0.35); background: linear-gradient(90deg, rgba(115, 69, 43, 0.07), var(--surface) 60%); }
+.t_entrada .tTitle { color: var(--brown); }

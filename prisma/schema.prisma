@@ -75,6 +75,7 @@ model Mentorada {
   vagaCargo    String?
   vagaEmpresa  String?
   vagaData     DateTime?
+  renovacaoStatus String? // Não iniciado | Call ofertada | Call agendada | Follow-up | Sem perspectiva
   negociacao   String?
   negociacaoEm DateTime?
   saudeMotivo   String?
@@ -88,6 +89,7 @@ model Mentorada {
   acompanhamentos Acompanhamento[]
   observacoes Observacao[]
   renovacoes  Renovacao[]
+  varreduraItens VarreduraItem[]
 }
 
 model Observacao {
@@ -151,7 +153,54 @@ model Acompanhamento {
   marcoTitulo String?
   texto       String
   autor       String?
+  varreduraId String?
+  varredura   Varredura? @relation(fields: [varreduraId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
 
+  @@index([mentoradaId])
+  @@index([varreduraId])
+}
+
+model Varredura {
+  id        String   @id @default(cuid())
+  data      DateTime
+  programa  String?
+  titulo    String?
+  autor     String?
+  bom       String[]
+  ruim      String[]
+  invisivel String[]
+  melhorias String[]
+  createdAt DateTime @default(now())
+
+  itens           VarreduraItem[]
+  acompanhamentos Acompanhamento[]
+
+  @@index([data])
+}
+
+model VarreduraItem {
+  id               String     @id @default(cuid())
+  varreduraId      String
+  varredura        Varredura  @relation(fields: [varreduraId], references: [id], onDelete: Cascade)
+  mentoradaId      String?
+  mentorada        Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
+  nome             String
+  banda            String     // vermelho | amarelo | verde
+  tag              String?
+  etapa            String?
+  status           String?
+  concluido        String[]
+  pendencias       String[]
+  atencao          String[]
+  acompanhar       String[]
+  perguntar        String[]
+  retornos         String[]
+  proximos         String[]
+  mensagem         String?
+  prioridade       Int?
+  prioridadeMotivo String?
+
+  @@index([varreduraId])
   @@index([mentoradaId])
 }

@@ -28,7 +28,7 @@ const CAMPOS_TEXTO = [
   "nome", "email", "whatsapp", "status", "saude", "area",
   "localizacao", "turma", "produtoAnterior", "origem", "resp", "obs",
   "tipo", "linkedin", "drive", "asana", "disc", "vagaCargo", "vagaEmpresa",
-  "negociacao", "saudeMotivo",
+  "negociacao", "saudeMotivo", "renovacaoStatus",
 ];
 const CAMPOS_INT = ["duracao", "mesesAntes"];
 const CAMPOS_DATA = ["inicio", "prazo", "cancelamento", "vagaData"];

@@ -1,5 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import MentoradaDrawer from "@/components/MentoradaDrawer";
+import NovoMentoradoModal from "@/components/NovoMentoradoModal";
+import JornadaModal from "@/components/JornadaModal";
+import TextoInline from "@/components/TextoInline";
+import StatusRenovacao from "@/components/StatusRenovacao";
 import styles from "./dashboard.module.css";
 
 type Mentorada = {
@@ -15,7 +21,16 @@ type Mentorada = {
   resp: string | null;
   obs: string | null;
   negociacao: string | null;
+  negociacaoEm: string | null;
+  renovacaoStatus: string | null;
+  saudeMotivo: string | null;
+  motivoVarredura: string | null;
+  vagaData: string | null;
+  vagaCargo: string | null;
+  vagaEmpresa: string | null;
 };
+
+type RenovacaoResumo = { mentoradaId: string; acao: string; data: string };
 
 function getLast12Months(referenceDate?: Date): { key: string; label: string }[] {
   const months = [];
@@ -200,8 +215,13 @@ function DonutSvg({ data }: { data: Mentorada[] }) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export default function DashboardCliente({ data }: { data: Mentorada[] }) {
+export default function DashboardCliente({ data, renovacoes }: { data: Mentorada[]; renovacoes: RenovacaoResumo[] }) {
+  const router = useRouter();
   const now = new Date();
+  const [novoAberto, setNovoAberto] = useState(false);
+  const [criada, setCriada] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [jornada, setJornada] = useState<string | null>(null);
   const [filterMes, setFilterMes] = useState("");
   const [filterMentorada, setFilterMentorada] = useState("");
 
@@ -254,8 +274,17 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
     (d.status === "Ativo" || d.status === "Em Andamento") && d.saude === "Risco"
   ).length;
   const entradas = filtered.filter(d => d.inicio && d.inicio.startsWith(mesAtual)).length;
-  const ltvVals = filtered.filter(d => d.prazo).map(d => ltvMonths(d));
+  const ltvVals = filtered.filter(d => d.inicio).map(d => ltvMonths(d));
   const ltvMed = ltvVals.length ? Math.round(ltvVals.reduce((a, b) => a + b, 0) / ltvVals.length) : 0;
+
+  const idsFiltrados = new Set(filtered.map(d => d.id));
+  const renovsFiltradas = renovacoes.filter(r => idsFiltrados.has(r.mentoradaId) && (!filterMes || r.data.startsWith(filterMes)));
+  const nRenov = renovsFiltradas.filter(r => r.acao === "RENOVAÇÃO").length;
+  const nUpgrade = renovsFiltradas.filter(r => r.acao === "UPGRADE").length;
+  const nDowngrade = renovsFiltradas.filter(r => r.acao === "DOWNGRADE").length;
+  const txRenov = tot > 0 ? ((nRenov / tot) * 100).toFixed(1) : "0.0";
+  const txRenovSub = `${nRenov} renovações · ${nUpgrade} upgrades${nDowngrade ? ` · ${nDowngrade} downgrades` : ""} · ${txRenov}% da base`;
+  const aprovacoes = filtered.filter(d => d.vagaData || d.vagaCargo || d.vagaEmpresa).length;
 
   const ativos = filtered.filter(d => d.status === "Ativo" || d.status === "Em Andamento");
   const saudavel = ativos.filter(d => d.saude === "Saudável").length;
@@ -266,17 +295,16 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
   const risPct = totalAtivos > 0 ? Math.round((risco / totalAtivos) * 100) : 0;
 
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const proxList = filtered
-    .filter(d => ["Ativo", "Em Renovação", "Em Andamento"].includes(d.status) && d.prazo)
-    .map(d => {
-      const dias = Math.ceil((new Date(d.prazo!).getTime() - hoje.getTime()) / 86400000);
-      return { dias, nome: d.nome, tipo: d.tipo };
-    })
-    .filter(x => x.dias >= 0 && x.dias <= 60)
-    .sort((a, b) => a.dias - b.dias)
-    .slice(0, 5);
+  const diasAte = (iso: string) => Math.ceil((new Date(iso).getTime() - hoje.getTime()) / 86400000);
 
-  const pipeline = filtered.filter(d => d.status === "Em Renovação");
+  const criticos = filtered
+    .filter(d => ["Ativo", "Em Andamento", "Em Renovação"].includes(d.status) && d.saude === "Risco")
+    .sort((a, b) => (a.prazo ?? "9999").localeCompare(b.prazo ?? "9999"));
+
+  const pipeline = filtered
+    .filter(d => d.status !== "Encerrado" && d.status !== "Churn")
+    .filter(d => d.status === "Em Renovação" || !!d.renovacaoStatus || (d.prazo && diasAte(d.prazo) >= -30 && diasAte(d.prazo) <= 60))
+    .sort((a, b) => (a.prazo ?? "9999").localeCompare(b.prazo ?? "9999"));
 
   const isFiltered = !!filterMes || !!filterMentorada;
 
@@ -285,18 +313,29 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
       <div className={styles.topbar}>
         <div>
           <div className={styles.pageTitle}>Dashboard</div>
-          <div className={styles.pageSub}>
-            {isFiltered ? "Visão filtrada" : "Visão geral"} da base ·{" "}
-            {now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </div>
+          <div className={styles.pageSub}>Visão estratégica da base de mentorados</div>
         </div>
+        <div className={styles.topbarRight}>
+          <span className={styles.topbarDate}>
+            {now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          </span>
+          <button className={styles.btnPrimary} onClick={() => setNovoAberto(true)}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Novo Mentorado
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.content}>
         <div className={styles.filterBar}>
           <div className={styles.filterGroup}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={styles.filterIcon}>
               <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            <select value={filterMes} onChange={e => setFilterMes(e.target.value)} className={styles.filterSelect}>
+            <select value={filterMes} onChange={e => setFilterMes(e.target.value)} className={styles.filterSelect} aria-label="Filtrar por mês">
               <option value="">Todos os meses</option>
               {mesOpts.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
@@ -311,6 +350,7 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
               value={filterMentorada}
               onChange={e => setFilterMentorada(e.target.value)}
               className={styles.filterInput}
+              aria-label="Buscar mentorada"
             />
           </div>
           {isFiltered && (
@@ -319,19 +359,18 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
             </button>
           )}
         </div>
-      </div>
 
-      <div className={styles.content}>
         {/* KPIs */}
         <div className={styles.kpiGrid}>
           <KpiCard label="Total de Mentorados" value={tot} delta="Histórico completo da base" color="#C9A876" />
           <KpiCard label="Ativos" value={atv} delta="Contratos vigentes" color="#10B981" />
           <KpiCard label="Em Renovação" value={renov} delta="Encerrando e em decisão" color="#73452B" />
           <KpiCard label="Encerrados" value={enc} delta="Contratos finalizados" color="#EF4444" />
+          <KpiCard label="Renovações" value={`${txRenov}%`} delta={txRenovSub} color="#10B981" />
           <KpiCard label="Novas Entradas" value={entradas} delta={`Iniciaram em ${mesLabelCap}`} color="#C9A876" />
           <KpiCard label="Em Risco" value={risco} delta="Saúde = Risco (ativos)" color="#EF4444" />
           <KpiCard label="LTV Médio" value={`${ltvMed}m`} delta="Tempo médio com a Turney" color="#C9A876" />
-          <KpiCard label="🏆 Aprovações em Vaga" value={0} delta="Mentoradas aprovadas na base" color="#F59E0B" />
+          <KpiCard label="🏆 Aprovações em Vaga" value={aprovacoes} delta="Mentoradas aprovadas na base" color="#F59E0B" />
         </div>
 
         {/* Row 2 */}
@@ -348,22 +387,25 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
             <HBar label="Atenção" color="#D97706" pct={atePct} n={atencao} />
             <HBar label="Risco" color="#EF4444" pct={risPct} n={risco} />
             <div className={styles.divider} />
-            <div className={styles.sectionMini}>Próximas Renovações</div>
-            {proxList.length === 0 ? (
-              <div className={styles.emptyMsg}>Nenhuma renovação nos próximos 60 dias</div>
-            ) : proxList.map((item, i) => {
-              const bg = item.dias <= 10 ? "#FEE2E2" : item.dias <= 20 ? "#FEF3C7" : "#D1FAE5";
-              const fg = item.dias <= 10 ? "#991B1B" : item.dias <= 20 ? "#92400E" : "#065F46";
-              return (
-                <div key={i} className={styles.renewItem}>
-                  <div>
-                    <div className={styles.renewNome}>{item.nome}</div>
-                    <div className={styles.renewTipo}>{item.tipo}</div>
-                  </div>
-                  <span className={styles.days} style={{ background: bg, color: fg }}>{item.dias}d</span>
-                </div>
-              );
-            })}
+            <div className={styles.sectionMini}>
+              Críticos agora <span className={styles.criticoCount}>{criticos.length}</span>
+            </div>
+            {criticos.length === 0 ? (
+              <div className={styles.emptyMsg}>Nenhuma mentorada ativa em risco.</div>
+            ) : (
+              <ul className={styles.criticos}>
+                {criticos.map(m => (
+                  <li key={m.id}>
+                    <button className={styles.criticoNome} onClick={() => setJornada(m.id)} title="Ver jornada">
+                      {m.nome}
+                    </button>
+                    <span className={styles.criticoMotivo}>
+                      {m.saudeMotivo || m.motivoVarredura || "Sem motivo registrado — abra a jornada e registre na Saúde da Base"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -386,12 +428,12 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
           <div className={styles.pipelineHead}>
             <div>
               <div className={styles.cardTitle}>Pipeline de Renovações</div>
-              <div className={styles.cardSub}>Acompanhamento das negociações em andamento</div>
+              <div className={styles.cardSub}>Em renovação, com status definido ou vencendo em até 60 dias — edite aqui ou na aba Renovações</div>
             </div>
-            <span className={styles.pipelineCount}>{pipeline.length} em negociação</span>
+            <span className={styles.pipelineCount}>{pipeline.length} na lista</span>
           </div>
           {pipeline.length === 0 ? (
-            <div className={styles.emptyMsg}>Nenhuma mentorada em renovação no momento.</div>
+            <div className={styles.emptyMsg}>Nenhuma negociação de renovação em aberto.</div>
           ) : (
             <div className={styles.tblWrap}>
               <table className={styles.table}>
@@ -400,19 +442,17 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
                     <th>Nome</th>
                     <th>Programa</th>
                     <th>Prazo</th>
-                    <th>Status</th>
-                    <th>Andamento da negociação</th>
+                    <th>Status de renovação</th>
+                    <th className={styles.thNegoc}>Andamento da negociação</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pipeline.map(m => {
-                    const dias = m.prazo
-                      ? Math.ceil((new Date(m.prazo).getTime() - hoje.getTime()) / 86400000)
-                      : null;
+                    const dias = m.prazo ? diasAte(m.prazo) : null;
                     return (
                       <tr key={m.id}>
                         <td>
-                          <div className={styles.nomeMain}>{m.nome}</div>
+                          <button className={styles.nomeBtn} onClick={() => setJornada(m.id)} title="Ver jornada">{m.nome}</button>
                           {m.codigo && <div className={styles.nomeId}>{m.codigo}</div>}
                         </td>
                         <td>
@@ -428,9 +468,19 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
                           ) : "—"}
                         </td>
                         <td>
-                          <span className={styles.pipeStatus}>Em Renovação</span>
+                          <StatusRenovacao mentoradaId={m.id} valor={m.renovacaoStatus} nome={m.nome} />
                         </td>
-                        <td className={styles.obsCell}>{m.negociacao || m.obs || "—"}</td>
+                        <td className={styles.tdNegoc}>
+                          <TextoInline
+                            mentoradaId={m.id}
+                            campo="negociacao"
+                            valor={m.negociacao}
+                            atualizadoEm={m.negociacaoEm}
+                            placeholder="Escreva o andamento da negociação…"
+                            ariaLabel={`Andamento da negociação de ${m.nome}`}
+                            onSalvo={() => {}}
+                          />
+                        </td>
                       </tr>
                     );
                   })}
@@ -440,6 +490,29 @@ export default function DashboardCliente({ data }: { data: Mentorada[] }) {
           )}
         </div>
       </div>
+
+      {novoAberto && (
+        <NovoMentoradoModal
+          onClose={() => setNovoAberto(false)}
+          onCriado={(id, nome) => {
+            setNovoAberto(false);
+            setCriada(id);
+            setToast(`${nome} cadastrada`);
+            window.setTimeout(() => setToast(null), 2600);
+            router.refresh();
+          }}
+        />
+      )}
+      {criada && (
+        <MentoradaDrawer
+          key={criada}
+          id={criada}
+          onClose={() => setCriada(null)}
+          onChanged={() => router.refresh()}
+        />
+      )}
+      {jornada && <JornadaModal key={jornada} id={jornada} onClose={() => setJornada(null)} />}
+      {toast && <div className={styles.toast} role="status">{toast}</div>}
     </>
   );
 }

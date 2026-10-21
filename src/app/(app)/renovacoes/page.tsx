@@ -7,7 +7,7 @@ export default async function RenovacoesPage() {
     orderBy: { prazo: "asc" },
     select: {
       id: true, nome: true, codigo: true, tipo: true, status: true, saude: true,
-      inicio: true, prazo: true, negociacao: true, negociacaoEm: true,
+      inicio: true, prazo: true, negociacao: true, negociacaoEm: true, renovacaoStatus: true,
     },
   });
 
