@@ -8,7 +8,7 @@ const MENU = [
   {
     grupo: "PRINCIPAL",
     itens: [
-      { href: "/", label: "Dashboard", icon: "grid" },
+      { href: "/mentorados", label: "Dashboard", icon: "grid" },
       { href: "/mentorados", label: "Mentorados", icon: "users" },
       { href: "/renovacoes", label: "Renovações", icon: "refresh" },
       { href: "/acompanhamento", label: "Acompanhamento", icon: "file" },
