@@ -307,3 +307,20 @@
   box-shadow: 0 6px 20px rgba(6, 10, 31, 0.25);
   z-index: 200;
 }
+
+.btnNovo {
+  padding: 7px 16px;
+  background: var(--navy-mid);
+  color: var(--champagne);
+  border: none;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+.btnNovo:hover { opacity: 0.88; }
+.btnNovo:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }

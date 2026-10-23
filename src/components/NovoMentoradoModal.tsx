@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import m from "./NovoMentoradoModal.module.css";
 
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
@@ -24,6 +24,51 @@ const VAZIO = {
   linkedin: "", drive: "", asana: "", obs: "",
 };
 
+type Form = typeof VAZIO;
+type Rascunho = { f: Form; prazoManual: boolean; aberto: boolean; salvoEm: string };
+const RASCUNHO = "turney_novo_mentorado_rascunho";
+
+function lerRascunho(): Rascunho | null {
+  try {
+    const s = localStorage.getItem(RASCUNHO);
+    return s ? (JSON.parse(s) as Rascunho) : null;
+  } catch {
+    return null;
+  }
+}
+function gravarRascunho(r: Rascunho | null) {
+  try {
+    if (r) localStorage.setItem(RASCUNHO, JSON.stringify(r));
+    else localStorage.removeItem(RASCUNHO);
+  } catch {
+    /* navegador sem armazenamento: o formulário segue funcionando, só sem rascunho */
+  }
+}
+const temConteudo = (f: Form) =>
+  (Object.keys(VAZIO) as (keyof Form)[]).some(k => !["tipo", "status", "inicio", "duracao", "prazo"].includes(k) && f[k].trim() !== "");
+
+export function useNovoMentorado() {
+  const [aberto, setAberto] = useState(false);
+  const [temRascunho, setTemRascunho] = useState(false);
+
+  useEffect(() => {
+    const r = lerRascunho();
+    const t = window.setTimeout(() => {
+      setTemRascunho(!!r && temConteudo(r.f));
+      if (r?.aberto && temConteudo(r.f)) setAberto(true);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const abrir = useCallback(() => setAberto(true), []);
+  const fechar = useCallback(() => {
+    setAberto(false);
+    const r = lerRascunho();
+    setTemRascunho(!!r && temConteudo(r.f));
+  }, []);
+  return { aberto, abrir, fechar, temRascunho };
+}
+
 export default function NovoMentoradoModal({
   onClose,
   onCriado,
@@ -31,18 +76,44 @@ export default function NovoMentoradoModal({
   onClose: () => void;
   onCriado: (id: string, nome: string) => void;
 }) {
-  const [f, setF] = useState(VAZIO);
-  const [prazoManual, setPrazoManual] = useState(false);
+  const [inicial] = useState(() => lerRascunho());
+  const [f, setF] = useState<Form>(() => (inicial ? { ...VAZIO, ...inicial.f } : VAZIO));
+  const [prazoManual, setPrazoManual] = useState(inicial?.prazoManual ?? false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [salvoEm, setSalvoEm] = useState<string | null>(inicial && temConteudo(inicial.f) ? inicial.salvoEm : null);
   const nomeRef = useRef<HTMLInputElement>(null);
+  const restaurado = !!inicial && temConteudo(inicial.f);
+
+  useEffect(() => {
+    if (!temConteudo(f)) {
+      gravarRascunho(null);
+      return;
+    }
+    const agora = new Date().toISOString();
+    gravarRascunho({ f, prazoManual, aberto: true, salvoEm: agora });
+    const t = window.setTimeout(() => setSalvoEm(agora), 0);
+    return () => window.clearTimeout(t);
+  }, [f, prazoManual]);
+
+  const fecharMantendo = useCallback(() => {
+    const r = lerRascunho();
+    if (r) gravarRascunho({ ...r, aberto: false });
+    onClose();
+  }, [onClose]);
+
+  function cancelar() {
+    if (temConteudo(f) && !window.confirm("Descartar o que já foi preenchido deste cadastro?")) return;
+    gravarRascunho(null);
+    onClose();
+  }
 
   useEffect(() => {
     nomeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && fecharMantendo();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [fecharMantendo]);
 
   const set = (k: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const v = e.target.value;
@@ -67,6 +138,7 @@ export default function NovoMentoradoModal({
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.erro || "Não foi possível cadastrar. Tente novamente.");
+      gravarRascunho(null);
       onCriado(j.id, j.nome);
     } catch (err) {
       setErro((err as Error).message);
@@ -75,11 +147,14 @@ export default function NovoMentoradoModal({
   }
 
   return (
-    <div className={m.backdrop} onClick={onClose}>
-      <form className={m.modal} onClick={e => e.stopPropagation()} onSubmit={salvar} role="dialog" aria-modal="true" aria-label="Novo mentorado">
+    <div className={m.backdrop}>
+      <form className={m.modal} onSubmit={salvar} role="dialog" aria-modal="true" aria-label="Novo mentorado">
         <header className={m.header}>
-          <div className={m.title}>Novo Mentorado</div>
-          <button type="button" className={m.close} onClick={onClose} aria-label="Fechar">✕</button>
+          <div>
+            <div className={m.title}>Novo Mentorado</div>
+            {restaurado && <div className={m.restaurado}>Rascunho recuperado — continue de onde parou</div>}
+          </div>
+          <button type="button" className={m.close} onClick={fecharMantendo} aria-label="Fechar e guardar rascunho" title="Fechar (o rascunho fica guardado)">✕</button>
         </header>
 
         <div className={m.body}>
@@ -153,8 +228,12 @@ export default function NovoMentoradoModal({
         </div>
 
         <footer className={m.footer}>
-          {erro && <span className={m.erro} role="alert">{erro}</span>}
-          <button type="button" className={m.btnGhost} onClick={onClose}>Cancelar</button>
+          {erro ? (
+            <span className={m.erro} role="alert">{erro}</span>
+          ) : (
+            salvoEm && <span className={m.salvo}>Rascunho salvo automaticamente às {new Date(salvoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+          )}
+          <button type="button" className={m.btnGhost} onClick={cancelar}>Descartar</button>
           <button type="submit" className={m.btnPrimary} disabled={salvando}>{salvando ? "Cadastrando…" : "Cadastrar mentorado"}</button>
         </footer>
       </form>

@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import MentoradaDrawer from "@/components/MentoradaDrawer";
-import NovoMentoradoModal from "@/components/NovoMentoradoModal";
+import NovoMentoradoModal, { useNovoMentorado } from "@/components/NovoMentoradoModal";
 import JornadaModal from "@/components/JornadaModal";
 import TextoInline from "@/components/TextoInline";
 import StatusRenovacao from "@/components/StatusRenovacao";
@@ -218,7 +218,7 @@ function DonutSvg({ data }: { data: Mentorada[] }) {
 export default function DashboardCliente({ data, renovacoes }: { data: Mentorada[]; renovacoes: RenovacaoResumo[] }) {
   const router = useRouter();
   const now = new Date();
-  const [novoAberto, setNovoAberto] = useState(false);
+  const novo = useNovoMentorado();
   const [criada, setCriada] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [jornada, setJornada] = useState<string | null>(null);
@@ -319,11 +319,11 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
           <span className={styles.topbarDate}>
             {now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </span>
-          <button className={styles.btnPrimary} onClick={() => setNovoAberto(true)}>
+          <button className={styles.btnPrimary} onClick={novo.abrir}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Novo Mentorado
+            {novo.temRascunho ? "Continuar cadastro" : "Novo Mentorado"}
           </button>
         </div>
       </div>
@@ -491,11 +491,11 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
         </div>
       </div>
 
-      {novoAberto && (
+      {novo.aberto && (
         <NovoMentoradoModal
-          onClose={() => setNovoAberto(false)}
+          onClose={novo.fechar}
           onCriado={(id, nome) => {
-            setNovoAberto(false);
+            novo.fechar();
             setCriada(id);
             setToast(`${nome} cadastrada`);
             window.setTimeout(() => setToast(null), 2600);

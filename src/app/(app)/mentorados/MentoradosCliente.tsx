@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { Mentorada } from "@/lib/generated/prisma";
 import MentoradaDrawer, { type Aba } from "@/components/MentoradaDrawer";
+import NovoMentoradoModal, { useNovoMentorado } from "@/components/NovoMentoradoModal";
 import styles from "./mentorados.module.css";
 
 const BADGE: Record<string, string> = {
@@ -97,6 +98,7 @@ export default function MentoradosCliente({
   const [filtLocal, setFiltLocal] = useState("");
   const [pagina, setPagina] = useState(1);
   const [aberta, setAberta] = useState<{ id: string; aba: Aba } | null>(null);
+  const novo = useNovoMentorado();
   const [toast, setToast] = useState<string | null>(null);
   const POR_PAG = 30;
 
@@ -213,6 +215,12 @@ export default function MentoradosCliente({
               year: "numeric",
             })}
           </span>
+          <button className={styles.btnNovo} onClick={novo.abrir}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            {novo.temRascunho ? "Continuar cadastro" : "Novo Mentorado"}
+          </button>
         </div>
       </div>
 
@@ -439,6 +447,18 @@ export default function MentoradosCliente({
           abaInicial={aberta.aba}
           onClose={() => setAberta(null)}
           onChanged={() => router.refresh()}
+        />
+      )}
+
+      {novo.aberto && (
+        <NovoMentoradoModal
+          onClose={novo.fechar}
+          onCriado={(id, nome) => {
+            novo.fechar();
+            avisar(`${nome} cadastrada`);
+            setAberta({ id, aba: "dados" });
+            router.refresh();
+          }}
         />
       )}
 
