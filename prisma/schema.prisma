@@ -63,6 +63,7 @@ model Mentorada {
   turma           String?
   produtoAnterior String?
   origem          String?
+  origemDetalhe   String? // qual live/evento, quando a origem é Lives / Eventos
   resp            String? // responsável
   obs             String?
 

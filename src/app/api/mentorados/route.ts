@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
       turma: texto(data.turma),
       produtoAnterior: texto(data.produtoAnterior),
       origem: texto(data.origem),
+      origemDetalhe: texto(data.origemDetalhe),
       linkedin: texto(data.linkedin),
       drive: texto(data.drive),
       asana: texto(data.asana),

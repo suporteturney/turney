@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ehLiveEvento } from "@/lib/origem";
 import m from "./NovoMentoradoModal.module.css";
 
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
@@ -20,7 +21,7 @@ function somarMeses(iso: string, meses: number) {
 
 const VAZIO = {
   nome: "", tipo: "Nexus 2", status: "Ativo", inicio: hoje(), duracao: "6", prazo: somarMeses(hoje(), 6),
-  email: "", whatsapp: "", area: "", localizacao: "", origem: "", produtoAnterior: "",
+  email: "", whatsapp: "", area: "", localizacao: "", origem: "", origemDetalhe: "", produtoAnterior: "",
   linkedin: "", drive: "", asana: "", obs: "",
 };
 
@@ -119,6 +120,7 @@ export default function NovoMentoradoModal({
     const v = e.target.value;
     setF(prev => {
       const n = { ...prev, [k]: v };
+      if (k === "origem" && !ehLiveEvento(v)) n.origemDetalhe = "";
       if ((k === "inicio" || k === "duracao") && !prazoManual) n.prazo = somarMeses(n.inicio, parseInt(n.duracao, 10));
       return n;
     });
@@ -212,6 +214,14 @@ export default function NovoMentoradoModal({
               <datalist id="nm-prod">{PROGRAMAS.map(o => <option key={o} value={o} />)}</datalist>
             </label>
           </div>
+          {ehLiveEvento(f.origem) && (
+            <div className={m.row}>
+              <label className={`${m.field} ${m.full}`}>
+                <span>Qual live / evento?</span>
+                <input value={f.origemDetalhe} onChange={set("origemDetalhe")} placeholder="Ex: Live Carreira Internacional (12/08)" />
+              </label>
+            </div>
+          )}
 
           <div className={m.section}>Links</div>
           <div className={m.row3}>

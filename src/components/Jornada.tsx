@@ -14,7 +14,7 @@ export type Renov = { id: string; acao: string; destino: string; data: string; n
 export type Detalhe = {
   id: string; codigo: string | null; nome: string; tipo: string; status: string; saude: string | null;
   email: string | null; whatsapp: string | null; area: string | null; localizacao: string | null;
-  turma: string | null; produtoAnterior: string | null; origem: string | null; resp: string | null;
+  turma: string | null; produtoAnterior: string | null; origem: string | null; origemDetalhe: string | null; resp: string | null;
   obs: string | null; linkedin: string | null; drive: string | null; asana: string | null; disc: string | null;
   duracao: number | null; mesesAntes: number | null;
   inicio: string | null; prazo: string | null; cancelamento: string | null;
@@ -94,7 +94,7 @@ function montarJornada(d: Detalhe): Evento[] {
       data: d.inicio ?? d.prazo ?? new Date().toISOString(),
       titulo: movimento ? `${movimento}: ${anterior} → ${d.tipo}` : `Veio do ${anterior} para o ${d.tipo}`,
       texto: (d.mesesAntes ?? 0) > 0 ? `${d.mesesAntes} meses em programas anteriores da Turney.` : undefined,
-      meta: d.origem ? `Origem: ${d.origem}` : undefined,
+      meta: d.origem ? `Origem: ${d.origem}${d.origemDetalhe ? ` — ${d.origemDetalhe}` : ""}` : undefined,
       nivel: movimento === "Upsell" ? "marco" : "entrada",
     });
   }
@@ -217,8 +217,9 @@ export default function Jornada({
             </li>
           ))}
         </ol>
-        {(d.produtoAnterior || (d.mesesAntes ?? 0) > 0 || d.vagaCargo || d.vagaEmpresa) && (
+        {(d.produtoAnterior || (d.mesesAntes ?? 0) > 0 || d.vagaCargo || d.vagaEmpresa || d.origemDetalhe) && (
           <div className={j.chips}>
+            {d.origemDetalhe && <span className={j.chip}>Chegou por: <strong>{d.origemDetalhe}</strong></span>}
             {d.produtoAnterior && <span className={j.chip}>Veio de: <strong>{d.produtoAnterior}</strong></span>}
             {(d.mesesAntes ?? 0) > 0 && <span className={j.chip}><strong>{d.mesesAntes}</strong> meses em programas anteriores</span>}
             {(d.vagaCargo || d.vagaEmpresa) && (

@@ -26,7 +26,7 @@ export async function GET(
 
 const CAMPOS_TEXTO = [
   "nome", "email", "whatsapp", "status", "saude", "area",
-  "localizacao", "turma", "produtoAnterior", "origem", "resp", "obs",
+  "localizacao", "turma", "produtoAnterior", "origem", "origemDetalhe", "resp", "obs",
   "tipo", "linkedin", "drive", "asana", "disc", "vagaCargo", "vagaEmpresa",
   "negociacao", "saudeMotivo", "renovacaoStatus",
 ];

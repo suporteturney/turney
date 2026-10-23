@@ -4,12 +4,13 @@ import Jornada, {
   type Acomp, type Campo, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, fmt, hojeISO, toInput,
 } from "./Jornada";
 import RenovarModal from "./RenovarModal";
+import { ehLiveEvento } from "@/lib/origem";
 import s from "./MentoradaDrawer.module.css";
 
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
 const STATUS = ["Ativo", "Em Andamento", "Em Renovação", "Encerrado", "Churn"];
 const SAUDE = ["Saudável", "Atenção", "Risco"];
-const DISC = ["D", "I", "S", "C", "DI", "DC", "ID", "IC", "IS", "SC", "SI", "CD", "CS", "DIS", "DSC", "ISC", "SDC", "Outro"];
+const DISC = ["D", "I", "S", "C", "DI", "DC", "ID", "IC", "IS", "SC", "SI", "CD", "CS", "DIS", "DSI", "DSC", "ISC", "SDC", "Outro"];
 const ORIGENS = ["Fluxo de Vendas", "Indicação", "Lives / Eventos", "Instagram", "LinkedIn", "YouTube", "Parceria", "Upsell / Upgrade", "Downgrade", "Cross-sell", "Workshop A Revolução Atlas", "Outra"];
 const DURACOES = ["6", "7", "8", "12"];
 const ACOMP_TIPOS = ["WhatsApp", "Sessão", "E-mail", "Outro"];
@@ -66,7 +67,7 @@ function opcoes(lista: string[], atual: string) {
 type Form = Record<string, string>;
 const CAMPOS_FORM = [
   "nome", "tipo", "status", "saude", "area", "localizacao", "email", "linkedin", "drive", "asana",
-  "whatsapp", "disc", "produtoAnterior", "origem", "resp", "turma", "vagaCargo", "vagaEmpresa",
+  "whatsapp", "disc", "produtoAnterior", "origem", "origemDetalhe", "resp", "turma", "vagaCargo", "vagaEmpresa",
   "saudeMotivo",
 ] as const;
 
@@ -264,6 +265,7 @@ export default function MentoradaDrawer({
     setForm(f => {
       const n = { ...f, [k]: e.target.value };
       if (k === "cancelamento" && e.target.value) n.status = "Churn";
+      if (k === "origem" && !ehLiveEvento(e.target.value)) n.origemDetalhe = "";
       return n;
     });
 
@@ -398,6 +400,13 @@ export default function MentoradaDrawer({
                 </F>
                 <F label="Turma"><input value={form.turma ?? ""} onChange={set("turma")} /></F>
               </div>
+              {ehLiveEvento(form.origem) && (
+                <div className={s.row1}>
+                  <F label="Qual live / evento?">
+                    <input value={form.origemDetalhe ?? ""} onChange={set("origemDetalhe")} placeholder="Ex: Live Carreira Internacional (12/08), Workshop A Revolução Atlas…" autoFocus={!form.origemDetalhe} />
+                  </F>
+                </div>
+              )}
               <div className={s.row}>
                 <F label="Data de início"><input type="date" value={form.inicio ?? ""} onChange={set("inicio")} /></F>
                 <F label="Data de encerramento"><input type="date" value={form.prazo ?? ""} onChange={set("prazo")} /></F>
