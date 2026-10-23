@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Jornada, {
-  type Acomp, type Campo, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, etapasDoPrograma, fmt, hojeISO,
-  inicioCiclo, mudancaDePrograma, nomeEtapa, toInput,
+  type Acomp, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, etapasDoPrograma, fmt, hojeISO,
+  ehExtra, encontrosGrupo, extrasDoPrograma, inicioCiclo, mudancaDePrograma, nomeEtapa, toInput,
 } from "./Jornada";
 import RenovarModal from "./RenovarModal";
 import { ehLiveEvento } from "@/lib/origem";
@@ -21,20 +21,6 @@ const STATUS_CLS: Record<string, string> = {
   Ativo: s.bAtivo, "Em Andamento": s.bAtivo, "Em Renovação": s.bRenov, Encerrado: s.bEnc, Churn: s.bChurn,
 };
 const SAUDE_CLS: Record<string, string> = { Saudável: s.bAtivo, Atenção: s.bRenov, Risco: s.bChurn };
-
-const GRUPO: Record<string, { grupo: string[]; opcional: string[] }> = {
-  Atlas: { grupo: ["Encontro semanal em grupo (durante 6 meses)"], opcional: [] },
-  "Nexus 1": { grupo: ["Evolution Day (mensal)", "Masterclass Day (mensal)"], opcional: ["O Código da Aprovação (mensal — opcional)"] },
-  "Nexus 2": { grupo: ["Evolution Day (mensal)", "Masterclass Day (mensal)"], opcional: ["O Código da Aprovação (mensal — opcional)"] },
-  "Nexus 3": { grupo: ["Evolution Day (mensal)", "Masterclass Day (mensal)"], opcional: ["O Código da Aprovação (mensal — opcional)"] },
-};
-
-const EVENTOS_ATLAS: Campo[] = [1, 2, 3, 4].map(i => ({ key: `s${i}`, label: `Semana ${i}` }));
-const EVENTOS_NEXUS: Campo[] = [
-  { key: "evolutionDay", label: "Evolution Day" },
-  { key: "masterclassDay", label: "Masterclass Day" },
-  { key: "codigoAprovacao", label: "O Código da Aprovação (opcional)" },
-];
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -113,6 +99,7 @@ export default function MentoradaDrawer({
   const [toast, setToast] = useState<string | null>(null);
 
   const [novaObs, setNovaObs] = useState("");
+  const [extra, setExtra] = useState<{ titulo: string; data: string; obs: string } | null>(null);
   const [acomp, setAcomp] = useState({ data: hojeISO(), tipo: "Sessão", texto: "", autor: "", marco: false, marcoTitulo: "" });
   const [renovAberto, setRenovAberto] = useState(false);
 
@@ -199,6 +186,45 @@ export default function MentoradaDrawer({
       await carregar();
       onChanged?.();
       avisar(data ? "Etapa salva" : "Etapa removida");
+    } catch (e) {
+      avisar((e as Error).message);
+    }
+  }
+
+  async function criarExtra() {
+    if (!d || !extra) return;
+    if (!extra.titulo.trim()) return avisar("Dê um nome ao encontro extra.");
+    try {
+      await chamar(`/api/mentorados/${d.id}/etapas/extras`, "POST", { ...extra, data: extra.data || null });
+      setExtra(null);
+      await carregar();
+      onChanged?.();
+      avisar("Encontro extra adicionado");
+    } catch (e) {
+      avisar((e as Error).message);
+    }
+  }
+
+  async function salvarExtra(item: string, dados: { titulo?: string; data?: string | null }) {
+    if (!d) return;
+    try {
+      await chamar(`/api/mentorados/${d.id}/etapas/extras`, "PATCH", { item, ...dados });
+      await carregar();
+      onChanged?.();
+      avisar("Encontro extra salvo");
+    } catch (e) {
+      avisar((e as Error).message);
+    }
+  }
+
+  async function removerExtra(item: string, titulo?: string | null) {
+    if (!d) return;
+    if (!window.confirm(`Remover o encontro extra “${titulo || "sem nome"}”?`)) return;
+    try {
+      await chamar(`/api/mentorados/${d.id}/etapas/extras?item=${encodeURIComponent(item)}`, "DELETE");
+      await carregar();
+      onChanged?.();
+      avisar("Encontro extra removido");
     } catch (e) {
       avisar((e as Error).message);
     }
@@ -495,7 +521,8 @@ export default function MentoradaDrawer({
             const fields = etapaFields(d.tipo);
             const chaves = new Set(fields.map(f => f.key));
             const atuais = etapasDoPrograma(d);
-            const extras = atuais.filter(e => !chaves.has(e.nome) && e.data);
+            const extras = atuais.filter(e => !chaves.has(e.nome) && !ehExtra(e.nome) && e.data);
+            const encontrosExtras = extrasDoPrograma(d);
             const anteriores = new Map<string, typeof d.etapas>();
             for (const e of d.etapas) {
               if (!e.data || !e.programa || e.programa === d.tipo) continue;
@@ -503,16 +530,17 @@ export default function MentoradaDrawer({
             }
             const ciclo = inicioCiclo(d);
             const mudanca = mudancaDePrograma(d);
-            const feitas = fields.filter(f => dataEtapa(d, f)).length;
-            const pct = fields.length ? Math.round((feitas / fields.length) * 100) : 0;
-            const info = GRUPO[d.tipo];
+            const totalEtapas = fields.length + encontrosExtras.length;
+            const feitas = fields.filter(f => dataEtapa(d, f)).length + encontrosExtras.filter(e => e.data).length;
+            const pct = totalEtapas ? Math.round((feitas / totalEtapas) * 100) : 0;
+            const grupo = encontrosGrupo(d.tipo);
             return (
               <div>
-                {fields.length > 0 && (
+                {totalEtapas > 0 && (
                   <div className={s.progress}>
                     <div className={s.progressTop}>
-                      <span>Progresso da jornada</span>
-                      <strong>{feitas}/{fields.length} · {pct}%</strong>
+                      <span>Progresso da jornada{encontrosExtras.length ? ` (inclui ${encontrosExtras.length} extra${encontrosExtras.length > 1 ? "s" : ""})` : ""}</span>
+                      <strong>{feitas}/{totalEtapas} · {pct}%</strong>
                     </div>
                     <div className={s.track}><div style={{ width: `${pct}%`, background: pct === 100 ? "var(--ok)" : "var(--champagne)" }} /></div>
                   </div>
@@ -544,13 +572,71 @@ export default function MentoradaDrawer({
                     </div>
                   );
                 })}
+                <div className={s.extrasHead}>
+                  <div className={s.sectionTitle} style={{ marginTop: 18, flex: 1 }}>Encontros extras — personalizados</div>
+                  {!extra && (
+                    <button className={s.btnGhost} onClick={() => setExtra({ titulo: "", data: "", obs: "" })}>+ Adicionar encontro extra</button>
+                  )}
+                </div>
+                {encontrosExtras.length === 0 && !extra && (
+                  <div className={s.emptySmall}>Nenhum encontro extra. Use quando o time de vendas incluir algo a mais na negociação.</div>
+                )}
+                {encontrosExtras.map(e => {
+                  const dias = e.data && ciclo ? diasEntre(ciclo, e.data) : null;
+                  return (
+                    <div key={e.id} className={`${s.etapaRow} ${s.extraRow}`}>
+                      <span className={`${s.dot} ${e.data ? s.dotOn : ""} ${s.dotExtra}`} />
+                      <span className={s.etapaLabel}>
+                        <input
+                          className={s.extraTitulo}
+                          defaultValue={e.titulo ?? ""}
+                          key={`t-${e.id}-${e.titulo}`}
+                          onBlur={ev => ev.target.value.trim() && ev.target.value.trim() !== e.titulo && salvarExtra(e.id, { titulo: ev.target.value })}
+                          aria-label="Nome do encontro extra"
+                        />
+                        {dias !== null && <em>{dias}d após {mudanca ? `início no ${d.tipo}` : "início"}</em>}
+                        {e.obs && <small className={s.extraObs}>{e.obs}</small>}
+                      </span>
+                      <input
+                        type="date"
+                        className={`${s.etapaInput} ${e.data ? s.filled : ""}`}
+                        defaultValue={toInput(e.data)}
+                        key={`d-${e.id}-${e.data}`}
+                        onChange={ev => salvarExtra(e.id, { data: ev.target.value || null })}
+                        aria-label={`Data de ${e.titulo ?? "encontro extra"}`}
+                      />
+                      <button className={s.remove} onClick={() => removerExtra(e.id, e.titulo)} aria-label="Remover encontro extra">✕</button>
+                    </div>
+                  );
+                })}
+                {extra && (
+                  <div className={s.formBox}>
+                    <div className={s.row}>
+                      <F label="Nome do encontro">
+                        <input value={extra.titulo} onChange={e => setExtra({ ...extra, titulo: e.target.value })} placeholder="Ex: Mentoria extra de LinkedIn" autoFocus />
+                      </F>
+                      <F label="Data" hint="Deixe vazio se ainda vai acontecer">
+                        <input type="date" value={extra.data} onChange={e => setExtra({ ...extra, data: e.target.value })} />
+                      </F>
+                    </div>
+                    <div className={s.row1}>
+                      <F label="Observação (opcional)">
+                        <input value={extra.obs} onChange={e => setExtra({ ...extra, obs: e.target.value })} placeholder="Ex: vendido no fechamento para garantir a matrícula" />
+                      </F>
+                    </div>
+                    <div className={s.formActions}>
+                      <button className={s.btnGhost} onClick={() => setExtra(null)}>Cancelar</button>
+                      <button className={s.btnDark} onClick={criarExtra}>Adicionar</button>
+                    </div>
+                  </div>
+                )}
                 {extras.length > 0 && (
                   <>
                     <div className={s.sectionTitle} style={{ marginTop: 18 }}>Outras etapas registradas</div>
                     {extras.map(e => (
                       <div key={e.id} className={s.etapaRow}>
                         <span className={`${s.dot} ${s.dotOn}`} />
-                        <span className={s.etapaLabel}>{nomeEtapa(e.nome)}</span>
+                        <span className={s.etapaLabel}>{nomeEtapa(e.nome, e.titulo)}</span>
                         <span className={s.entryMuted}>{fmt(e.data)}</span>
                       </div>
                     ))}
@@ -562,17 +648,17 @@ export default function MentoradaDrawer({
                     {etapas.sort((x, y) => (x.data ?? "").localeCompare(y.data ?? "")).map(e => (
                       <div key={e.id} className={s.etapaRow}>
                         <span className={`${s.dot} ${s.dotOn}`} />
-                        <span className={s.etapaLabel}>{nomeEtapa(e.nome)}</span>
+                        <span className={s.etapaLabel}>{nomeEtapa(e.nome, e.titulo)}</span>
                         <span className={s.entryMuted}>{fmt(e.data)}</span>
                       </div>
                     ))}
                   </div>
                 ))}
-                {info && (
+                {grupo.length > 0 && (
                   <>
-                    <div className={s.sectionTitle} style={{ marginTop: 18 }}>Encontros em grupo</div>
-                    {info.grupo.map(g => <div key={g} className={s.grupoItem}>{g}</div>)}
-                    {info.opcional.map(g => <div key={g} className={`${s.grupoItem} ${s.grupoOpc}`}>{g}</div>)}
+                    <div className={s.sectionTitle} style={{ marginTop: 18 }}>Encontros em grupo — {d.tipo}</div>
+                    {grupo.filter(g => !g.opcional).map(g => <div key={g.key} className={s.grupoItem}>{g.label} <small>obrigatório · conta na assiduidade</small></div>)}
+                    {grupo.filter(g => g.opcional).map(g => <div key={g.key} className={`${s.grupoItem} ${s.grupoOpc}`}>{g.label} <small>opcional · não conta na assiduidade</small></div>)}
                   </>
                 )}
               </div>
@@ -581,8 +667,12 @@ export default function MentoradaDrawer({
 
           {d && aba === "presenca" && (() => {
             const meses = mesesDoContrato(d.inicio, d.prazo);
-            const eventos = d.tipo === "Atlas" ? EVENTOS_ATLAS : EVENTOS_NEXUS;
-            const todos = meses.flatMap(m => eventos.map(e => presMap.get(`${m}|${e.key}`)));
+            const eventos = encontrosGrupo(d.tipo);
+            if (!eventos.length) {
+              return <div className={s.empty}>O {d.tipo || "programa"} não tem encontros em grupo para registrar presença.</div>;
+            }
+            const todos = meses.flatMap(m => eventos.filter(e => !e.opcional).map(e => presMap.get(`${m}|${e.key}`)));
+            const opcionaisFeitos = meses.flatMap(m => eventos.filter(e => e.opcional).map(e => presMap.get(`${m}|${e.key}`))).filter(v => v === true).length;
             const pres = todos.filter(v => v === true).length;
             const aus = todos.filter(v => v === false).length;
             const taxa = pres + aus > 0 ? Math.round((pres / (pres + aus)) * 100) : null;
@@ -590,13 +680,13 @@ export default function MentoradaDrawer({
               <div>
                 <div className={s.progress}>
                   <div className={s.progressTop}>
-                    <span>Assiduidade no período</span>
-                    <strong>{taxa === null ? "Sem registros" : `${taxa}% · ${pres} presenças, ${aus} faltas`}</strong>
+                    <span>Assiduidade nos obrigatórios</span>
+                    <strong>{taxa === null ? "Sem registros" : `${taxa}% · ${pres} presenças, ${aus} faltas`}{opcionaisFeitos ? ` · +${opcionaisFeitos} em opcionais` : ""}</strong>
                   </div>
                   <div className={s.track}><div style={{ width: `${taxa ?? 0}%`, background: taxa !== null && taxa < 60 ? "var(--danger)" : "var(--ok)" }} /></div>
                 </div>
                 {[...meses].reverse().map(m => {
-                  const vals = eventos.map(e => presMap.get(`${m}|${e.key}`));
+                  const vals = eventos.filter(e => !e.opcional).map(e => presMap.get(`${m}|${e.key}`));
                   return (
                     <div key={m} className={s.mes}>
                       <div className={s.mesTitle}>
@@ -612,11 +702,11 @@ export default function MentoradaDrawer({
                           return (
                             <button
                               key={enc}
-                              className={`${s.presItem} ${v === true ? s.presOk : v === false ? s.presDn : ""}`}
+                              className={`${s.presItem} ${v === true ? s.presOk : v === false ? s.presDn : ""} ${e.opcional ? s.presOpc : ""}`}
                               onClick={() => alternarPresenca(enc, v)}
                             >
                               <span className={s.presCheck}>{v === true ? "✓" : v === false ? "✗" : ""}</span>
-                              <span className={s.presNome}>{e.label}</span>
+                              <span className={s.presNome}>{e.label}{e.opcional && <small className={s.opcTag}>opcional</small>}</span>
                               <span className={s.presState}>{v === true ? "Presente" : v === false ? "Ausente" : "Não registrado"}</span>
                             </button>
                           );
@@ -625,7 +715,7 @@ export default function MentoradaDrawer({
                     </div>
                   );
                 })}
-                <div className={s.hint}>Clique para alternar entre Presente, Ausente e Não registrado.</div>
+                <div className={s.hint}>Clique para alternar entre Presente, Ausente e Não registrado. Encontros opcionais não contam na assiduidade.</div>
               </div>
             );
           })()}

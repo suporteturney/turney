@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { inicioCiclo } from "@/lib/jornada";
+import { contaNaAssiduidade, inicioCiclo } from "@/lib/jornada";
 import SaudeCliente from "./SaudeCliente";
 
 export default async function SaudePage() {
@@ -12,7 +12,7 @@ export default async function SaudePage() {
       etapas: { where: { nome: "onboarding" }, select: { data: true, programa: true } },
       renovacoes: { select: { acao: true, destino: true, data: true } },
       acompanhamentos: { orderBy: { data: "desc" }, take: 1, select: { data: true } },
-      presencas: { select: { presente: true } },
+      presencas: { select: { presente: true, encontro: true } },
     },
   });
 
@@ -24,8 +24,8 @@ export default async function SaudePage() {
     onboarding: etapas.find(e => !e.programa || e.programa === m.tipo)?.data?.toISOString() ?? null,
     inicioCiclo: inicioCiclo({ inicio: m.inicio?.toISOString() ?? null, tipo: m.tipo, renovacoes: renovacoes.map(r => ({ ...r, data: r.data.toISOString() })) }),
     ultimoAcomp: acompanhamentos[0]?.data.toISOString() ?? null,
-    presTotal: presencas.length,
-    presOk: presencas.filter(p => p.presente).length,
+    presTotal: presencas.filter(p => contaNaAssiduidade(m.tipo, p.encontro)).length,
+    presOk: presencas.filter(p => p.presente && contaNaAssiduidade(m.tipo, p.encontro)).length,
   }));
 
   return <SaudeCliente data={data} />;

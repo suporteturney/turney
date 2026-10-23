@@ -125,7 +125,9 @@ model Etapa {
   mentoradaId String
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
   programa    String    @default("") // programa da jornada a que a etapa pertence (muda no upgrade)
-  nome        String    // onboarding | sessao | correcao | analise | entrevista | devolutiva | ...
+  nome        String    // onboarding | sessao | correcao | analise | entrevista | devolutiva | extra:<id> ...
+  titulo      String?   // nome exibido dos encontros extras personalizados
+  obs         String?
   data        DateTime?
   createdAt   DateTime  @default(now())
 

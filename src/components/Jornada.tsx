@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import j from "./Jornada.module.css";
 
-export type Etapa = { id: string; nome: string; data: string | null; programa?: string };
+export type Etapa = { id: string; nome: string; data: string | null; programa?: string; titulo?: string | null; obs?: string | null };
 export type Presenca = { id: string; encontro: string; presente: boolean };
 export type Acomp = {
   id: string; data: string; tipo: string | null; texto: string; autor: string | null;
@@ -25,7 +25,7 @@ export type Detalhe = {
 };
 
 import {
-  MUDANCAS, dataEtapa, diasEntre, etapaFields, fmt, hojeISO, inicioCiclo, mudancaDePrograma,
+  MUDANCAS, dataEtapa, diasEntre, ehExtra, etapaFields, extrasDoPrograma, fmt, hojeISO, inicioCiclo, mudancaDePrograma,
 } from "@/lib/jornada";
 
 export * from "@/lib/jornada";
@@ -71,9 +71,14 @@ function montarJornada(d: Detalhe): Evento[] {
   }
   for (const e of d.etapas) {
     if (!e.data) continue;
-    const label = ETAPA_LABEL[e.nome] ?? (e.nome.startsWith("encontro") ? `Encontro Individual ${e.nome.slice(8)}` : e.nome);
+    const label = ehExtra(e.nome)
+      ? `${e.titulo || "Encontro extra"} · encontro extra`
+      : ETAPA_LABEL[e.nome] ?? (e.nome.startsWith("encontro") ? `Encontro Individual ${e.nome.slice(8)}` : e.nome);
     const outro = e.programa && e.programa !== d.tipo;
-    ev.push({ key: `et-${e.id}`, data: e.data, titulo: outro ? `${label} · ${e.programa}` : label, nivel: "etapa" });
+    ev.push({
+      key: `et-${e.id}`, data: e.data, titulo: outro ? `${label} · ${e.programa}` : label,
+      texto: ehExtra(e.nome) ? e.obs ?? undefined : undefined, nivel: "etapa",
+    });
   }
   for (const a of d.acompanhamentos) {
     ev.push({
@@ -127,6 +132,9 @@ function montarFases(d: Detalhe): Fase[] {
   for (const f of etapaFields(d.tipo)) {
     const data = dataEtapa(d, f);
     fases.push({ key: f.key, label: f.label, data, estado: data ? "feito" : "pendente" });
+  }
+  for (const e of extrasDoPrograma(d)) {
+    fases.push({ key: e.id, label: `${e.titulo || "Encontro extra"} (extra)`, data: e.data, estado: e.data ? "feito" : "pendente" });
   }
   const fim = d.cancelamento ?? d.prazo;
   const encerrou = !!fim && fim.slice(0, 10) <= hoje;

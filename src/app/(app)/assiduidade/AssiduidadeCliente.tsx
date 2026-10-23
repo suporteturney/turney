@@ -51,7 +51,7 @@ export default function AssiduidadeCliente({ data }: { data: Linha[] }) {
       <div className={styles.topbar}>
         <div>
           <div className={styles.pageTitle}>Assiduidade</div>
-          <div className={styles.pageSub}>Frequência nos encontros em grupo</div>
+          <div className={styles.pageSub}>Frequência nos encontros obrigatórios (Atlas: Hotseat e Tutoria · Nexus: Evolution e Masterclass)</div>
         </div>
       </div>
       <div className={styles.content}>

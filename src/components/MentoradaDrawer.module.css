@@ -565,3 +565,39 @@
   line-height: 1.45;
 }
 .anterior { opacity: 0.75; }
+
+.extrasHead { display: flex; align-items: flex-end; gap: 10px; }
+.extrasHead .btnGhost { margin-bottom: 8px; padding: 5px 10px; font-size: 11px; }
+.extraRow { align-items: flex-start; }
+.dotExtra { border-style: dashed; margin-top: 4px; }
+.dotOn.dotExtra { border-style: solid; }
+.extraTitulo {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 2px 5px;
+  margin-left: -6px;
+  background: transparent;
+  min-width: 0;
+  flex: 1 1 160px;
+}
+.extraTitulo:hover { border-color: var(--bdr); }
+.extraTitulo:focus { outline: none; border-color: var(--champagne); background: white; }
+.extraObs { flex-basis: 100%; font-size: 10px; color: var(--txt3); font-weight: 400; }
+
+.grupoItem small { font-size: 10px; color: var(--txt3); margin-left: 6px; }
+.presOpc { border-style: dashed; }
+.opcTag {
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--txt3);
+  background: #F0EAE0;
+  border-radius: 8px;
+  padding: 1px 6px;
+}

@@ -33,7 +33,10 @@ export function etapaFields(tipo: string): CampoEtapa[] {
   }
 }
 
-export function nomeEtapa(chave: string) {
+export const ehExtra = (nome: string) => nome.startsWith("extra:");
+
+export function nomeEtapa(chave: string, titulo?: string | null) {
+  if (ehExtra(chave)) return titulo || "Encontro extra";
   const achado = Object.values(E).find(x => x.key === chave);
   if (achado) return achado.label;
   if (chave.startsWith("encontro")) return `Encontro Individual ${chave.slice(8)}`;
@@ -42,6 +45,12 @@ export function nomeEtapa(chave: string) {
 
 export function etapasDoPrograma<T extends { programa?: string }>(d: { etapas: T[]; tipo: string }): T[] {
   return d.etapas.filter(e => !e.programa || e.programa === d.tipo);
+}
+
+export function extrasDoPrograma<T extends { nome: string; data: string | null; programa?: string }>(d: { etapas: T[]; tipo: string }): T[] {
+  return etapasDoPrograma(d)
+    .filter(e => ehExtra(e.nome))
+    .sort((a, b) => (a.data ?? "9999").localeCompare(b.data ?? "9999"));
 }
 
 export function dataEtapa(
@@ -62,4 +71,31 @@ export function mudancaDePrograma(d: { tipo: string; renovacoes?: { acao: string
 
 export function inicioCiclo(d: { inicio: string | null; tipo: string; renovacoes?: { acao: string; destino: string; data: string }[] }) {
   return mudancaDePrograma(d)?.data ?? d.inicio;
+}
+
+export type EncontroGrupo = { key: string; label: string; opcional: boolean };
+
+export function encontrosGrupo(tipo: string): EncontroGrupo[] {
+  if (tipo === "Atlas") {
+    return [
+      { key: "hotseat", label: "Hotseat", opcional: false },
+      { key: "tutoria", label: "Tutoria", opcional: false },
+      { key: "masterclassDay", label: "Masterclass", opcional: true },
+      { key: "codigoAprovacao", label: "O Código da Aprovação", opcional: true },
+    ];
+  }
+  if (/^Nexus\b/.test(tipo)) {
+    return [
+      { key: "evolutionDay", label: "Evolution Day", opcional: false },
+      { key: "masterclassDay", label: "Masterclass Day", opcional: false },
+      { key: "codigoAprovacao", label: "O Código da Aprovação", opcional: true },
+    ];
+  }
+  return [];
+}
+
+// Encontro opcional não entra na assiduidade (falta em opcional não penaliza).
+export function contaNaAssiduidade(tipo: string, encontro: string) {
+  const chave = encontro.split("|")[1] ?? encontro;
+  return !encontrosGrupo(tipo).some(e => e.key === chave && e.opcional);
 }

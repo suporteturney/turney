@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { contaNaAssiduidade } from "@/lib/jornada";
 import AssiduidadeCliente from "./AssiduidadeCliente";
 
 export default async function AssiduidadePage() {
@@ -6,15 +7,18 @@ export default async function AssiduidadePage() {
     orderBy: { nome: "asc" },
     select: {
       id: true, nome: true, tipo: true, status: true, codigo: true,
-      presencas: { select: { presente: true } },
+      presencas: { select: { presente: true, encontro: true } },
     },
   });
 
-  const data = mentorados.map(({ presencas, ...m }) => ({
-    ...m,
-    total: presencas.length,
-    presentes: presencas.filter(p => p.presente).length,
-  }));
+  const data = mentorados.map(({ presencas, ...m }) => {
+    const obrigatorias = presencas.filter(p => contaNaAssiduidade(m.tipo, p.encontro));
+    return {
+      ...m,
+      total: obrigatorias.length,
+      presentes: obrigatorias.filter(p => p.presente).length,
+    };
+  });
 
   return <AssiduidadeCliente data={data} />;
 }
