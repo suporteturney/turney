@@ -113,6 +113,7 @@ model Renovacao {
   destino     String
   data        DateTime
   novoPrazo   DateTime?
+  programaAnterior String?
   obs         String?
   createdAt   DateTime  @default(now())
 
@@ -123,11 +124,12 @@ model Etapa {
   id          String    @id @default(cuid())
   mentoradaId String
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
-  nome        String    // onboarding | kick_off | trilha1 | ...
+  programa    String    @default("") // programa da jornada a que a etapa pertence (muda no upgrade)
+  nome        String    // onboarding | sessao | correcao | analise | entrevista | devolutiva | ...
   data        DateTime?
   createdAt   DateTime  @default(now())
 
-  @@unique([mentoradaId, nome])
+  @@unique([mentoradaId, programa, nome])
   @@index([mentoradaId])
 }
 

@@ -7,10 +7,10 @@ export default async function AnalisesPage() {
       select: {
         id: true, nome: true, tipo: true, status: true, saude: true, inicio: true, prazo: true,
         cancelamento: true, vagaData: true, negociacao: true, renovacaoStatus: true,
-        etapas: { select: { nome: true, data: true } },
+        etapas: { select: { nome: true, data: true, programa: true } },
       },
     }),
-    prisma.renovacao.findMany({ select: { mentoradaId: true, acao: true, data: true } }),
+    prisma.renovacao.findMany({ select: { mentoradaId: true, acao: true, destino: true, data: true } }),
     prisma.acompanhamento.findMany({ select: { mentoradaId: true, data: true, marco: true, marcoTitulo: true, varreduraId: true } }),
     prisma.varredura.findMany({
       orderBy: { data: "asc" },
@@ -28,7 +28,7 @@ export default async function AnalisesPage() {
       mentoradas={mentoradas.map(m => ({
         ...m,
         inicio: iso(m.inicio), prazo: iso(m.prazo), cancelamento: iso(m.cancelamento), vagaData: iso(m.vagaData),
-        etapas: m.etapas.map(e => ({ nome: e.nome, data: iso(e.data) })),
+        etapas: m.etapas.map(e => ({ nome: e.nome, data: iso(e.data), programa: e.programa })),
       }))}
       renovacoes={renovacoes.map(r => ({ ...r, data: r.data.toISOString() }))}
       acompanhamentos={acompanhamentos.map(a => ({ ...a, data: a.data.toISOString() }))}

@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import JornadaModal from "@/components/JornadaModal";
 import { PESO_BANDA, type Banda } from "@/lib/varredura";
+import { etapasDoPrograma, inicioCiclo } from "@/components/Jornada";
 import styles from "../shared.module.css";
 import f from "../filtros.module.css";
 import s from "./analises.module.css";
@@ -9,9 +10,9 @@ import s from "./analises.module.css";
 type M = {
   id: string; nome: string; tipo: string; status: string; saude: string | null;
   inicio: string | null; prazo: string | null; cancelamento: string | null; vagaData: string | null;
-  negociacao: string | null; renovacaoStatus: string | null; etapas: { nome: string; data: string | null }[];
+  negociacao: string | null; renovacaoStatus: string | null; etapas: { nome: string; data: string | null; programa: string }[];
 };
-type R = { mentoradaId: string; acao: string; data: string };
+type R = { mentoradaId: string; acao: string; destino: string; data: string };
 type A = { mentoradaId: string; data: string; marco: boolean; marcoTitulo: string | null; varreduraId: string | null };
 type V = {
   id: string; data: string; programa: string | null; bom: string[]; ruim: string[]; invisivel: string[]; melhorias: string[];
@@ -220,7 +221,10 @@ export default function AnalisesCliente({ mentoradas, renovacoes, acompanhamento
     melhorias.push({ texto: "Abrir a conversa de renovação 45 dias antes do fim do ciclo para quem está em atenção ou risco." });
   }
 
-  const onbPend = ativas.filter(m => m.inicio && dias(ref, m.inicio) > 14 && !m.etapas.some(e => e.nome === "onboarding" && e.data));
+  const onbPend = ativas.filter(m => {
+    const ini = inicioCiclo({ inicio: m.inicio, tipo: m.tipo, renovacoes: renovacoes.filter(r => r.mentoradaId === m.id) });
+    return ini && dias(ref, ini) > 14 && !etapasDoPrograma(m).some(e => e.nome === "onboarding" && e.data);
+  });
   if (onbPend.length) {
     invisivel.push({ texto: `${onbPend.length} ativas com mais de 14 dias de programa e onboarding ainda não registrado`, pessoas: onbPend.slice(0, 12).map(m => ({ id: m.id, nome: m.nome })) });
   }

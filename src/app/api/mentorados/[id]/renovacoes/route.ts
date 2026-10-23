@@ -15,6 +15,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ erro: "Informe a nova data de encerramento do acesso." }, { status: 400 });
   }
 
+  const atual = await prisma.mentorada.findUnique({ where: { id }, select: { tipo: true } });
+  if (!atual) return NextResponse.json({ erro: "Mentorada não encontrada" }, { status: 404 });
+  const programaAnterior = atual.tipo && atual.tipo !== destino ? atual.tipo : null;
+
   const updates: Record<string, unknown> = {};
   if (acao === "RENOVAÇÃO") updates.status = "Ativo";
   if (novoPrazo) updates.prazo = new Date(novoPrazo);
@@ -35,6 +39,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         destino,
         data: new Date(data),
         novoPrazo: novoPrazo ? new Date(novoPrazo) : null,
+        programaAnterior,
         obs: (obs || "").trim() || null,
       },
     }),

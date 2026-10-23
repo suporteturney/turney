@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { inicioCiclo } from "@/lib/jornada";
 import SaudeCliente from "./SaudeCliente";
 
 export default async function SaudePage() {
@@ -8,18 +9,20 @@ export default async function SaudePage() {
     select: {
       id: true, nome: true, codigo: true, tipo: true, status: true, saude: true,
       saudeMotivo: true, saudeMotivoEm: true, inicio: true, prazo: true,
-      etapas: { where: { nome: "onboarding" }, select: { data: true } },
+      etapas: { where: { nome: "onboarding" }, select: { data: true, programa: true } },
+      renovacoes: { select: { acao: true, destino: true, data: true } },
       acompanhamentos: { orderBy: { data: "desc" }, take: 1, select: { data: true } },
       presencas: { select: { presente: true } },
     },
   });
 
-  const data = mentorados.map(({ etapas, acompanhamentos, presencas, ...m }) => ({
+  const data = mentorados.map(({ etapas, acompanhamentos, presencas, renovacoes, ...m }) => ({
     ...m,
     inicio: m.inicio?.toISOString() ?? null,
     prazo: m.prazo?.toISOString() ?? null,
     saudeMotivoEm: m.saudeMotivoEm?.toISOString() ?? null,
-    onboarding: etapas[0]?.data?.toISOString() ?? null,
+    onboarding: etapas.find(e => !e.programa || e.programa === m.tipo)?.data?.toISOString() ?? null,
+    inicioCiclo: inicioCiclo({ inicio: m.inicio?.toISOString() ?? null, tipo: m.tipo, renovacoes: renovacoes.map(r => ({ ...r, data: r.data.toISOString() })) }),
     ultimoAcomp: acompanhamentos[0]?.data.toISOString() ?? null,
     presTotal: presencas.length,
     presOk: presencas.filter(p => p.presente).length,

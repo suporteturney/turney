@@ -2,14 +2,14 @@
 import { useState, type ReactNode } from "react";
 import j from "./Jornada.module.css";
 
-export type Etapa = { id: string; nome: string; data: string | null };
+export type Etapa = { id: string; nome: string; data: string | null; programa?: string };
 export type Presenca = { id: string; encontro: string; presente: boolean };
 export type Acomp = {
   id: string; data: string; tipo: string | null; texto: string; autor: string | null;
   marco: boolean; marcoTitulo: string | null;
 };
 export type Obs = { id: string; data: string; texto: string; autor: string | null };
-export type Renov = { id: string; acao: string; destino: string; data: string; novoPrazo: string | null; obs: string | null };
+export type Renov = { id: string; acao: string; destino: string; data: string; novoPrazo: string | null; obs: string | null; programaAnterior?: string | null };
 
 export type Detalhe = {
   id: string; codigo: string | null; nome: string; tipo: string; status: string; saude: string | null;
@@ -24,44 +24,11 @@ export type Detalhe = {
   etapas: Etapa[]; presencas: Presenca[]; acompanhamentos: Acomp[]; observacoes: Obs[]; renovacoes: Renov[];
 };
 
-export type Campo = { key: string; label: string };
-export type CampoEtapa = Campo & { campoMentorada?: "vagaData" };
+import {
+  MUDANCAS, dataEtapa, diasEntre, etapaFields, fmt, hojeISO, inicioCiclo, mudancaDePrograma,
+} from "@/lib/jornada";
 
-export const toInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
-export const fmt = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
-export const hojeISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-export const diasEntre = (a: string, b: string) =>
-  Math.round((Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 86400000);
-
-const E = {
-  onboarding: { key: "onboarding", label: "Onboarding" },
-  devolutiva: { key: "devolutiva", label: "Devolutiva Comportamental" },
-  mentoria: { key: "sessao", label: "Mentoria Individual" },
-  correcao: { key: "correcao", label: "Correção de Materiais" },
-  analise: { key: "analise", label: "Análise Integrativa de Perfil" },
-  entrevista: { key: "entrevista", label: "1ª Entrevista" },
-  aprovacao: { key: "aprovacao", label: "Aprovação", campoMentorada: "vagaData" },
-} satisfies Record<string, CampoEtapa>;
-
-export function etapaFields(tipo: string): CampoEtapa[] {
-  switch (tipo) {
-    case "Nexus 1": return [E.onboarding, E.mentoria, E.correcao, E.entrevista, E.aprovacao];
-    case "Nexus 2": return [E.onboarding, E.mentoria, E.entrevista, E.aprovacao];
-    case "Nexus 3": return [E.onboarding, E.analise, E.entrevista, E.aprovacao];
-    case "Atlas": return [E.onboarding, E.devolutiva, E.mentoria, E.entrevista, E.aprovacao];
-    case "Delta":
-      return [E.onboarding, ...[1, 2, 3, 4].map(i => ({ key: `encontro${i}`, label: `Encontro Individual ${i}` }))];
-    default: return [E.onboarding];
-  }
-}
-
-export function dataEtapa(d: Pick<Detalhe, "etapas" | "vagaData">, f: CampoEtapa): string | null {
-  if (f.campoMentorada) return d[f.campoMentorada];
-  return d.etapas.find(e => e.nome === f.key)?.data ?? null;
-}
+export * from "@/lib/jornada";
 
 type Evento = {
   key: string;
@@ -84,7 +51,11 @@ const ETAPA_LABEL: Record<string, string> = {
 
 function montarJornada(d: Detalhe): Evento[] {
   const ev: Evento[] = [];
-  if (d.inicio) ev.push({ key: "inicio", data: d.inicio, titulo: `Início no ${d.tipo}`, nivel: "etapa" });
+  const mudanca = mudancaDePrograma(d);
+  if (d.inicio) {
+    const antes = mudanca ? mudanca.programaAnterior ?? "programa anterior" : d.tipo;
+    ev.push({ key: "inicio", data: d.inicio, titulo: `Início no ${antes}`, nivel: "etapa" });
+  }
   const anterior = d.produtoAnterior?.trim();
   if (anterior && !/^[-.]$/.test(anterior)) {
     const o = (d.origem ?? "").toLowerCase();
@@ -101,7 +72,8 @@ function montarJornada(d: Detalhe): Evento[] {
   for (const e of d.etapas) {
     if (!e.data) continue;
     const label = ETAPA_LABEL[e.nome] ?? (e.nome.startsWith("encontro") ? `Encontro Individual ${e.nome.slice(8)}` : e.nome);
-    ev.push({ key: `et-${e.id}`, data: e.data, titulo: label, nivel: "etapa" });
+    const outro = e.programa && e.programa !== d.tipo;
+    ev.push({ key: `et-${e.id}`, data: e.data, titulo: outro ? `${label} · ${e.programa}` : label, nivel: "etapa" });
   }
   for (const a of d.acompanhamentos) {
     ev.push({
@@ -119,7 +91,10 @@ function montarJornada(d: Detalhe): Evento[] {
   }
   for (const r of d.renovacoes) {
     ev.push({
-      key: `rn-${r.id}`, data: r.data, titulo: `${r.acao[0]}${r.acao.slice(1).toLowerCase()} → ${r.destino}`,
+      key: `rn-${r.id}`, data: r.data,
+      titulo: MUDANCAS.includes(r.acao) && r.programaAnterior
+        ? `${r.acao[0]}${r.acao.slice(1).toLowerCase()}: ${r.programaAnterior} → ${r.destino} · nova jornada começa`
+        : `${r.acao[0]}${r.acao.slice(1).toLowerCase()} → ${r.destino}`,
       texto: r.obs ?? undefined, meta: r.novoPrazo ? `Novo prazo ${fmt(r.novoPrazo)}` : undefined,
       nivel: r.acao === "DOWNGRADE" || r.acao === "CROSS" ? "entrada" : "marco",
     });
@@ -146,7 +121,9 @@ type Fase = { key: string; label: string; data: string | null; estado: "feito" |
 
 function montarFases(d: Detalhe): Fase[] {
   const hoje = hojeISO();
-  const fases: Fase[] = [{ key: "inicio", label: "Início", data: d.inicio, estado: d.inicio ? "feito" : "pendente" }];
+  const ciclo = inicioCiclo(d);
+  const mudou = !!mudancaDePrograma(d);
+  const fases: Fase[] = [{ key: "inicio", label: mudou ? `Início no ${d.tipo}` : "Início", data: ciclo, estado: ciclo ? "feito" : "pendente" }];
   for (const f of etapaFields(d.tipo)) {
     const data = dataEtapa(d, f);
     fases.push({ key: f.key, label: f.label, data, estado: data ? "feito" : "pendente" });
@@ -183,8 +160,9 @@ export default function Jornada({
   const ultimo = d.acompanhamentos[0]?.data ?? null;
   const diasSemAcomp = ultimo ? diasEntre(ultimo, hojeISO()) : null;
   const ativa = d.status === "Ativo" || d.status === "Em Andamento" || d.status === "Em Renovação";
-  const semanaAtual = d.inicio ? Math.max(1, Math.floor(diasEntre(d.inicio, hojeISO()) / 7) + 1) : null;
-  const semanasTotal = d.inicio && d.prazo ? Math.max(1, Math.round(diasEntre(d.inicio, d.prazo) / 7)) : null;
+  const ciclo = inicioCiclo(d);
+  const semanaAtual = ciclo ? Math.max(1, Math.floor(diasEntre(ciclo, hojeISO()) / 7) + 1) : null;
+  const semanasTotal = ciclo && d.prazo ? Math.max(1, Math.round(diasEntre(ciclo, d.prazo) / 7)) : null;
   const hoje = hojeISO();
   const idxHoje = eventos.findIndex(e => e.data.slice(0, 10) > hoje);
   const semanaTxt =

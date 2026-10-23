@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Jornada, {
-  type Acomp, type Campo, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, fmt, hojeISO, toInput,
+  type Acomp, type Campo, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, etapasDoPrograma, fmt, hojeISO,
+  inicioCiclo, mudancaDePrograma, nomeEtapa, toInput,
 } from "./Jornada";
 import RenovarModal from "./RenovarModal";
 import { ehLiveEvento } from "@/lib/origem";
@@ -493,7 +494,15 @@ export default function MentoradaDrawer({
           {d && aba === "etapas" && (() => {
             const fields = etapaFields(d.tipo);
             const chaves = new Set(fields.map(f => f.key));
-            const extras = d.etapas.filter(e => !chaves.has(e.nome) && e.data);
+            const atuais = etapasDoPrograma(d);
+            const extras = atuais.filter(e => !chaves.has(e.nome) && e.data);
+            const anteriores = new Map<string, typeof d.etapas>();
+            for (const e of d.etapas) {
+              if (!e.data || !e.programa || e.programa === d.tipo) continue;
+              anteriores.set(e.programa, [...(anteriores.get(e.programa) ?? []), e]);
+            }
+            const ciclo = inicioCiclo(d);
+            const mudanca = mudancaDePrograma(d);
             const feitas = fields.filter(f => dataEtapa(d, f)).length;
             const pct = fields.length ? Math.round((feitas / fields.length) * 100) : 0;
             const info = GRUPO[d.tipo];
@@ -509,15 +518,21 @@ export default function MentoradaDrawer({
                   </div>
                 )}
                 <div className={s.sectionTitle}>Etapas acompanhadas — {d.tipo}</div>
+                {mudanca && (
+                  <div className={s.cicloAviso}>
+                    Jornada do {d.tipo} iniciada em {fmt(mudanca.data)} ({mudanca.acao === "UPGRADE" ? "upgrade" : mudanca.acao === "DOWNGRADE" ? "downgrade" : "mudança"}
+                    {mudanca.programaAnterior ? ` do ${mudanca.programaAnterior}` : ""}). As etapas abaixo contam a partir dessa data.
+                  </div>
+                )}
                 {fields.map(f => {
                   const val = dataEtapa(d, f);
-                  const dias = val && d.inicio ? diasEntre(d.inicio, val) : null;
+                  const dias = val && ciclo ? diasEntre(ciclo, val) : null;
                   return (
                     <div key={f.key} className={s.etapaRow}>
                       <span className={`${s.dot} ${val ? s.dotOn : ""}`} />
                       <span className={s.etapaLabel}>
                         {f.label}
-                        {dias !== null && <em>{dias}d após início</em>}
+                        {dias !== null && <em>{dias}d após {mudanca ? `início no ${d.tipo}` : "início"}</em>}
                       </span>
                       <input
                         type="date"
@@ -535,12 +550,24 @@ export default function MentoradaDrawer({
                     {extras.map(e => (
                       <div key={e.id} className={s.etapaRow}>
                         <span className={`${s.dot} ${s.dotOn}`} />
-                        <span className={s.etapaLabel}>{e.nome}</span>
+                        <span className={s.etapaLabel}>{nomeEtapa(e.nome)}</span>
                         <span className={s.entryMuted}>{fmt(e.data)}</span>
                       </div>
                     ))}
                   </>
                 )}
+                {[...anteriores.entries()].map(([prog, etapas]) => (
+                  <div key={prog} className={s.anterior}>
+                    <div className={s.sectionTitle} style={{ marginTop: 18 }}>Jornada anterior — {prog}</div>
+                    {etapas.sort((x, y) => (x.data ?? "").localeCompare(y.data ?? "")).map(e => (
+                      <div key={e.id} className={s.etapaRow}>
+                        <span className={`${s.dot} ${s.dotOn}`} />
+                        <span className={s.etapaLabel}>{nomeEtapa(e.nome)}</span>
+                        <span className={s.entryMuted}>{fmt(e.data)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
                 {info && (
                   <>
                     <div className={s.sectionTitle} style={{ marginTop: 18 }}>Encontros em grupo</div>

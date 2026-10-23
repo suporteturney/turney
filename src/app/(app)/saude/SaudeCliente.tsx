@@ -9,7 +9,7 @@ import s from "./saude.module.css";
 type Linha = {
   id: string; nome: string; codigo: string | null; tipo: string; status: string; saude: string | null;
   saudeMotivo: string | null; saudeMotivoEm: string | null; inicio: string | null; prazo: string | null;
-  onboarding: string | null; ultimoAcomp: string | null; presTotal: number; presOk: number;
+  onboarding: string | null; inicioCiclo: string | null; ultimoAcomp: string | null; presTotal: number; presOk: number;
 };
 
 type Nivel = "Saudável" | "Atenção" | "Risco" | "sem";
@@ -50,8 +50,8 @@ function sinais(m: Linha): Sinal[] {
     if (d < 0) out.push({ texto: "Contrato vencido", tom: "danger" });
     else if (d <= 30) out.push({ texto: `Contrato vence em ${d}d`, tom: "warn" });
   }
-  if (!m.onboarding && m.inicio && diasDesde(m.inicio) > 7) {
-    out.push({ texto: `Onboarding pendente (${diasDesde(m.inicio)}d de programa)`, tom: "warn" });
+  if (!m.onboarding && m.inicioCiclo && diasDesde(m.inicioCiclo) > 7) {
+    out.push({ texto: `Onboarding pendente (${diasDesde(m.inicioCiclo)}d de programa)`, tom: "warn" });
   }
   return out;
 }

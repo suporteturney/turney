@@ -1,13 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 import JornadaModal from "@/components/JornadaModal";
-import { type CampoEtapa, type Etapa, dataEtapa, diasEntre, etapaFields, fmt } from "@/components/Jornada";
+import { type CampoEtapa, type Etapa, dataEtapa, diasEntre, etapaFields, fmt, inicioCiclo } from "@/components/Jornada";
 import styles from "../shared.module.css";
 import f from "../filtros.module.css";
 
 type Linha = {
   id: string; nome: string; tipo: string; status: string; inicio: string | null; codigo: string | null;
   vagaData: string | null; etapas: Etapa[];
+  renovacoes: { acao: string; destino: string; data: string }[];
 };
 
 const ORDEM = ["onboarding", "devolutiva", "sessao", "correcao", "analise", "entrevista", "aprovacao"];
@@ -40,7 +41,7 @@ export default function JornadaCliente({ data }: { data: Linha[] }) {
   const kpis = colunas.map(c => {
     const aplicaveis = lista.filter(m => etapaFields(m.tipo).some(x => x.key === c.key));
     const feitas = aplicaveis.map(m => ({ m, data: dataEtapa(m, c) })).filter(x => x.data);
-    const dias = feitas.map(x => (x.m.inicio ? diasEntre(x.m.inicio, x.data!) : null)).filter((n): n is number => n !== null && n >= 0);
+    const dias = feitas.map(x => { const ini = inicioCiclo(x.m); return ini ? diasEntre(ini, x.data!) : null; }).filter((n): n is number => n !== null && n >= 0);
     return { c, total: aplicaveis.length, feitas: feitas.length, media: media(dias) };
   });
 
@@ -116,7 +117,8 @@ export default function JornadaCliente({ data }: { data: Linha[] }) {
                         const campo = campos.find(x => x.key === c.key);
                         if (!campo) return <td key={c.key} className={f.na}>n/a</td>;
                         const val = dataEtapa(m, campo);
-                        const dias = val && m.inicio ? diasEntre(m.inicio, val) : null;
+                        const ini = inicioCiclo(m);
+                        const dias = val && ini ? diasEntre(ini, val) : null;
                         return (
                           <td key={c.key} style={{ textAlign: "center" }}>
                             {val ? (
