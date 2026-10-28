@@ -64,7 +64,7 @@ export async function PATCH(
   if (updates.cancelamento) updates.status = "Churn";
   const atual = await prisma.mentorada.findUnique({
     where: { id },
-    select: { negociacao: true, saudeMotivo: true },
+    select: { negociacao: true, saudeMotivo: true, saude: true },
   });
   if (!atual) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
   if ("negociacao" in updates && updates.negociacao !== atual.negociacao)
@@ -72,6 +72,19 @@ export async function PATCH(
   if ("saudeMotivo" in updates && updates.saudeMotivo !== atual.saudeMotivo)
     updates.saudeMotivoEm = updates.saudeMotivo ? new Date() : null;
 
+  const novaSaude = "saude" in updates ? (updates.saude as string | null) : undefined;
+  const mudouSaude = novaSaude !== undefined && novaSaude !== atual.saude && ["Saudável", "Atenção", "Risco"].includes(novaSaude ?? "");
+
   const mentorado = await prisma.mentorada.update({ where: { id }, data: updates });
+  if (mudouSaude) {
+    await prisma.saudeRegistro.create({
+      data: {
+        mentoradaId: id,
+        saude: novaSaude!,
+        motivo: (updates.saudeMotivo as string | null | undefined) ?? atual.saudeMotivo,
+        origem: "cadastro",
+      },
+    });
+  }
   return NextResponse.json(mentorado);
 }

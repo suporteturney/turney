@@ -84,7 +84,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (body.atualizarSaude) {
+    if (body.atualizarSaude && casadas.length) {
+      await tx.saudeRegistro.createMany({
+        data: casadas.map(({ i, mentoradaId, banda }) => ({
+          mentoradaId: mentoradaId!,
+          saude: SAUDE_DA_BANDA[banda],
+          motivo: [str(i.tag), str(i.status)].filter(Boolean).join(" — ") || null,
+          origem: "varredura",
+          data: dataVarredura,
+        })),
+      });
       for (const { i, mentoradaId, banda } of casadas) {
         await tx.mentorada.update({
           where: { id: mentoradaId! },

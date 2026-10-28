@@ -89,5 +89,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  if (mentorado.saude) {
+    await prisma.saudeRegistro.create({ data: { mentoradaId: mentorado.id, saude: mentorado.saude, origem: "cadastro" } });
+  }
   return NextResponse.json(mentorado, { status: 201 });
 }

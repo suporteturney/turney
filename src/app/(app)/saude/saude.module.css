@@ -172,3 +172,112 @@
 @media (max-width: 1000px) {
   .grid { grid-template-columns: 1fr; }
 }
+
+/* Mês / comparativos */
+.cmpLabel { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt3); }
+.avisoHist {
+  font-size: 12px;
+  color: var(--txt2);
+  background: var(--surface);
+  border: 1px dashed var(--bdr);
+  border-radius: 9px;
+  padding: 10px 14px;
+  line-height: 1.55;
+}
+.cmpTop { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.cmpIdx {
+  background: var(--linen);
+  border: 1px solid var(--bdr);
+  border-radius: 9px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cmpIdx > span { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--txt3); }
+.cmpIdx > span i { width: 7px; height: 7px; border-radius: 50%; }
+.cmpIdx strong { font-size: 22px; font-weight: 800; color: var(--navy-mid); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.deltaBom, .deltaRuim, .deltaN { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.deltaBom { color: #047857; }
+.deltaRuim { color: #B91C1C; }
+.deltaN { color: var(--txt3); font-weight: 600; }
+
+.cmpGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cmpBloco {
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.cmpBloco h4 {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brown);
+  margin-bottom: 10px;
+}
+.cmpVazio { font-size: 12px; color: var(--txt3); line-height: 1.5; }
+.cmpInsight {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--txt2);
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 8px;
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+.cmpPessoas { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 8px; }
+.cmpPessoas em { font-style: normal; font-size: 11px; font-weight: 800; margin-right: 4px; }
+.cmpPessoas button {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--navy-mid);
+  background: var(--linen);
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.cmpPessoas button:hover { border-color: var(--champagne); }
+.up { color: #047857; }
+.down { color: #B91C1C; }
+
+.cmpTabela { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cmpTabela th {
+  text-align: left;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--txt3);
+  padding: 0 6px 6px 0;
+  border-bottom: 1px solid var(--bdr);
+}
+.cmpTabela td { padding: 6px 6px 6px 0; border-bottom: 1px solid #F0EAE0; font-variant-numeric: tabular-nums; color: var(--txt); }
+.cmpTabela td small { color: var(--txt3); font-size: 10px; }
+.cmpTabela tr:last-child td { border-bottom: none; }
+
+.faseRow { display: grid; grid-template-columns: 120px 1fr 34px; gap: 10px; align-items: center; margin-bottom: 8px; }
+.faseLabel { display: flex; flex-direction: column; font-size: 12px; font-weight: 600; color: var(--navy-mid); }
+.faseLabel small { font-size: 10px; font-weight: 500; color: var(--txt3); }
+.faseBar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #F0EAE0; gap: 1px; }
+.faseBar b { display: block; height: 100%; }
+.faseIdx { font-size: 13px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+
+.evo { width: 100%; height: auto; display: block; }
+.evoMeta { stroke: #A7F3D0; stroke-dasharray: 3 3; }
+.evoArea { fill: rgba(201, 168, 118, 0.12); }
+.evoLinha { fill: none; stroke: var(--champagne); stroke-width: 2; stroke-linejoin: round; }
+.evoPonto { fill: var(--champagne); }
+.evoValor { font-size: 10px; font-weight: 800; fill: var(--navy-mid); }
+.evoMes { font-size: 8px; fill: var(--txt3); }
+
+.motivoPassado { font-size: 12px; color: var(--txt2); line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .cmpTop { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cmpGrid { grid-template-columns: 1fr; }
+}

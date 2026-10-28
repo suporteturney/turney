@@ -91,6 +91,7 @@ model Mentorada {
   observacoes Observacao[]
   renovacoes  Renovacao[]
   varreduraItens VarreduraItem[]
+  saudeRegistros SaudeRegistro[]
 }
 
 model Observacao {
@@ -208,4 +209,18 @@ model VarreduraItem {
 
   @@index([varreduraId])
   @@index([mentoradaId])
+}
+
+// Histórico da saúde: uma linha a cada mudança (permite ver a base mês a mês)
+model SaudeRegistro {
+  id          String    @id @default(cuid())
+  mentoradaId String
+  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  saude       String
+  motivo      String?
+  origem      String    // inicial | cadastro | varredura | importacao
+  data        DateTime  @default(now())
+
+  @@index([mentoradaId, data])
+  @@index([data])
 }
