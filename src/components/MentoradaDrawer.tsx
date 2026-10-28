@@ -676,8 +676,14 @@ export default function MentoradaDrawer({
             if (!eventos.length) {
               return <div className={s.empty}>O {d.tipo || "programa"} não tem encontros em grupo para registrar presença.</div>;
             }
-            const todos = meses.flatMap(m => eventos.filter(e => !e.opcional).map(e => presMap.get(`${m}|${e.key}`)));
-            const opcionaisFeitos = meses.flatMap(m => eventos.filter(e => e.opcional).map(e => presMap.get(`${m}|${e.key}`))).filter(v => v === true).length;
+            // Cada evento do mês vira uma lista de sessões: as datadas (importadas do Zoom, "mês|chave|data")
+            // ou, se não houver, o registro mensal manual ("mês|chave").
+            const sessoes = (m: string, e: { key: string }) => {
+              const datadas = [...presMap.keys()].filter(k => k.startsWith(`${m}|${e.key}|`)).sort();
+              return datadas.length ? datadas : [`${m}|${e.key}`];
+            };
+            const todos = meses.flatMap(m => eventos.filter(e => !e.opcional).flatMap(e => sessoes(m, e).map(k => presMap.get(k))));
+            const opcionaisFeitos = meses.flatMap(m => eventos.filter(e => e.opcional).flatMap(e => sessoes(m, e).map(k => presMap.get(k)))).filter(v => v === true).length;
             const pres = todos.filter(v => v === true).length;
             const aus = todos.filter(v => v === false).length;
             const taxa = pres + aus > 0 ? Math.round((pres / (pres + aus)) * 100) : null;
@@ -691,7 +697,7 @@ export default function MentoradaDrawer({
                   <div className={s.track}><div style={{ width: `${taxa ?? 0}%`, background: taxa !== null && taxa < 60 ? "var(--danger)" : "var(--ok)" }} /></div>
                 </div>
                 {[...meses].reverse().map(m => {
-                  const vals = eventos.filter(e => !e.opcional).map(e => presMap.get(`${m}|${e.key}`));
+                  const vals = eventos.filter(e => !e.opcional).flatMap(e => sessoes(m, e).map(k => presMap.get(k)));
                   return (
                     <div key={m} className={s.mes}>
                       <div className={s.mesTitle}>
@@ -701,9 +707,9 @@ export default function MentoradaDrawer({
                         <span className={s.psNd}>· {vals.filter(v => v === undefined).length} pendente</span>
                       </div>
                       <div className={s.presGrid}>
-                        {eventos.map(e => {
-                          const enc = `${m}|${e.key}`;
+                        {eventos.flatMap(e => sessoes(m, e).map(enc => {
                           const v = presMap.get(enc);
+                          const dia = enc.split("|")[2];
                           return (
                             <button
                               key={enc}
@@ -711,11 +717,14 @@ export default function MentoradaDrawer({
                               onClick={() => alternarPresenca(enc, v)}
                             >
                               <span className={s.presCheck}>{v === true ? "✓" : v === false ? "✗" : ""}</span>
-                              <span className={s.presNome}>{e.label}{e.opcional && <small className={s.opcTag}>opcional</small>}</span>
+                              <span className={s.presNome}>
+                                {e.label}{dia && ` · ${dia.slice(8, 10)}/${dia.slice(5, 7)}`}
+                                {e.opcional && <small className={s.opcTag}>opcional</small>}
+                              </span>
                               <span className={s.presState}>{v === true ? "Presente" : v === false ? "Ausente" : "Não registrado"}</span>
                             </button>
                           );
-                        })}
+                        }))}
                       </div>
                     </div>
                   );
