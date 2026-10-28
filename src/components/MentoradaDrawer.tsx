@@ -11,7 +11,7 @@ import s from "./MentoradaDrawer.module.css";
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
 const STATUS = ["Ativo", "Em Andamento", "Em Renovação", "Encerrado", "Churn"];
 const SAUDE = ["Saudável", "Atenção", "Risco"];
-const DISC = ["D", "I", "S", "C", "DI", "DC", "ID", "IC", "IS", "SC", "SI", "CD", "CS", "DIS", "DSI", "DSC", "ISC", "SDC", "Outro"];
+const DISC = ["D", "I", "S", "C", "DI", "DC", "ID", "IC", "IS", "SC", "SI", "CD", "CS", "DIS", "DSI", "DSC", "ISC", "SDC", "CDS", "Outro"];
 const ORIGENS = ["Fluxo de Vendas", "Indicação", "Lives / Eventos", "Instagram", "LinkedIn", "YouTube", "Parceria", "Upsell / Upgrade", "Downgrade", "Cross-sell", "Workshop A Revolução Atlas", "Outra"];
 const DURACOES = ["6", "7", "8", "12"];
 const ACOMP_TIPOS = ["WhatsApp", "Sessão", "E-mail", "Outro"];
