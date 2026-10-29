@@ -31,7 +31,7 @@ type Selecionada = {
 };
 
 const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação"];
-const TIPOS = ["Mentoria individual", "Encontro em grupo", "WhatsApp", "Revisão de material", "Roadmap", "Outro"];
+const TIPOS = ["Observações mentora", "Mentoria individual", "Encontro em grupo", "WhatsApp", "Revisão de material", "Roadmap", "Outro"];
 const SAUDE_COR: Record<string, string> = { "Saudável": "#10B981", "Atenção": "#D97706", Risco: "#EF4444" };
 const grupo = (tipo: string) => tipo.replace(/ \d+$/, "");
 const iniciais = (nome: string | null) =>
@@ -130,7 +130,7 @@ function Painel({ m, autorPadrao, podeRegistrar, podeExcluir }: {
   m: Selecionada; autorPadrao: string; podeRegistrar: boolean; podeExcluir: boolean;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState({ tipo: TIPOS[0], data: hojeISO(), texto: "", marco: false, marcoTitulo: "" });
+  const [form, setForm] = useState({ tipo: TIPOS[0], tipoOutro: "", data: hojeISO(), texto: "", marco: false, marcoTitulo: "" });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [filtroFeed, setFiltroFeed] = useState<"tudo" | "equipe" | "varredura">("equipe");
@@ -139,17 +139,19 @@ function Painel({ m, autorPadrao, podeRegistrar, podeExcluir }: {
 
   async function registrar() {
     if (!form.texto.trim()) return;
+    if (form.tipo === "Outro" && !form.tipoOutro.trim()) return setErro("Escreva qual é o tipo do registro.");
     setSalvando(true);
     setErro(null);
+    const { tipoOutro, ...dados } = form;
     const r = await fetch(`/api/mentorados/${m.id}/acompanhamentos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, autor: autorPadrao }),
+      body: JSON.stringify({ ...dados, tipo: form.tipo === "Outro" ? tipoOutro.trim() : form.tipo, autor: autorPadrao }),
     });
     const j = await r.json().catch(() => ({}));
     setSalvando(false);
     if (!r.ok) return setErro(j.erro || "Não foi possível registrar.");
-    setForm({ ...form, texto: "", marco: false, marcoTitulo: "" });
+    setForm({ ...form, tipoOutro: "", texto: "", marco: false, marcoTitulo: "" });
     router.refresh();
   }
 
@@ -229,6 +231,16 @@ function Painel({ m, autorPadrao, podeRegistrar, podeExcluir }: {
             <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} aria-label="Tipo de registro">
               {TIPOS.map(t => <option key={t}>{t}</option>)}
             </select>
+            {form.tipo === "Outro" && (
+              <input
+                className={d.marcoTitulo}
+                value={form.tipoOutro}
+                onChange={e => setForm({ ...form, tipoOutro: e.target.value })}
+                placeholder="Qual tipo? Ex: Simulação de entrevista"
+                aria-label="Qual é o tipo do registro"
+                autoFocus
+              />
+            )}
             <input type="date" value={form.data} onChange={e => setForm({ ...form, data: e.target.value })} aria-label="Data" />
             <label className={d.marco}>
               <input type="checkbox" checked={form.marco} onChange={e => setForm({ ...form, marco: e.target.checked })} />
