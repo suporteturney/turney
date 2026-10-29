@@ -36,7 +36,7 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
     setErro(null);
     try {
       if (ed.id) {
-        await chamar(`/api/equipe/${ed.id}`, "PATCH", { nome: ed.nome, papel: ed.papel, permissoes: ed.permissoes });
+        await chamar(`/api/equipe/${ed.id}`, "PATCH", { nome: ed.nome, email: ed.email, papel: ed.papel, permissoes: ed.permissoes });
       } else {
         const j = await chamar("/api/equipe", "POST", ed);
         setSenha({ nome: ed.nome, email: ed.email.trim().toLowerCase(), senha: j.senhaProvisoria });
@@ -164,9 +164,12 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
                 </label>
                 <label className={m.field}>
                   <span>E-mail de acesso</span>
-                  <input type="email" value={ed.email} disabled={!!ed.id} onChange={ev => setEd({ ...ed, email: ev.target.value })} placeholder="nome@turneyacademy.com" />
+                  <input type="email" value={ed.email} onChange={ev => setEd({ ...ed, email: ev.target.value })} placeholder="nome@turneyacademy.com" />
                 </label>
               </div>
+              {ed.id && ed.email.trim().toLowerCase() !== inicial.find(p => p.id === ed.id)?.email && (
+                <div className={m.sub}>A senha continua a mesma. A partir de agora, {ed.id === euId ? "você entra" : `${ed.nome.split(" ")[0]} entra`} com o e-mail novo.</div>
+              )}
               <label className={m.field}>
                 <span>Nível</span>
                 <select

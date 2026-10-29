@@ -16,8 +16,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const atual = await prisma.usuario.findUnique({ where: { id } });
   if (!atual) return NextResponse.json({ erro: "Acesso não encontrado." }, { status: 404 });
 
-  const dados: { nome?: string; papel?: string; permissoes?: string[]; ativo?: boolean } = {};
+  const dados: { nome?: string; email?: string; papel?: string; permissoes?: string[]; ativo?: boolean } = {};
   if (typeof body.nome === "string" && body.nome.trim()) dados.nome = body.nome.trim();
+  if (typeof body.email === "string") {
+    const email = body.email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ erro: "Digite um e-mail válido." }, { status: 400 });
+    if (email !== atual.email) {
+      if (await prisma.usuario.findUnique({ where: { email } })) {
+        return NextResponse.json({ erro: "Já existe um acesso com esse e-mail." }, { status: 409 });
+      }
+      dados.email = email;
+    }
+  }
   if (PAPEIS.some(p => p.k === body.papel)) dados.papel = body.papel;
   if ("permissoes" in body) dados.permissoes = limparPermissoes(body.permissoes);
   if (typeof body.ativo === "boolean") dados.ativo = body.ativo;

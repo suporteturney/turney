@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { NOME_PERMISSAO, pode, type Permissao } from "@/lib/permissoes";
+import { NOME_PERMISSAO, ehAutora, pode, type Permissao } from "@/lib/permissoes";
 
 export const COOKIE_SESSAO = "sessao";
 const DURACAO_DIAS = 14;
@@ -74,6 +74,17 @@ export async function exigirUsuario(): Promise<UsuarioSessao> {
 }
 
 // Nas rotas da API: devolve a resposta 403 quando falta a permissão, ou null quando pode seguir.
+export function semAutoria(usuario: UsuarioSessao, autor: string | null) {
+  if (usuario.trocarSenha) {
+    return NextResponse.json({ erro: "Crie a sua senha antes de fazer alterações." }, { status: 403 });
+  }
+  if (ehAutora(usuario, autor)) return null;
+  return NextResponse.json(
+    { erro: "Só quem escreveu este registro ou uma administradora pode editar ou excluir." },
+    { status: 403 },
+  );
+}
+
 export function semPermissao(usuario: UsuarioSessao, ...necessarias: Permissao[]) {
   if (usuario.trocarSenha) {
     return NextResponse.json({ erro: "Crie a sua senha antes de fazer alterações." }, { status: 403 });

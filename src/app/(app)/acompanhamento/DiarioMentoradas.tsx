@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import MentoradaDrawer from "@/components/MentoradaDrawer";
 import { encontrosGrupo, etapaFields, fmt, hojeISO } from "@/lib/jornada";
+import { ehAutora } from "@/lib/permissoes";
 import { BANDAS } from "@/lib/varredura";
 import styles from "../shared.module.css";
 import a from "./acompanhamento.module.css";
@@ -30,6 +31,9 @@ type Selecionada = {
   varredura: { data: string; banda: string; tag: string | null; etapa: string | null; status: string | null; pendencias: string[]; proximos: string[] } | null;
 };
 
+type Eu = { nome: string; papel: string };
+type Edicao = { id: string; rota: "acompanhamentos" | "observacoes"; texto: string; tipo: string; tipoOutro: string; data: string };
+
 const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação"];
 const TIPOS = ["Observações mentora", "Mentoria individual", "Encontro em grupo", "WhatsApp", "Revisão de material", "Roadmap", "Outro"];
 const SAUDE_COR: Record<string, string> = { "Saudável": "#10B981", "Atenção": "#D97706", Risco: "#EF4444" };
@@ -42,7 +46,7 @@ export default function DiarioMentoradas(props: {
   selecionada: Selecionada | null;
   autorPadrao: string;
   podeRegistrar: boolean;
-  podeExcluir: boolean;
+  eu: Eu;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -126,8 +130,8 @@ export default function DiarioMentoradas(props: {
   );
 }
 
-function Painel({ m, autorPadrao, podeRegistrar, podeExcluir }: {
-  m: Selecionada; autorPadrao: string; podeRegistrar: boolean; podeExcluir: boolean;
+function Painel({ m, autorPadrao, podeRegistrar, eu }: {
+  m: Selecionada; autorPadrao: string; podeRegistrar: boolean; eu: Eu;
 }) {
   const router = useRouter();
   const [form, setForm] = useState({ tipo: TIPOS[0], tipoOutro: "", data: hojeISO(), texto: "", marco: false, marcoTitulo: "" });
@@ -136,6 +140,9 @@ function Painel({ m, autorPadrao, podeRegistrar, podeExcluir }: {
   const [filtroFeed, setFiltroFeed] = useState<"tudo" | "equipe" | "varredura">("equipe");
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const [ficha, setFicha] = useState(false);
+  const [edicao, setEdicao] = useState<Edicao | null>(null);
+  const [salvandoEd, setSalvandoEd] = useState(false);
+  const [erroEd, setErroEd] = useState<string | null>(null);
 
   async function registrar() {
     if (!form.texto.trim()) return;
@@ -162,6 +169,36 @@ function Painel({ m, autorPadrao, podeRegistrar, podeExcluir }: {
       const j = await r.json().catch(() => ({}));
       return window.alert(j.erro || "Não foi possível excluir.");
     }
+    router.refresh();
+  }
+
+  function editar(r: { id: string; rota: "acompanhamentos" | "observacoes"; texto: string; tipo: string | null; data: string }) {
+    const tipo = r.tipo ?? "";
+    const conhecido = TIPOS.includes(tipo) && tipo !== "Outro";
+    setErroEd(null);
+    setEdicao({
+      id: r.id, rota: r.rota, texto: r.texto, data: r.data.slice(0, 10),
+      tipo: conhecido ? tipo : "Outro", tipoOutro: conhecido ? "" : tipo,
+    });
+  }
+
+  async function salvarEdicao() {
+    if (!edicao || !edicao.texto.trim()) return;
+    if (edicao.rota === "acompanhamentos" && edicao.tipo === "Outro" && !edicao.tipoOutro.trim()) return setErroEd("Escreva qual é o tipo do registro.");
+    setSalvandoEd(true);
+    setErroEd(null);
+    const body = edicao.rota === "acompanhamentos"
+      ? { item: edicao.id, texto: edicao.texto, data: edicao.data, tipo: edicao.tipo === "Outro" ? edicao.tipoOutro.trim() : edicao.tipo }
+      : { item: edicao.id, texto: edicao.texto };
+    const r = await fetch(`/api/mentorados/${m.id}/${edicao.rota}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    setSalvandoEd(false);
+    if (!r.ok) return setErroEd(j.erro || "Não foi possível salvar.");
+    setEdicao(null);
     router.refresh();
   }
 
@@ -341,15 +378,57 @@ function Painel({ m, autorPadrao, podeRegistrar, podeExcluir }: {
                   <span>· {fmt(r.data)}</span>
                   {r.tipo && !r.daVarredura && <span className={d.chip}>{r.tipo}</span>}
                   {r.marco && <span className={d.chipMarco}>★ {r.marcoTitulo || "Evolução"}</span>}
-                  {podeExcluir && !r.daVarredura && (
-                    <button className={d.remover} onClick={() => excluir(r.rota, r.id)} aria-label="Excluir registro">✕</button>
+                  {!r.daVarredura && ehAutora(eu, r.autor) && edicao?.id !== r.id && (
+                    <span className={d.acoesPost}>
+                      <button className={d.acao} onClick={() => editar(r)}>Editar</button>
+                      <button className={d.remover} onClick={() => excluir(r.rota, r.id)}>Excluir</button>
+                    </span>
                   )}
                 </div>
-                <p className={d.texto}>{longo && !aberto ? `${r.texto.slice(0, 420)}…` : r.texto}</p>
-                {longo && (
-                  <button className={d.verMais} onClick={() => setAbertos(s => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}>
-                    {aberto ? "Ver menos" : "Veja mais"}
-                  </button>
+                {edicao?.id === r.id ? (
+                  <div className={d.edicao}>
+                    <textarea
+                      rows={Math.min(12, Math.max(4, edicao.texto.split("\n").length + 1))}
+                      value={edicao.texto}
+                      onChange={e => setEdicao({ ...edicao, texto: e.target.value })}
+                      aria-label="Editar registro"
+                      autoFocus
+                    />
+                    <div className={d.composerBarra}>
+                      {edicao.rota === "acompanhamentos" && (
+                        <>
+                          <select value={edicao.tipo} onChange={e => setEdicao({ ...edicao, tipo: e.target.value })} aria-label="Tipo de registro">
+                            {TIPOS.map(t => <option key={t}>{t}</option>)}
+                          </select>
+                          {edicao.tipo === "Outro" && (
+                            <input
+                              className={d.marcoTitulo}
+                              value={edicao.tipoOutro}
+                              onChange={e => setEdicao({ ...edicao, tipoOutro: e.target.value })}
+                              placeholder="Qual tipo? Ex: Simulação de entrevista"
+                              aria-label="Qual é o tipo do registro"
+                            />
+                          )}
+                          <input type="date" value={edicao.data} onChange={e => setEdicao({ ...edicao, data: e.target.value })} aria-label="Data" />
+                        </>
+                      )}
+                      <span className={d.espaco} />
+                      {erroEd && <span className={d.erro}>{erroEd}</span>}
+                      <button className={a.btnGhost} onClick={() => setEdicao(null)} disabled={salvandoEd}>Cancelar</button>
+                      <button className={a.btnPrimary} onClick={salvarEdicao} disabled={salvandoEd || !edicao.texto.trim()}>
+                        {salvandoEd ? "Salvando…" : "Salvar"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className={d.texto}>{longo && !aberto ? `${r.texto.slice(0, 420)}…` : r.texto}</p>
+                    {longo && (
+                      <button className={d.verMais} onClick={() => setAbertos(s => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}>
+                        {aberto ? "Ver menos" : "Veja mais"}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </li>

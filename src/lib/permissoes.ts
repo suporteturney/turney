@@ -31,4 +31,11 @@ export function pode(u: { papel: string; permissoes?: string[] | null } | null |
   return u.papel === "admin" || (u.permissoes ?? []).includes(p);
 }
 
-export const NOME_PERMISSAO = Object.fromEntries(PERMISSOES.map(p => [p.k, p.label])) as Record<Permissao, string>;
+// Registros do diário: só quem escreveu ou uma administradora edita e exclui.
+const mesmoNome = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+export function ehAutora(u: { nome: string; papel: string } | null | undefined, autor: string | null | undefined) {
+  if (!u) return false;
+  return u.papel === "admin" || (!!autor && mesmoNome(autor, u.nome));
+}
+
+export const NOME_PERMISSAO =Object.fromEntries(PERMISSOES.map(p => [p.k, p.label])) as Record<Permissao, string>;

@@ -155,7 +155,7 @@ async function DiarioPagina({ usuario, selecionadaId }: { usuario: UsuarioSessao
     <DiarioMentoradas
       autorPadrao={usuario.nome}
       podeRegistrar={pode(usuario, "acompanhamento")}
-      podeExcluir={pode(usuario, "excluir")}
+      eu={{ nome: usuario.nome, papel: usuario.papel }}
       lista={lista.map(x => ({
         id: x.id, nome: x.nome, tipo: x.tipo, status: x.status, saude: x.saude, saudeNota: x.saudeNota,
         ultimoRegistro: x.acompanhamentos[0] ? { data: x.acompanhamentos[0].data.toISOString(), autor: x.acompanhamentos[0].autor } : null,
