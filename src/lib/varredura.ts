@@ -65,7 +65,45 @@ function dataISO(v: unknown): string | null {
   return null;
 }
 
+const MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+// Lê o código da página do painel de acompanhamento gerado no projeto do Claude
+// (constantes `mentees` e `PRIORITY_ORDER` dentro do <script>).
+function lerPaginaPainel(texto: string): Record<string, unknown> | null {
+  const arrayDe = (nome: string) => {
+    const ini = texto.search(new RegExp(`const\\s+${nome}\\s*=\\s*\\[`));
+    if (ini < 0) return null;
+    const abre = texto.indexOf("[", ini);
+    let nivel = 0, emTexto = false, escape = false;
+    for (let i = abre; i < texto.length; i++) {
+      const c = texto[i];
+      if (emTexto) {
+        if (escape) escape = false;
+        else if (c === "\\") escape = true;
+        else if (c === '"') emTexto = false;
+      } else if (c === '"') emTexto = true;
+      else if (c === "[") nivel++;
+      else if (c === "]" && --nivel === 0) return JSON.parse(texto.slice(abre, i + 1));
+    }
+    return null;
+  };
+  const mentees = arrayDe("mentees");
+  if (!mentees) return null;
+  const sem = texto.replace(/<[^>]+>/g, " ");
+  const d = sem.match(/atualizado em (\d{1,2}) de ([a-zç]+) de (\d{4})/i);
+  const mes = d ? MESES_PT.indexOf(d[2].toLowerCase()) + 1 : 0;
+  const prog = sem.match(/Mentoria (Atlas|Nexus|Delta)/i);
+  return {
+    mentoradas: mentees,
+    prioridade: arrayDe("PRIORITY_ORDER") ?? [],
+    data: d && mes ? `${d[3]}-${String(mes).padStart(2, "0")}-${d[1].padStart(2, "0")}` : null,
+    programa: prog ? prog[1][0].toUpperCase() + prog[1].slice(1).toLowerCase() : null,
+  };
+}
+
 function extrairJSON(texto: string): unknown {
+  const pagina = /const\s+mentees\s*=/.test(texto) ? lerPaginaPainel(texto) : null;
+  if (pagina) return pagina;
   const t = texto.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
   try {
     return JSON.parse(t);

@@ -19,12 +19,33 @@ model Usuario {
   nome         String
   email        String    @unique
   senhaHash    String
-  papel        String    @default("equipe") // admin | equipe
+  papel        String    @default("leitura") // admin | mentora | suporte | leitura (src/lib/permissoes.ts)
+  permissoes   String[]  @default([]) // cadastro | jornada | presencas | acompanhamento | comercial | excluir | equipe
+  trocarSenha  Boolean   @default(false) // pede nova senha no próximo acesso
   ativo        Boolean   @default(true)
   ultimoAcesso DateTime?
   createdAt    DateTime  @default(now())
 
-  sessoes Sessao[]
+  sessoes    Sessao[]
+  atividades Atividade[]
+}
+
+// Registro de atividades: quem fez o quê e quando
+model Atividade {
+  id          String   @id @default(cuid())
+  usuarioId   String?
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  usuarioNome String
+  acao        String // criou | editou | excluiu | importou | entrou | saiu
+  entidade    String // mentorada | etapa | presenca | acompanhamento | observacao | renovacao | varredura | usuario | sessao
+  mentoradaId String?
+  resumo      String
+  detalhe     Json?
+  data        DateTime @default(now())
+
+  @@index([data])
+  @@index([usuarioId, data])
+  @@index([mentoradaId, data])
 }
 
 model Sessao {
@@ -81,6 +102,10 @@ model Mentorada {
   negociacaoEm DateTime?
   saudeMotivo   String?
   saudeMotivoEm DateTime?
+  saudeNota      Int?      // nota calculada 0-100 (src/lib/saude.ts)
+  saudeCalculada String?   // nível que o cálculo indica
+  saudeDetalhe   Json?     // notas de cada parte do cálculo
+  saudeAjusteEm  DateTime? // ajuste manual da saúde (vale até a próxima varredura)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -218,7 +243,7 @@ model SaudeRegistro {
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
   saude       String
   motivo      String?
-  origem      String    // inicial | cadastro | varredura | importacao
+  origem      String    // inicial | cadastro | varredura | importacao | calculo
   data        DateTime  @default(now())
 
   @@index([mentoradaId, data])

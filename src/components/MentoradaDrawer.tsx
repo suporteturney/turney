@@ -6,6 +6,7 @@ import Jornada, {
 } from "./Jornada";
 import RenovarModal from "./RenovarModal";
 import { ehLiveEvento } from "@/lib/origem";
+import { PESOS, ROTULO_PARTE, type Parte } from "@/lib/saude";
 import s from "./MentoradaDrawer.module.css";
 
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
@@ -337,6 +338,7 @@ export default function MentoradaDrawer({
             <div>
               <span>Saúde</span>
               {d.saude ? <span className={`${s.badge} ${SAUDE_CLS[d.saude] ?? s.bSilver}`}>{d.saude}</span> : <strong>—</strong>}
+              {d.saudeNota != null && <small title="Nota calculada: jornada, encontros e acompanhamento">nota {d.saudeNota}{d.saudeAjusteEm ? " · ajuste manual" : ""}</small>}
             </div>
           </div>
         )}
@@ -471,6 +473,21 @@ export default function MentoradaDrawer({
                   <textarea rows={2} value={form.saudeMotivo ?? ""} onChange={set("saudeMotivo")} placeholder="Ex: faltou aos 2 últimos encontros e não respondeu no WhatsApp" />
                 </F>
               </div>
+              {d.saudeDetalhe?.partes && (
+                <div className={s.hint}>
+                  <strong>Saúde calculada: {d.saudeCalculada ?? "sem dados"}{d.saudeNota != null ? ` (nota ${d.saudeNota})` : ""}</strong>
+                  {(Object.entries(ROTULO_PARTE) as [Parte, string][]).map(([k, rotulo]) => {
+                    const p = d.saudeDetalhe!.partes![k];
+                    return p ? <div key={k}>{rotulo} ({PESOS[k]}%): {p.nota ?? "—"} · {p.detalhe}</div> : null;
+                  })}
+                  {d.saudeDetalhe.trava && <div>{d.saudeDetalhe.trava}</div>}
+                  <div>
+                    {d.saudeAjusteEm
+                      ? `Ajuste manual desde ${fmt(d.saudeAjusteEm)} — vale até a próxima varredura. Para voltar ao cálculo, escolha “${d.saudeCalculada ?? "—"}”.`
+                      : "Escolher outra saúde acima vira ajuste manual, que vale até a próxima varredura."}
+                  </div>
+                </div>
+              )}
               <div className={s.row1}>
                 <F label="CS responsável"><input value={form.resp ?? ""} onChange={set("resp")} /></F>
               </div>

@@ -3,7 +3,9 @@ import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { NOME_PERMISSAO, pode, type Permissao } from "@/lib/permissoes";
 
 export const COOKIE_SESSAO = "sessao";
 const DURACAO_DIAS = 14;
@@ -13,6 +15,8 @@ export type UsuarioSessao = {
   nome: string;
   email: string;
   papel: string;
+  permissoes: string[];
+  trocarSenha: boolean;
 };
 
 const hashDoToken = (token: string) =>
@@ -53,18 +57,31 @@ export const usuarioAtual = cache(async (): Promise<UsuarioSessao | null> => {
     select: {
       expiraEm: true,
       usuario: {
-        select: { id: true, nome: true, email: true, papel: true, ativo: true },
+        select: { id: true, nome: true, email: true, papel: true, permissoes: true, trocarSenha: true, ativo: true },
       },
     },
   });
   if (!sessao || sessao.expiraEm < new Date() || !sessao.usuario.ativo)
     return null;
-  const { id, nome, email, papel } = sessao.usuario;
-  return { id, nome, email, papel };
+  const { id, nome, email, papel, permissoes, trocarSenha } = sessao.usuario;
+  return { id, nome, email, papel, permissoes, trocarSenha };
 });
 
 export async function exigirUsuario(): Promise<UsuarioSessao> {
   const usuario = await usuarioAtual();
   if (!usuario) redirect("/login");
   return usuario;
+}
+
+// Nas rotas da API: devolve a resposta 403 quando falta a permissão, ou null quando pode seguir.
+export function semPermissao(usuario: UsuarioSessao, ...necessarias: Permissao[]) {
+  if (usuario.trocarSenha) {
+    return NextResponse.json({ erro: "Crie a sua senha antes de fazer alterações." }, { status: 403 });
+  }
+  const faltam = necessarias.filter(p => !pode(usuario, p));
+  if (!faltam.length) return null;
+  return NextResponse.json(
+    { erro: `Seu acesso não permite esta ação (${faltam.map(p => NOME_PERMISSAO[p]).join(", ")}). Fale com a administradora.` },
+    { status: 403 },
+  );
 }

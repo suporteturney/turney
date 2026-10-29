@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
 
 type Ctx = { params: Promise<{ id: string }> };
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "jornada");
+  if (negado) return negado;
   const { id } = await params;
   const { titulo, data, obs } = await req.json();
   if (!str(titulo)) return NextResponse.json({ erro: "Dê um nome ao encontro extra." }, { status: 400 });
@@ -25,11 +28,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       data: data ? new Date(data) : null,
     },
   });
+  await registrarAtividade(usuario, { acao: "criou", entidade: "etapa", mentoradaId: id, resumo: `Criou o encontro extra “${str(titulo)}” para ${await nomeDaMentorada(id)}` });
   return NextResponse.json(etapa, { status: 201 });
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "jornada");
+  if (negado) return negado;
   const { id } = await params;
   const body = await req.json();
   const item = str(body.item);
@@ -45,14 +51,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const r = await prisma.etapa.updateMany({ where: { id: item, mentoradaId: id, nome: { startsWith: "extra:" } }, data: dados });
   if (!r.count) return NextResponse.json({ erro: "Encontro não encontrado" }, { status: 404 });
+  await registrarAtividade(usuario, { acao: "editou", entidade: "etapa", mentoradaId: id, resumo: `Editou um encontro extra de ${await nomeDaMentorada(id)}`, detalhe: dados });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "jornada", "excluir");
+  if (negado) return negado;
   const { id } = await params;
   const item = new URL(req.url).searchParams.get("item");
   if (!item) return NextResponse.json({ erro: "Encontro inválido" }, { status: 400 });
-  await prisma.etapa.deleteMany({ where: { id: item, mentoradaId: id, nome: { startsWith: "extra:" } } });
+  const r = await prisma.etapa.deleteMany({ where: { id: item, mentoradaId: id, nome: { startsWith: "extra:" } } });
+  if (r.count) await registrarAtividade(usuario, { acao: "excluiu", entidade: "etapa", mentoradaId: id, resumo: `Excluiu um encontro extra de ${await nomeDaMentorada(id)}` });
   return NextResponse.json({ ok: true });
 }

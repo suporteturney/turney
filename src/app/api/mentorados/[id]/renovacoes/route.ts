@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
+import { recalcularSaude } from "@/lib/saude-servidor";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "comercial");
+  if (negado) return negado;
   const { id } = await params;
   const { acao, destino, data, novoPrazo, obs, duracao, atualizarCadastro } = await req.json();
   if (!acao || !destino || !data) {
@@ -49,14 +53,25 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       select: { status: true, tipo: true, prazo: true, duracao: true, renovacaoStatus: true },
     }),
   ]);
+  await registrarAtividade(usuario, {
+    acao: "criou", entidade: "renovacao", mentoradaId: id,
+    resumo: `Registrou ${acao} para ${destino} de ${await nomeDaMentorada(id)}`,
+    detalhe: { acao, destino, data, novoPrazo, atualizarCadastro: Boolean(atualizarCadastro) },
+  });
+  await recalcularSaude([id]);
   return NextResponse.json({ ...r, mentorada });
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "comercial", "excluir");
+  if (negado) return negado;
   const { id } = await params;
   const item = new URL(req.url).searchParams.get("item");
   if (!item) return NextResponse.json({ erro: "Item ausente" }, { status: 400 });
+  const apagada = await prisma.renovacao.findFirst({ where: { id: item, mentoradaId: id }, select: { acao: true, destino: true, data: true } });
   await prisma.renovacao.deleteMany({ where: { id: item, mentoradaId: id } });
+  if (apagada) await registrarAtividade(usuario, { acao: "excluiu", entidade: "renovacao", mentoradaId: id, resumo: `Excluiu a ${apagada.acao} para ${apagada.destino} de ${await nomeDaMentorada(id)}`, detalhe: apagada });
+  await recalcularSaude([id]);
   return NextResponse.json({ ok: true });
 }

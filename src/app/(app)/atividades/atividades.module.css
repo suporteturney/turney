@@ -1,0 +1,23 @@
+.btn {
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: none;
+  background: var(--navy-mid);
+  color: white;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.quando { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--txt2); font-size: 11.5px; }
+.quem { white-space: nowrap; font-weight: 600; }
+.acao { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 1px 8px; background: var(--linen); color: var(--txt2); border: 1px solid var(--bdr); }
+.a_criou, .a_importou { background: #ECFDF5; color: #065F46; border-color: #A7F3D0; }
+.a_excluiu { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
+.a_editou { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+.area { font-size: 10.5px; color: var(--txt3); margin-top: 3px; }
+.det { margin-top: 4px; font-size: 11.5px; color: var(--txt2); }
+.det summary { cursor: pointer; color: var(--brown); font-weight: 600; }
+.det ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.vazio { text-align: center; color: var(--txt3); padding: 24px; }

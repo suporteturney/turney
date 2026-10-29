@@ -218,7 +218,7 @@ export default function ImportarVarreduraModal({
               </label>
               <label className={m.check}>
                 <input type="checkbox" checked={atualizarSaude} onChange={e => setAtualizarSaude(e.target.checked)} />
-                <span><strong>Atualizar a saúde pela cor</strong><small>Vermelho → Risco, amarelo → Atenção, verde → Saudável. O motivo na Saúde da Base vira o resumo da varredura.</small></span>
+                <span><strong>Recalcular a saúde</strong><small>A cor entra no cálculo junto com a jornada e os encontros (verde 100, amarelo 60, vermelho 20) e encerra ajustes manuais anteriores. O motivo na Saúde da Base vira o resumo da varredura.</small></span>
               </label>
             </>
           )}

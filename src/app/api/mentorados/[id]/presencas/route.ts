@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
+import { recalcularSaude } from "@/lib/saude-servidor";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "presencas");
+  if (negado) return negado;
   const { id } = await params;
   const { encontro, presente } = await req.json();
   if (typeof encontro !== "string" || !encontro) {
@@ -15,6 +19,8 @@ export async function PUT(
 
   if (presente === null || presente === undefined) {
     await prisma.presenca.deleteMany({ where: { mentoradaId: id, encontro } });
+    await registrarAtividade(usuario, { acao: "editou", entidade: "presenca", mentoradaId: id, resumo: `Removeu o registro de ${encontro} de ${await nomeDaMentorada(id)}` });
+    await recalcularSaude([id]);
     return NextResponse.json({ ok: true });
   }
 
@@ -23,5 +29,7 @@ export async function PUT(
     update: { presente: Boolean(presente) },
     create: { mentoradaId: id, encontro, presente: Boolean(presente) },
   });
+  await registrarAtividade(usuario, { acao: "editou", entidade: "presenca", mentoradaId: id, resumo: `Marcou ${presente ? "presença" : "falta"} em ${encontro} para ${await nomeDaMentorada(id)}` });
+  await recalcularSaude([id]);
   return NextResponse.json(p);
 }

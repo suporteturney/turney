@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
-import { LISTAS, SAUDE_DA_BANDA, type Banda } from "@/lib/varredura";
+import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { registrarAtividade } from "@/lib/atividade";
+import { LISTAS, type Banda } from "@/lib/varredura";
+import { recalcularSaude } from "@/lib/saude-servidor";
 
 const BANDAS_OK = new Set(["vermelho", "amarelo", "verde"]);
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -18,6 +20,8 @@ function textoAcompanhamento(i: Record<string, unknown>) {
 
 export async function POST(req: NextRequest) {
   const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "acompanhamento");
+  if (negado) return negado;
   const body = await req.json();
 
   const data = str(body.data);
@@ -84,29 +88,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (body.atualizarSaude && casadas.length) {
-      await tx.saudeRegistro.createMany({
-        data: casadas.map(({ i, mentoradaId, banda }) => ({
-          mentoradaId: mentoradaId!,
-          saude: SAUDE_DA_BANDA[banda],
-          motivo: [str(i.tag), str(i.status)].filter(Boolean).join(" — ") || null,
-          origem: "varredura",
-          data: dataVarredura,
-        })),
-      });
-      for (const { i, mentoradaId, banda } of casadas) {
+    if (body.atualizarSaude) {
+      for (const { i, mentoradaId } of casadas) {
         await tx.mentorada.update({
           where: { id: mentoradaId! },
-          data: {
-            saude: SAUDE_DA_BANDA[banda],
-            saudeMotivo: [str(i.tag), str(i.status)].filter(Boolean).join(" — ") || null,
-            saudeMotivoEm: new Date(),
-          },
+          data: { saudeMotivo: [str(i.tag), str(i.status)].filter(Boolean).join(" — ") || null, saudeMotivoEm: new Date() },
         });
       }
     }
     return v;
   }, { timeout: 30000, maxWait: 10000 });
+
+  // A cor da varredura entra no cálculo da saúde (src/lib/saude.ts) junto com jornada e encontros.
+  if (body.atualizarSaude) await recalcularSaude([...existentes]);
+  await registrarAtividade(usuario, {
+    acao: "importou", entidade: "varredura",
+    resumo: `Importou a varredura ${str(body.programa) ?? ""} de ${data.split("-").reverse().join("/")} (${validos.length} mentoradas)`,
+    detalhe: { varreduraId: varredura.id },
+  });
 
   return NextResponse.json({ id: varredura.id }, { status: 201 });
 }

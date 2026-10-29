@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { UsuarioSessao } from "@/lib/auth";
+import { pode, rotuloPapel } from "@/lib/permissoes";
 import styles from "./Sidebar.module.css";
 
 const MENU = [
@@ -29,7 +30,26 @@ const MENU = [
   },
 ];
 
+const MENU_ADMIN = {
+  grupo: "ADMINISTRAÇÃO",
+  itens: [
+    { href: "/equipe", label: "Equipe", icon: "shield" },
+    { href: "/atividades", label: "Atividades", icon: "list" },
+  ],
+};
+
 const ICONS: Record<string, React.ReactNode> = {
+  shield: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
+  list: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  ),
   grid: (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
@@ -97,6 +117,7 @@ const ICONS: Record<string, React.ReactNode> = {
 export default function Sidebar({ usuario }: { usuario: UsuarioSessao }) {
   const pathname = usePathname();
   const router = useRouter();
+  const menu = pode(usuario, "equipe") ? [...MENU, MENU_ADMIN] : MENU;
 
   async function sair() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -120,7 +141,7 @@ export default function Sidebar({ usuario }: { usuario: UsuarioSessao }) {
       </div>
 
       <nav className={styles.nav}>
-        {MENU.map((grupo) => (
+        {menu.map((grupo) => (
           <div key={grupo.grupo}>
             <div className={styles.navHead}>{grupo.grupo}</div>
             {grupo.itens.map((item) => (
@@ -143,8 +164,10 @@ export default function Sidebar({ usuario }: { usuario: UsuarioSessao }) {
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
           <div>
-            <div className={styles.csBadgeTitle}>CS Estratégico</div>
-            <div className={styles.csBadgeSub}>{usuario.nome}</div>
+            <div className={styles.csBadgeTitle}>{usuario.nome}</div>
+            <div className={styles.csBadgeSub}>
+              {rotuloPapel(usuario.papel)} · <Link href="/conta" className={styles.contaLink}>minha senha</Link>
+            </div>
           </div>
           <button onClick={sair} className={styles.sairBtn} title="Sair">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -21,6 +21,8 @@ export type Detalhe = {
   vagaCargo: string | null; vagaEmpresa: string | null; vagaData: string | null;
   negociacao: string | null; negociacaoEm: string | null;
   saudeMotivo: string | null; saudeMotivoEm: string | null;
+  saudeNota?: number | null; saudeCalculada?: string | null; saudeAjusteEm?: string | null;
+  saudeDetalhe?: { partes?: Record<string, { nota: number | null; detalhe: string }>; trava?: string | null } | null;
   etapas: Etapa[]; presencas: Presenca[]; acompanhamentos: Acomp[]; observacoes: Obs[]; renovacoes: Renov[];
 };
 

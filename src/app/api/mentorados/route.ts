@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { registrarAtividade } from "@/lib/atividade";
+import { recalcularSaude } from "@/lib/saude-servidor";
 
 export async function GET(req: NextRequest) {
   await exigirUsuario();
@@ -54,6 +56,8 @@ const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : nu
 
 export async function POST(req: NextRequest) {
   const usuario = await exigirUsuario();
+  const negado = semPermissao(usuario, "cadastro");
+  if (negado) return negado;
   const data = await req.json();
 
   const nome = texto(data.nome);
@@ -92,5 +96,10 @@ export async function POST(req: NextRequest) {
   if (mentorado.saude) {
     await prisma.saudeRegistro.create({ data: { mentoradaId: mentorado.id, saude: mentorado.saude, origem: "cadastro" } });
   }
+  await registrarAtividade(usuario, {
+    acao: "criou", entidade: "mentorada", mentoradaId: mentorado.id,
+    resumo: `Cadastrou ${mentorado.nome} (${mentorado.tipo})`,
+  });
+  await recalcularSaude([mentorado.id]);
   return NextResponse.json(mentorado, { status: 201 });
 }
