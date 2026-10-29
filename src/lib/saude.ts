@@ -18,12 +18,14 @@ export const PRAZOS: Record<string, Record<string, number>> = {
   Delta: { onboarding: 5 },
 };
 const BONUS = { entrevista: 10, aprovacao: 10 };
+const FOLGA_DIAS = 3; // atraso até aqui ainda vale nota cheia
 const TOLERANCIA_ATRASO = 15;
 
 // Encontros em grupo que contam na assiduidade (mesma regra de encontrosGrupo em jornada.ts).
 const OBRIGATORIOS = (tipo: string) =>
   tipo === "Atlas" ? ["hotseat", "tutoria"] : /^Nexus\b/.test(tipo) ? ["evolutionDay", "masterclassDay"] : [];
 export const JANELA_ENCONTROS_DIAS = 60;
+const MIN_ENCONTROS = 2;
 
 export const NOTA_BANDA: Record<string, number> = { verde: 100, amarelo: 60, vermelho: 20 };
 export const VALIDADE_VARREDURA_DIAS = 21;
@@ -65,19 +67,22 @@ function notaJornada(e: EntradaSaude, hoje: string) {
   const datas = new Map(e.etapas.filter(x => !x.programa || x.programa === e.tipo).map(x => [x.nome, x.data]));
   const notas: number[] = [];
   const atrasos: string[] = [];
-  for (const [etapa, prazo] of Object.entries(prazos)) {
+  const etapas = Object.entries(prazos);
+  etapas.forEach(([etapa, prazo], i) => {
     const limite = somaDias(ini, prazo);
     const feita = datas.get(etapa);
     if (feita) {
       const atraso = diasEntre(limite, feita);
-      notas.push(atraso <= 0 ? 100 : atraso <= TOLERANCIA_ATRASO ? 70 : 40);
-      if (atraso > 0) atrasos.push(`${etapa} feita com ${atraso} dias de atraso`);
-    } else if (hoje > limite) {
+      notas.push(atraso <= FOLGA_DIAS ? 100 : atraso <= TOLERANCIA_ATRASO ? 70 : 40);
+      if (atraso > FOLGA_DIAS) atrasos.push(`${etapa} feita com ${atraso} dias de atraso`);
+    } else if (hoje > limite && etapas.slice(i + 1).some(([seguinte]) => datas.get(seguinte))) {
+      // Sem data só conta quando uma etapa seguinte já foi marcada (sinal de que esta foi pulada);
+      // do contrário pode ser só falta de cadastro.
       notas.push(0);
-      atrasos.push(`${etapa} vencida há ${diasEntre(limite, hoje)} dias`);
+      atrasos.push(`${etapa} sem data, mas a etapa seguinte já foi feita`);
     }
-  }
-  if (!notas.length) return { nota: null, detalhe: "Nenhuma etapa com prazo vencido ainda" };
+  });
+  if (!notas.length) return { nota: null, detalhe: "Nenhuma etapa registrada com prazo vencido" };
   let nota = notas.reduce((a, b) => a + b, 0) / notas.length;
   if (datas.get("entrevista")) nota += BONUS.entrevista;
   if (e.vagaData || datas.get("aprovacao")) nota += BONUS.aprovacao;
@@ -96,7 +101,10 @@ function notaEncontros(e: EntradaSaude, hoje: string) {
     const quando = data ?? `${ym}-15`;
     return obrig.includes(chave) && quando >= desde && quando <= hoje && (!ini || quando >= dia(ini));
   });
-  if (!validos.length) return { nota: null, detalhe: `Sem encontros obrigatórios registrados nos últimos ${JANELA_ENCONTROS_DIAS} dias` };
+  // Com só 1 encontro no período (ex.: acabou de entrar), uma falta pesaria demais.
+  if (validos.length < MIN_ENCONTROS) {
+    return { nota: null, detalhe: `Menos de ${MIN_ENCONTROS} encontros obrigatórios nos últimos ${JANELA_ENCONTROS_DIAS} dias` };
+  }
   const pres = validos.filter(p => p.presente).length;
   return {
     nota: Math.round((pres / validos.length) * 100),
