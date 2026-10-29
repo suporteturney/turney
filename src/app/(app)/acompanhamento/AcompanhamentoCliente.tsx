@@ -1,11 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import JornadaModal from "@/components/JornadaModal";
 import ImportarVarreduraModal from "./ImportarVarreduraModal";
 import { BANDAS, PESO_BANDA, type Banda, type MentoradaRef } from "@/lib/varredura";
 import styles from "../shared.module.css";
 import a from "./acompanhamento.module.css";
+import d from "./diario.module.css";
 
 type Item = {
   id: string; nome: string; banda: string; tag: string | null; etapa: string | null; status: string | null;
@@ -64,10 +66,10 @@ export default function AcompanhamentoCliente(props: {
   const sel = props.varreduras.find(v => v.id === props.selecionadaId) ?? null;
 
   const ir = (programa: string, v?: string) => {
-    const q = new URLSearchParams();
+    const q = new URLSearchParams({ visao: "varreduras" });
     if (programa) q.set("programa", programa);
     if (v) q.set("v", v);
-    router.push(`/acompanhamento${q.toString() ? `?${q}` : ""}`);
+    router.push(`/acompanhamento?${q}`);
   };
 
   const cont = { vermelho: 0, amarelo: 0, verde: 0 } as Record<Banda, number>;
@@ -137,6 +139,10 @@ export default function AcompanhamentoCliente(props: {
           <div className={styles.pageSub}>{subtitulo}</div>
         </div>
         <div className={a.topActions}>
+          <nav className={a.progTabs} aria-label="Visão">
+            <Link href="/acompanhamento" className={d.abaLink}>Diário das mentoradas</Link>
+            <span className={a.tabOn} aria-current="page" style={{ padding: "6px 13px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>Varreduras semanais</span>
+          </nav>
           <button className={a.btnPrimary} onClick={() => setImportar(true)}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
