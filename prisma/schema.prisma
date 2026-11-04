@@ -72,7 +72,7 @@ model Mentorada {
   email     String?
   whatsapp  String?
   tipo      String  // Nexus | Atlas | ...
-  status    String  // Ativo | Encerrado | Churn | Em Renovação
+  status    String  // Ativo | Encerrado | Churn | Em Renovação | Congelado
   saude     String? // Ativo | Risco | Crítico | Encerrado
 
   inicio  DateTime?
@@ -86,7 +86,12 @@ model Mentorada {
   origem          String?
   origemDetalhe   String? // qual live/evento, quando a origem é Lives / Eventos
   resp            String? // responsável
+  tutora          String?
   obs             String?
+
+  // Jornada detalhada da automação (Make): id da linha da Config_Jornada e quando entrou nela
+  jornadaEtapa   String?
+  jornadaEtapaEm DateTime?
 
   linkedin     String?
   drive        String?
@@ -94,6 +99,8 @@ model Mentorada {
   disc         String?
   mesesAntes   Int?
   cancelamento DateTime?
+  congelamentoPedido DateTime? // quando a mentorada pediu o congelamento
+  congelamentoAte    DateTime? // até quando vai o congelamento
   vagaCargo    String?
   vagaEmpresa  String?
   vagaData     DateTime?
@@ -126,6 +133,7 @@ model Observacao {
   data        DateTime
   texto       String
   autor       String?
+  fixado      Boolean   @default(false)
   createdAt   DateTime  @default(now())
 
   @@index([mentoradaId])
@@ -186,10 +194,23 @@ model Acompanhamento {
   autor       String?
   varreduraId String?
   varredura   Varredura? @relation(fields: [varreduraId], references: [id], onDelete: Cascade)
+  fixado      Boolean   @default(false)
+  documento   Documento?
   createdAt   DateTime  @default(now())
 
   @@index([mentoradaId])
   @@index([varreduraId])
+}
+
+// Arquivo anexado a um registro do diário (ex: documento do roadmap)
+model Documento {
+  id               String         @id @default(cuid())
+  acompanhamentoId String         @unique
+  acompanhamento   Acompanhamento @relation(fields: [acompanhamentoId], references: [id], onDelete: Cascade)
+  nome             String
+  tipo             String
+  conteudo         Bytes
+  createdAt        DateTime       @default(now())
 }
 
 model Varredura {

@@ -10,7 +10,7 @@ import { PESOS, ROTULO_PARTE, type Parte } from "@/lib/saude";
 import s from "./MentoradaDrawer.module.css";
 
 const PROGRAMAS = ["Nexus 1", "Nexus 2", "Nexus 3", "Atlas", "Delta", "MCR", "FCI", "CP1", "Personalizado"];
-const STATUS = ["Ativo", "Em Andamento", "Em Renovação", "Encerrado", "Churn"];
+const STATUS = ["Ativo", "Em Andamento", "Em Renovação", "Congelado", "Encerrado", "Churn"];
 const SAUDE = ["Saudável", "Atenção", "Risco"];
 const DISC = [
   "D", "I", "S", "C",
@@ -24,7 +24,7 @@ const ACOMP_TIPOS = ["WhatsApp", "Sessão", "E-mail", "Outro"];
 const ACAO_COR: Record<string, string> = { "RENOVAÇÃO": "#10B981", UPGRADE: "#8B5CF6", DOWNGRADE: "#F59E0B", CROSS: "#3B82F6" };
 
 const STATUS_CLS: Record<string, string> = {
-  Ativo: s.bAtivo, "Em Andamento": s.bAtivo, "Em Renovação": s.bRenov, Encerrado: s.bEnc, Churn: s.bChurn,
+  Ativo: s.bAtivo, "Em Andamento": s.bAtivo, "Em Renovação": s.bRenov, Congelado: s.bCong, Encerrado: s.bEnc, Churn: s.bChurn,
 };
 const SAUDE_CLS: Record<string, string> = { Saudável: s.bAtivo, Atenção: s.bRenov, Risco: s.bChurn };
 
@@ -53,6 +53,22 @@ function mesesDoContrato(inicio: string | null, prazo: string | null): string[] 
 }
 const labelMes = (ym: string) => `${MESES[+ym.slice(5, 7) - 1]}/${ym.slice(0, 4)}`;
 
+const diasCongelados = (pedido?: string | null, ate?: string | null) =>
+  pedido && ate ? Math.max(0, diasEntre(pedido, ate)) : 0;
+
+// O servidor estende o encerramento pela diferença entre o congelamento salvo e o novo.
+function avisoCongelamento(form: Form, d: Detalhe) {
+  const { congelamentoPedido: pedido, congelamentoAte: ate } = form;
+  if (pedido && ate && diasEntre(pedido, ate) < 0) return "A data final está antes do pedido";
+  const delta = diasCongelados(pedido, ate) - diasCongelados(d.congelamentoPedido, d.congelamentoAte);
+  if (delta && form.prazo) {
+    const novo = new Date(Date.parse(form.prazo) + delta * 86400000).toISOString();
+    return `Ao salvar, o encerramento passa para ${fmt(novo)} (${delta > 0 ? "+" : ""}${delta} dias).`;
+  }
+  if (pedido && ate) return `${diasCongelados(pedido, ate)} dias de congelamento, já somados ao encerramento. Ao voltar, mude o status para Ativo.`;
+  return undefined;
+}
+
 function opcoes(lista: string[], atual: string) {
   return atual && !lista.includes(atual) ? [atual, ...lista] : lista;
 }
@@ -60,7 +76,7 @@ function opcoes(lista: string[], atual: string) {
 type Form = Record<string, string>;
 const CAMPOS_FORM = [
   "nome", "tipo", "status", "saude", "area", "localizacao", "email", "linkedin", "drive", "asana",
-  "whatsapp", "disc", "produtoAnterior", "origem", "origemDetalhe", "resp", "turma", "vagaCargo", "vagaEmpresa",
+  "whatsapp", "disc", "produtoAnterior", "origem", "origemDetalhe", "resp", "tutora", "turma", "vagaCargo", "vagaEmpresa",
   "saudeMotivo",
 ] as const;
 
@@ -72,6 +88,8 @@ function paraForm(d: Detalhe): Form {
   f.inicio = toInput(d.inicio);
   f.prazo = toInput(d.prazo);
   f.cancelamento = toInput(d.cancelamento);
+  f.congelamentoPedido = toInput(d.congelamentoPedido ?? null);
+  f.congelamentoAte = toInput(d.congelamentoAte ?? null);
   f.vagaData = toInput(d.vagaData);
   return f;
 }
@@ -298,6 +316,7 @@ export default function MentoradaDrawer({
     setForm(f => {
       const n = { ...f, [k]: e.target.value };
       if (k === "cancelamento" && e.target.value) n.status = "Churn";
+      if (k === "congelamentoPedido" && e.target.value && !f.congelamentoPedido) n.status = "Congelado";
       if (k === "origem" && !ehLiveEvento(e.target.value)) n.origemDetalhe = "";
       return n;
     });
@@ -319,6 +338,7 @@ export default function MentoradaDrawer({
                 <span>{d.tipo}</span>
                 {d.area && <span className={s.metaArea}>{d.area}</span>}
                 {d.codigo && <span className={s.metaCod}>#{d.codigo}</span>}
+                {d.status === "Congelado" && d.congelamentoAte && <span>até {fmt(d.congelamentoAte)}</span>}
               </div>
             )}
           </div>
@@ -451,6 +471,14 @@ export default function MentoradaDrawer({
                 </F>
                 <div />
               </div>
+              <div className={s.row}>
+                <F label="Pediu congelamento em" hint="Preencher marca o status como Congelado">
+                  <input type="date" value={form.congelamentoPedido ?? ""} onChange={set("congelamentoPedido")} />
+                </F>
+                <F label="Congelada até" hint={avisoCongelamento(form, d)}>
+                  <input type="date" value={form.congelamentoAte ?? ""} min={form.congelamentoPedido || undefined} onChange={set("congelamentoAte")} />
+                </F>
+              </div>
               <div className={s.row3}>
                 <F label="Tempo de mentoria">
                   <select value={form.duracao ?? ""} onChange={set("duracao")}>
@@ -488,9 +516,16 @@ export default function MentoradaDrawer({
                   </div>
                 </div>
               )}
-              <div className={s.row1}>
+              <div className={s.row}>
                 <F label="CS responsável"><input value={form.resp ?? ""} onChange={set("resp")} /></F>
+                <F label="Tutora"><input value={form.tutora ?? ""} onChange={set("tutora")} /></F>
               </div>
+              {d.jornadaEtapa && (
+                <div className={s.hint}>
+                  Etapa da jornada (automação): <strong>{d.jornadaEtapa}</strong>
+                  {d.jornadaEtapaEm ? ` desde ${fmt(d.jornadaEtapaEm)} (${diasEntre(d.jornadaEtapaEm, hojeISO())} dias)` : ""}
+                </div>
+              )}
 
               <div className={s.sectionTitle}>Aprovação em vaga</div>
               <div className={s.row}>

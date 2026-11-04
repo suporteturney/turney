@@ -11,7 +11,10 @@ type Registro = {
 };
 
 // Grava no registro de atividades quem fez o quê. Nunca derruba a ação principal se falhar.
-export async function registrarAtividade(usuario: Pick<UsuarioSessao, "id" | "nome"> | null, r: Registro) {
+export async function registrarAtividade(
+  usuario: Pick<UsuarioSessao, "id" | "nome"> | { id: null; nome: string } | null,
+  r: Registro,
+) {
   try {
     await prisma.atividade.create({
       data: {

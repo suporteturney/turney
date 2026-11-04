@@ -142,6 +142,7 @@
 .bAtivo { background: var(--ok-bg); color: #065f46; }
 .bEnc { background: var(--danger-bg); color: #991b1b; }
 .bChurn { background: #fee2e2; color: #7f1d1d; }
+.bCong { background: #e0f2fe; color: #075985; }
 .bRenov { background: #ede9fe; color: #4c1d95; }
 .bSau { background: var(--ok-bg); color: #065f46; }
 .bAte { background: var(--warn-bg); color: #92400e; }

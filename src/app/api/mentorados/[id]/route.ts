@@ -29,12 +29,15 @@ export async function GET(
 
 const CAMPOS_TEXTO = [
   "nome", "email", "whatsapp", "status", "saude", "area",
-  "localizacao", "turma", "produtoAnterior", "origem", "origemDetalhe", "resp", "obs",
+  "localizacao", "turma", "produtoAnterior", "origem", "origemDetalhe", "resp", "tutora", "obs",
   "tipo", "linkedin", "drive", "asana", "disc", "vagaCargo", "vagaEmpresa",
   "negociacao", "saudeMotivo", "renovacaoStatus",
 ];
 const CAMPOS_INT = ["duracao", "mesesAntes"];
-const CAMPOS_DATA = ["inicio", "prazo", "cancelamento", "vagaData"];
+const CAMPOS_DATA = ["inicio", "prazo", "cancelamento", "congelamentoPedido", "congelamentoAte", "vagaData"];
+const DIA = 86_400_000;
+const diasCongelados = (de: Date | null, ate: Date | null) =>
+  de && ate && ate > de ? Math.round((ate.getTime() - de.getTime()) / DIA) : 0;
 
 export async function PATCH(
   req: NextRequest,
@@ -67,6 +70,17 @@ export async function PATCH(
   if (updates.cancelamento) updates.status = "Churn";
   const atual = await prisma.mentorada.findUnique({ where: { id } });
   if (!atual) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
+
+  // O congelamento empurra o encerramento pelos dias congelados; mudar ou apagar as datas ajusta só a diferença.
+  if ("congelamentoPedido" in updates || "congelamentoAte" in updates) {
+    const antes = diasCongelados(atual.congelamentoPedido, atual.congelamentoAte);
+    const depois = diasCongelados(
+      ("congelamentoPedido" in updates ? updates.congelamentoPedido : atual.congelamentoPedido) as Date | null,
+      ("congelamentoAte" in updates ? updates.congelamentoAte : atual.congelamentoAte) as Date | null,
+    );
+    const base = ("prazo" in updates ? updates.prazo : atual.prazo) as Date | null;
+    if (base && depois !== antes) updates.prazo = new Date(base.getTime() + (depois - antes) * DIA);
+  }
 
   // Só conta o que de fato mudou: campos comerciais pedem "comercial", o resto "cadastro".
   const mudancas = diferencas(atual as Record<string, unknown>, updates);

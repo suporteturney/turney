@@ -139,7 +139,10 @@ async function DiarioPagina({ usuario, selecionadaId }: { usuario: UsuarioSessao
             etapas: true,
             presencas: true,
             renovacoes: { orderBy: { data: "desc" } },
-            acompanhamentos: { orderBy: [{ data: "desc" }, { createdAt: "desc" }] },
+            acompanhamentos: {
+              orderBy: [{ data: "desc" }, { createdAt: "desc" }],
+              include: { documento: { select: { id: true, nome: true } } },
+            },
             observacoes: { orderBy: { data: "desc" } },
             varreduraItens: {
               orderBy: { varredura: { data: "desc" } },
@@ -173,8 +176,9 @@ async function DiarioPagina({ usuario, selecionadaId }: { usuario: UsuarioSessao
           acompanhamentos: sel.acompanhamentos.map(a => ({
             id: a.id, data: a.data.toISOString(), criadoEm: a.createdAt.toISOString(), tipo: a.tipo, texto: a.texto,
             autor: a.autor, marco: a.marco, marcoTitulo: a.marcoTitulo, daVarredura: !!a.varreduraId,
+            fixado: a.fixado, documento: a.documento,
           })),
-          observacoes: sel.observacoes.map(o => ({ id: o.id, data: o.data.toISOString(), texto: o.texto, autor: o.autor })),
+          observacoes: sel.observacoes.map(o => ({ id: o.id, data: o.data.toISOString(), texto: o.texto, autor: o.autor, fixado: o.fixado })),
           varredura: sel.varreduraItens[0]
             ? {
                 data: sel.varreduraItens[0].varredura.data.toISOString(), banda: sel.varreduraItens[0].banda,

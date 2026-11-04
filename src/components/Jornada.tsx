@@ -15,9 +15,11 @@ export type Detalhe = {
   id: string; codigo: string | null; nome: string; tipo: string; status: string; saude: string | null;
   email: string | null; whatsapp: string | null; area: string | null; localizacao: string | null;
   turma: string | null; produtoAnterior: string | null; origem: string | null; origemDetalhe: string | null; resp: string | null;
+  tutora?: string | null; jornadaEtapa?: string | null; jornadaEtapaEm?: string | null;
   obs: string | null; linkedin: string | null; drive: string | null; asana: string | null; disc: string | null;
   duracao: number | null; mesesAntes: number | null;
   inicio: string | null; prazo: string | null; cancelamento: string | null;
+  congelamentoPedido?: string | null; congelamentoAte?: string | null;
   vagaCargo: string | null; vagaEmpresa: string | null; vagaData: string | null;
   negociacao: string | null; negociacaoEm: string | null;
   saudeMotivo: string | null; saudeMotivoEm: string | null;
@@ -114,6 +116,16 @@ function montarJornada(d: Detalhe): Evento[] {
       key: "vaga", data: d.vagaData ?? d.prazo ?? new Date().toISOString(),
       titulo: "Aprovada em vaga", texto: [d.vagaCargo, d.vagaEmpresa].filter(Boolean).join(" · ") || undefined, nivel: "marco",
     });
+  }
+  if (d.congelamentoPedido) {
+    ev.push({
+      key: "congela", data: d.congelamentoPedido, titulo: "Pediu congelamento",
+      meta: d.congelamentoAte ? `Congelada até ${fmt(d.congelamentoAte)}` : undefined, nivel: "alerta",
+    });
+  }
+  if (d.congelamentoAte) {
+    const futuro = d.congelamentoAte.slice(0, 10) > hojeISO();
+    ev.push({ key: "descongela", data: d.congelamentoAte, titulo: futuro ? "Fim do congelamento previsto" : "Fim do congelamento", nivel: futuro ? "futuro" : "etapa" });
   }
   if (d.cancelamento) ev.push({ key: "cancel", data: d.cancelamento, titulo: "Cancelamento", nivel: "alerta" });
   if (d.prazo) {

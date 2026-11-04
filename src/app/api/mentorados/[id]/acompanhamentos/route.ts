@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuario, semAutoria, semPermissao } from "@/lib/auth";
 import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
+import { lerDocumento } from "@/lib/documentos";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -10,10 +11,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const negado = semPermissao(usuario, "acompanhamento");
   if (negado) return negado;
   const { id } = await params;
-  const { data, tipo, texto, autor, marco, marcoTitulo } = await req.json();
+  // Com documento anexado o registro chega como formulário; sem ele, como JSON.
+  const form = req.headers.get("content-type")?.includes("multipart/form-data") ? await req.formData() : null;
+  const { data, tipo, texto, autor, marco, marcoTitulo, fixado } = form ? JSON.parse(String(form.get("dados"))) : await req.json();
   if (typeof texto !== "string" || !texto.trim()) {
     return NextResponse.json({ erro: "Escreva o resumo do acompanhamento" }, { status: 400 });
   }
+  const arquivo = form?.get("arquivo");
+  const doc = arquivo instanceof File ? await lerDocumento(arquivo) : null;
+  if (doc && "erro" in doc) return NextResponse.json({ erro: doc.erro }, { status: 400 });
   const a = await prisma.acompanhamento.create({
     data: {
       mentoradaId: id,
@@ -23,9 +29,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       autor: (autor || "").trim() || usuario.nome,
       marco: Boolean(marco),
       marcoTitulo: marco ? (marcoTitulo || "").trim() || null : null,
+      fixado: Boolean(fixado),
+      ...(doc ? { documento: { create: { nome: doc.nome, tipo: doc.tipo, conteudo: doc.bytes } } } : {}),
     },
   });
-  await registrarAtividade(usuario, { acao: "criou", entidade: "acompanhamento", mentoradaId: id, resumo: `Registrou acompanhamento${a.tipo ? ` (${a.tipo})` : ""} de ${await nomeDaMentorada(id)}`, detalhe: { texto: a.texto.slice(0, 300) } });
+  await registrarAtividade(usuario, { acao: "criou", entidade: "acompanhamento", mentoradaId: id, resumo: `Registrou acompanhamento${a.tipo ? ` (${a.tipo})` : ""} de ${await nomeDaMentorada(id)}`, detalhe: { texto: a.texto.slice(0, 300), ...(doc ? { documento: doc.nome } : {}) } });
   return NextResponse.json(a);
 }
 
@@ -62,6 +70,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const negado = semPermissao(usuario, "acompanhamento");
   if (negado) return negado;
+
+  if ("fixado" in body) {
+    await prisma.acompanhamento.updateMany({ where: { id: item, mentoradaId: id, varreduraId: null }, data: { fixado: Boolean(body.fixado) } });
+    await registrarAtividade(usuario, { acao: "editou", entidade: "acompanhamento", mentoradaId: id, resumo: `${body.fixado ? "Fixou" : "Desafixou"} um registro de ${await nomeDaMentorada(id)}` });
+    return NextResponse.json({ ok: true });
+  }
+
   await prisma.acompanhamento.updateMany({
     where: { id: item, mentoradaId: id },
     data: {

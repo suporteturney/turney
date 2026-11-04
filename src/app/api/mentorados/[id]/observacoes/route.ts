@@ -24,10 +24,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const usuario = await exigirUsuario();
   const { id } = await params;
-  const { item, texto } = await req.json();
+  const body = await req.json();
+  const { item, texto } = body;
   if (!item) return NextResponse.json({ erro: "Item ausente" }, { status: 400 });
   const atual = await prisma.observacao.findFirst({ where: { id: item, mentoradaId: id } });
   if (!atual) return NextResponse.json({ erro: "Observação não encontrada." }, { status: 404 });
+
+  if ("fixado" in body) {
+    const semAcesso = semPermissao(usuario, "acompanhamento");
+    if (semAcesso) return semAcesso;
+    await prisma.observacao.update({ where: { id: item }, data: { fixado: Boolean(body.fixado) } });
+    await registrarAtividade(usuario, { acao: "editou", entidade: "observacao", mentoradaId: id, resumo: `${body.fixado ? "Fixou" : "Desafixou"} uma observação de ${await nomeDaMentorada(id)}` });
+    return NextResponse.json({ ok: true });
+  }
+
   const negado = semAutoria(usuario, atual.autor);
   if (negado) return negado;
   const novo = typeof texto === "string" ? texto.trim() : "";

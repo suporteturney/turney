@@ -4,7 +4,7 @@ import Jornada, { type Detalhe, diasEntre, fmt, hojeISO } from "./Jornada";
 import m from "./JornadaModal.module.css";
 
 const STATUS_CLS: Record<string, string> = {
-  Ativo: m.bAtivo, "Em Andamento": m.bAtivo, "Em Renovação": m.bRenov, Encerrado: m.bEnc, Churn: m.bChurn,
+  Ativo: m.bAtivo, "Em Andamento": m.bAtivo, "Em Renovação": m.bRenov, Congelado: m.bCong, Encerrado: m.bEnc, Churn: m.bChurn,
 };
 
 export default function JornadaModal({

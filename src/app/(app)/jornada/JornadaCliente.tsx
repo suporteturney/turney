@@ -109,7 +109,7 @@ export default function JornadaCliente({ data }: { data: Linha[] }) {
                       </td>
                       <td><span className={`${styles.badge} ${styles.bSilver}`}>{m.tipo}</span></td>
                       <td>
-                        <span className={`${styles.badge} ${m.status === "Ativo" ? styles.bAtivo : m.status === "Encerrado" ? styles.bEnc : m.status === "Churn" ? styles.bChurn : m.status === "Em Renovação" ? styles.bRenov : styles.bSilver}`}>
+                        <span className={`${styles.badge} ${m.status === "Ativo" ? styles.bAtivo : m.status === "Encerrado" ? styles.bEnc : m.status === "Churn" ? styles.bChurn : m.status === "Em Renovação" ? styles.bRenov : m.status === "Congelado" ? styles.bCong : styles.bSilver}`}>
                           {m.status}
                         </span>
                       </td>

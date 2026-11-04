@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import MentoradaDrawer from "@/components/MentoradaDrawer";
 import { encontrosGrupo, etapaFields, fmt, hojeISO } from "@/lib/jornada";
+import { ACEITA_DOCUMENTO, TAMANHO_MAXIMO } from "@/lib/documentos";
 import { ehAutora } from "@/lib/permissoes";
 import { BANDAS } from "@/lib/varredura";
 import styles from "../shared.module.css";
@@ -16,7 +17,8 @@ type ItemLista = {
 };
 type Registro = {
   id: string; data: string; criadoEm: string; tipo: string | null; texto: string; autor: string | null;
-  marco: boolean; marcoTitulo: string | null; daVarredura: boolean;
+  marco: boolean; marcoTitulo: string | null; daVarredura: boolean; fixado: boolean;
+  documento: { id: string; nome: string } | null;
 };
 type Selecionada = {
   id: string; nome: string; tipo: string; status: string; codigo: string | null; inicio: string | null; prazo: string | null;
@@ -27,7 +29,7 @@ type Selecionada = {
   presencas: { encontro: string; presente: boolean }[];
   renovacoes: { acao: string; destino: string; data: string }[];
   acompanhamentos: Registro[];
-  observacoes: { id: string; data: string; texto: string; autor: string | null }[];
+  observacoes: { id: string; data: string; texto: string; autor: string | null; fixado: boolean }[];
   varredura: { data: string; banda: string; tag: string | null; etapa: string | null; status: string | null; pendencias: string[]; proximos: string[] } | null;
 };
 
@@ -35,7 +37,8 @@ type Eu = { nome: string; papel: string };
 type Edicao = { id: string; rota: "acompanhamentos" | "observacoes"; texto: string; tipo: string; tipoOutro: string; data: string };
 
 const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação"];
-const TIPOS = ["Observações mentora", "Mentoria individual", "Encontro em grupo", "WhatsApp", "Revisão de material", "Roadmap", "Outro"];
+const ROADMAP = "Resumo Roadmap";
+const TIPOS = ["Observações mentora", ROADMAP, "Mentoria individual", "Encontro em grupo", "WhatsApp", "Revisão de material", "Roadmap", "Outro"];
 const SAUDE_COR: Record<string, string> = { "Saudável": "#10B981", "Atenção": "#D97706", Risco: "#EF4444" };
 const grupo = (tipo: string) => tipo.replace(/ \d+$/, "");
 const iniciais = (nome: string | null) =>
@@ -134,7 +137,10 @@ function Painel({ m, autorPadrao, podeRegistrar, eu }: {
   m: Selecionada; autorPadrao: string; podeRegistrar: boolean; eu: Eu;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState({ tipo: TIPOS[0], tipoOutro: "", data: hojeISO(), texto: "", marco: false, marcoTitulo: "" });
+  const [form, setForm] = useState({ tipo: TIPOS[0], tipoOutro: "", data: hojeISO(), texto: "", marco: false, marcoTitulo: "", fixado: false });
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [lendo, setLendo] = useState(false);
+  const [avisoDoc, setAvisoDoc] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [filtroFeed, setFiltroFeed] = useState<"tudo" | "equipe" | "varredura">("equipe");
@@ -149,16 +155,50 @@ function Painel({ m, autorPadrao, podeRegistrar, eu }: {
     if (form.tipo === "Outro" && !form.tipoOutro.trim()) return setErro("Escreva qual é o tipo do registro.");
     setSalvando(true);
     setErro(null);
-    const { tipoOutro, ...dados } = form;
-    const r = await fetch(`/api/mentorados/${m.id}/acompanhamentos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...dados, tipo: form.tipo === "Outro" ? tipoOutro.trim() : form.tipo, autor: autorPadrao }),
-    });
+    const { tipoOutro, ...resto } = form;
+    const dados = { ...resto, tipo: form.tipo === "Outro" ? tipoOutro.trim() : form.tipo, autor: autorPadrao };
+    let envio: RequestInit = { headers: { "Content-Type": "application/json" }, body: JSON.stringify(dados) };
+    if (arquivo && form.tipo === ROADMAP) {
+      const corpo = new FormData();
+      corpo.set("dados", JSON.stringify(dados));
+      corpo.set("arquivo", arquivo);
+      envio = { body: corpo };
+    }
+    const r = await fetch(`/api/mentorados/${m.id}/acompanhamentos`, { method: "POST", ...envio });
     const j = await r.json().catch(() => ({}));
     setSalvando(false);
     if (!r.ok) return setErro(j.erro || "Não foi possível registrar.");
-    setForm({ ...form, tipoOutro: "", texto: "", marco: false, marcoTitulo: "" });
+    setForm({ ...form, tipoOutro: "", texto: "", marco: false, marcoTitulo: "", fixado: false });
+    setArquivo(null);
+    setAvisoDoc(null);
+    router.refresh();
+  }
+
+  // Lê o documento e coloca o resumo no campo para a mentora revisar antes de registrar.
+  async function resumir(doc: File) {
+    if (doc.size > TAMANHO_MAXIMO) return setAvisoDoc("O arquivo passa de 4 MB. Envie uma versão menor.");
+    setArquivo(doc);
+    setAvisoDoc(null);
+    setLendo(true);
+    const corpo = new FormData();
+    corpo.set("arquivo", doc);
+    const r = await fetch(`/api/mentorados/${m.id}/roadmap`, { method: "POST", body: corpo }).catch(() => null);
+    const j = await r?.json().catch(() => ({}));
+    setLendo(false);
+    if (!r?.ok) return setAvisoDoc(j?.erro || "Não foi possível ler o documento. Tente de novo.");
+    setForm(f => ({ ...f, texto: f.texto.trim() ? `${f.texto.trim()}\n\n${j.texto}` : j.texto }));
+  }
+
+  async function fixar(rota: "acompanhamentos" | "observacoes", id: string, fixado: boolean) {
+    const r = await fetch(`/api/mentorados/${m.id}/${rota}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item: id, fixado }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      return window.alert(j.erro || "Não foi possível fixar.");
+    }
     router.refresh();
   }
 
@@ -223,15 +263,94 @@ function Painel({ m, autorPadrao, podeRegistrar, eu }: {
     ...m.acompanhamentos.map(r => ({ ...r, rota: "acompanhamentos" as const })),
     ...m.observacoes.map(o => ({
       id: o.id, data: o.data, criadoEm: o.data, tipo: "Observação", texto: o.texto, autor: o.autor,
-      marco: false, marcoTitulo: null, daVarredura: false, rota: "observacoes" as const,
+      marco: false, marcoTitulo: null, daVarredura: false, fixado: o.fixado, documento: null, rota: "observacoes" as const,
     })),
-  ]
-    .filter(r => filtroFeed === "tudo" || (filtroFeed === "varredura" ? r.daVarredura : !r.daVarredura))
-    .sort((x, y) => y.data.localeCompare(x.data) || y.criadoEm.localeCompare(x.criadoEm));
-  const nEquipe = m.acompanhamentos.filter(r => !r.daVarredura).length + m.observacoes.length;
-  const nVarredura = m.acompanhamentos.filter(r => r.daVarredura).length;
+  ].sort((x, y) => y.data.localeCompare(x.data) || y.criadoEm.localeCompare(x.criadoEm));
+  const fixados = feed.filter(r => r.fixado);
+  const historico = feed
+    .filter(r => !r.fixado)
+    .filter(r => filtroFeed === "tudo" || (filtroFeed === "varredura" ? r.daVarredura : !r.daVarredura));
+  const nEquipe = feed.filter(r => !r.fixado && !r.daVarredura).length;
+  const nVarredura = feed.filter(r => !r.fixado && r.daVarredura).length;
   const banda = m.varredura ? BANDAS.find(b => b.k === m.varredura!.banda) : null;
   const wa = (m.whatsapp ?? "").replace(/\D/g, "");
+
+  const post = (r: (typeof feed)[number]) => {
+    const longo = r.texto.length > 420;
+    const aberto = abertos.has(r.id);
+    return (
+      <li key={`${r.rota}-${r.id}`} className={`${d.post} ${r.marco ? d.postMarco : ""}`}>
+        <span className={d.avatar} aria-hidden="true">{r.daVarredura ? "WA" : iniciais(r.autor)}</span>
+        <div className={d.postCorpo}>
+          <div className={d.postCab}>
+            <strong>{r.daVarredura ? "Varredura do WhatsApp" : r.autor || "Sem autor"}</strong>
+            <span>· {fmt(r.data)}</span>
+            {r.tipo && !r.daVarredura && <span className={d.chip}>{r.tipo}</span>}
+            {r.marco && <span className={d.chipMarco}>★ {r.marcoTitulo || "Evolução"}</span>}
+            {!r.daVarredura && edicao?.id !== r.id && (
+              <span className={d.acoesPost}>
+                {podeRegistrar && <button className={d.acao} onClick={() => fixar(r.rota, r.id, !r.fixado)}>{r.fixado ? "Desafixar" : "Fixar"}</button>}
+                {ehAutora(eu, r.autor) && (
+                  <>
+                    <button className={d.acao} onClick={() => editar(r)}>Editar</button>
+                    <button className={d.remover} onClick={() => excluir(r.rota, r.id)}>Excluir</button>
+                  </>
+                )}
+              </span>
+            )}
+          </div>
+          {edicao?.id === r.id ? (
+            <div className={d.edicao}>
+              <textarea
+                rows={Math.min(12, Math.max(4, edicao.texto.split("\n").length + 1))}
+                value={edicao.texto}
+                onChange={e => setEdicao({ ...edicao, texto: e.target.value })}
+                aria-label="Editar registro"
+                autoFocus
+              />
+              <div className={d.composerBarra}>
+                {edicao.rota === "acompanhamentos" && (
+                  <>
+                    <select value={edicao.tipo} onChange={e => setEdicao({ ...edicao, tipo: e.target.value })} aria-label="Tipo de registro">
+                      {TIPOS.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                    {edicao.tipo === "Outro" && (
+                      <input
+                        className={d.marcoTitulo}
+                        value={edicao.tipoOutro}
+                        onChange={e => setEdicao({ ...edicao, tipoOutro: e.target.value })}
+                        placeholder="Qual tipo? Ex: Simulação de entrevista"
+                        aria-label="Qual é o tipo do registro"
+                      />
+                    )}
+                    <input type="date" value={edicao.data} onChange={e => setEdicao({ ...edicao, data: e.target.value })} aria-label="Data" />
+                  </>
+                )}
+                <span className={d.espaco} />
+                {erroEd && <span className={d.erro}>{erroEd}</span>}
+                <button className={a.btnGhost} onClick={() => setEdicao(null)} disabled={salvandoEd}>Cancelar</button>
+                <button className={a.btnPrimary} onClick={salvarEdicao} disabled={salvandoEd || !edicao.texto.trim()}>
+                  {salvandoEd ? "Salvando…" : "Salvar"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className={d.texto}>{longo && !aberto ? `${r.texto.slice(0, 420)}…` : r.texto}</p>
+              {longo && (
+                <button className={d.verMais} onClick={() => setAbertos(s => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}>
+                  {aberto ? "Ver menos" : "Veja mais"}
+                </button>
+              )}
+              {r.documento && (
+                <a className={d.anexo} href={`/api/documentos/${r.documento.id}`} target="_blank" rel="noreferrer">{r.documento.nome}</a>
+              )}
+            </>
+          )}
+        </div>
+      </li>
+    );
+  };
 
   return (
     <>
@@ -261,9 +380,39 @@ function Painel({ m, autorPadrao, podeRegistrar, eu }: {
             rows={4}
             value={form.texto}
             onChange={e => setForm({ ...form, texto: e.target.value })}
-            placeholder={`Registre o acompanhamento de ${m.nome.split(" ")[0]}: o que foi conversado, metas, próximos passos…`}
+            placeholder={form.tipo === ROADMAP
+              ? `Anexe o documento abaixo para gerar o resumo do roadmap de ${m.nome.split(" ")[0]}, ou escreva aqui.`
+              : `Registre o acompanhamento de ${m.nome.split(" ")[0]}: o que foi conversado, metas, próximos passos…`}
             aria-label="Registro de acompanhamento"
+            disabled={lendo}
           />
+          {form.tipo === ROADMAP && (
+            <div className={d.roadmap}>
+              <label className={a.btnGhost}>
+                {arquivo ? "Trocar documento" : "Anexar documento"}
+                <input
+                  type="file"
+                  accept={ACEITA_DOCUMENTO}
+                  className={d.arquivoInput}
+                  disabled={lendo}
+                  onChange={e => {
+                    const doc = e.target.files?.[0];
+                    e.target.value = "";
+                    if (doc) resumir(doc);
+                  }}
+                />
+              </label>
+              {arquivo && <span className={d.arquivoNome}>{arquivo.name}</span>}
+              {lendo && <span className={d.arquivoNome} role="status">Lendo o documento e montando o resumo…</span>}
+              {!lendo && !arquivo && <span className={d.arquivoNome}>PDF ou Word, até 4 MB</span>}
+              {avisoDoc && (
+                <span className={d.erro} role="alert">
+                  {avisoDoc}
+                  {arquivo && <button className={d.verMais} onClick={() => resumir(arquivo)}> Tentar de novo</button>}
+                </span>
+              )}
+            </div>
+          )}
           <div className={d.composerBarra}>
             <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} aria-label="Tipo de registro">
               {TIPOS.map(t => <option key={t}>{t}</option>)}
@@ -286,9 +435,13 @@ function Painel({ m, autorPadrao, podeRegistrar, eu }: {
             {form.marco && (
               <input className={d.marcoTitulo} value={form.marcoTitulo} onChange={e => setForm({ ...form, marcoTitulo: e.target.value })} placeholder="Qual? Ex: roadmap traçado" aria-label="Qual evolução" />
             )}
+            <label className={d.marco}>
+              <input type="checkbox" checked={form.fixado} onChange={e => setForm({ ...form, fixado: e.target.checked })} />
+              Fixar no topo
+            </label>
             <span className={d.espaco} />
             {erro && <span className={d.erro}>{erro}</span>}
-            <button className={a.btnPrimary} onClick={registrar} disabled={salvando || !form.texto.trim()}>
+            <button className={a.btnPrimary} onClick={registrar} disabled={salvando || lendo || !form.texto.trim()}>
               {salvando ? "Registrando…" : "Registrar"}
             </button>
           </div>
@@ -296,6 +449,13 @@ function Painel({ m, autorPadrao, podeRegistrar, eu }: {
         </div>
       ) : (
         <div className={d.somenteLeitura}>Seu acesso permite visualizar o histórico. Para registrar acompanhamentos, peça a permissão “Acompanhamento” à administradora.</div>
+      )}
+
+      {fixados.length > 0 && (
+        <section aria-label="Registros fixados">
+          <h3 className={d.fixadosTitulo}>Fixados · {fixados.length}</h3>
+          <ol className={`${d.feed} ${d.feedFixados}`}>{fixados.map(post)}</ol>
+        </section>
       )}
 
       <div className={d.contexto}>
@@ -366,75 +526,8 @@ function Painel({ m, autorPadrao, podeRegistrar, eu }: {
       </div>
 
       <ol className={d.feed}>
-        {feed.map(r => {
-          const longo = r.texto.length > 420;
-          const aberto = abertos.has(r.id);
-          return (
-            <li key={`${r.rota}-${r.id}`} className={`${d.post} ${r.marco ? d.postMarco : ""}`}>
-              <span className={d.avatar} aria-hidden="true">{r.daVarredura ? "WA" : iniciais(r.autor)}</span>
-              <div className={d.postCorpo}>
-                <div className={d.postCab}>
-                  <strong>{r.daVarredura ? "Varredura do WhatsApp" : r.autor || "Sem autor"}</strong>
-                  <span>· {fmt(r.data)}</span>
-                  {r.tipo && !r.daVarredura && <span className={d.chip}>{r.tipo}</span>}
-                  {r.marco && <span className={d.chipMarco}>★ {r.marcoTitulo || "Evolução"}</span>}
-                  {!r.daVarredura && ehAutora(eu, r.autor) && edicao?.id !== r.id && (
-                    <span className={d.acoesPost}>
-                      <button className={d.acao} onClick={() => editar(r)}>Editar</button>
-                      <button className={d.remover} onClick={() => excluir(r.rota, r.id)}>Excluir</button>
-                    </span>
-                  )}
-                </div>
-                {edicao?.id === r.id ? (
-                  <div className={d.edicao}>
-                    <textarea
-                      rows={Math.min(12, Math.max(4, edicao.texto.split("\n").length + 1))}
-                      value={edicao.texto}
-                      onChange={e => setEdicao({ ...edicao, texto: e.target.value })}
-                      aria-label="Editar registro"
-                      autoFocus
-                    />
-                    <div className={d.composerBarra}>
-                      {edicao.rota === "acompanhamentos" && (
-                        <>
-                          <select value={edicao.tipo} onChange={e => setEdicao({ ...edicao, tipo: e.target.value })} aria-label="Tipo de registro">
-                            {TIPOS.map(t => <option key={t}>{t}</option>)}
-                          </select>
-                          {edicao.tipo === "Outro" && (
-                            <input
-                              className={d.marcoTitulo}
-                              value={edicao.tipoOutro}
-                              onChange={e => setEdicao({ ...edicao, tipoOutro: e.target.value })}
-                              placeholder="Qual tipo? Ex: Simulação de entrevista"
-                              aria-label="Qual é o tipo do registro"
-                            />
-                          )}
-                          <input type="date" value={edicao.data} onChange={e => setEdicao({ ...edicao, data: e.target.value })} aria-label="Data" />
-                        </>
-                      )}
-                      <span className={d.espaco} />
-                      {erroEd && <span className={d.erro}>{erroEd}</span>}
-                      <button className={a.btnGhost} onClick={() => setEdicao(null)} disabled={salvandoEd}>Cancelar</button>
-                      <button className={a.btnPrimary} onClick={salvarEdicao} disabled={salvandoEd || !edicao.texto.trim()}>
-                        {salvandoEd ? "Salvando…" : "Salvar"}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className={d.texto}>{longo && !aberto ? `${r.texto.slice(0, 420)}…` : r.texto}</p>
-                    {longo && (
-                      <button className={d.verMais} onClick={() => setAbertos(s => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}>
-                        {aberto ? "Ver menos" : "Veja mais"}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </li>
-          );
-        })}
-        {!feed.length && <li className={d.nada}>Nenhum registro {filtroFeed === "varredura" ? "de varredura" : "da equipe"} ainda.</li>}
+        {historico.map(post)}
+        {!historico.length && <li className={d.nada}>Nenhum registro {filtroFeed === "varredura" ? "de varredura" : "da equipe"} ainda.</li>}
       </ol>
 
       {ficha && (

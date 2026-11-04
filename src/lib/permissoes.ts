@@ -23,7 +23,7 @@ export const rotuloPapel = (k: string) => PAPEIS.find(p => p.k === k)?.label ?? 
 
 // Campos do cadastro que são da área comercial (o resto é "cadastro").
 export const CAMPOS_COMERCIAIS = new Set([
-  "tipo", "status", "inicio", "prazo", "duracao", "cancelamento", "mesesAntes", "negociacao", "renovacaoStatus",
+  "tipo", "status", "inicio", "prazo", "duracao", "cancelamento", "congelamentoPedido", "congelamentoAte", "mesesAntes", "negociacao", "renovacaoStatus",
 ]);
 
 export function pode(u: { papel: string; permissoes?: string[] | null } | null | undefined, p: Permissao) {

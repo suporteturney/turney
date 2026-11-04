@@ -479,6 +479,7 @@
 .bRenov { background: var(--warn-bg); color: #92400E; border-color: #FDE68A; }
 .bEnc { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
 .bChurn { background: var(--danger-bg); color: #991B1B; border-color: #FECACA; }
+.bCong { background: #E0F2FE; color: #075985; border-color: #BAE6FD; }
 .bSilver { background: #F1F5F9; color: #334155; border-color: #CBD5E1; }
 
 /* States */

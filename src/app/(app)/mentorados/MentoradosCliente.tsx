@@ -11,6 +11,7 @@ const BADGE: Record<string, string> = {
   Encerrado: styles.bEnc,
   Churn: styles.bChurn,
   "Em Renovação": styles.bRenov,
+  Congelado: styles.bCong,
   Saudável: styles.bSau,
   Atenção: styles.bAte,
   Risco: styles.bRis,
