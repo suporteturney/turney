@@ -4,6 +4,7 @@ import { exigirUsuario, semPermissao } from "@/lib/auth";
 import { diferencas, registrarAtividade } from "@/lib/atividade";
 import { CAMPOS_COMERCIAIS } from "@/lib/permissoes";
 import { recalcularSaude } from "@/lib/saude-servidor";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 
 export async function GET(
   _req: NextRequest,
@@ -72,12 +73,16 @@ export async function PATCH(
   if (!atual) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
 
   // O congelamento empurra o encerramento pelos dias congelados; mudar ou apagar as datas ajusta só a diferença.
+  const pedido = ("congelamentoPedido" in updates ? updates.congelamentoPedido : atual.congelamentoPedido) as Date | null;
+  const ate = ("congelamentoAte" in updates ? updates.congelamentoAte : atual.congelamentoAte) as Date | null;
+  if (updates.status === "Congelado" && atual.status !== "Congelado" && (!pedido || !ate)) {
+    return NextResponse.json({ erro: "Para congelar, preencha a data de início e a data final do congelamento." }, { status: 400 });
+  }
   if ("congelamentoPedido" in updates || "congelamentoAte" in updates) {
-    const antes = diasCongelados(atual.congelamentoPedido, atual.congelamentoAte);
-    const depois = diasCongelados(
-      ("congelamentoPedido" in updates ? updates.congelamentoPedido : atual.congelamentoPedido) as Date | null,
-      ("congelamentoAte" in updates ? updates.congelamentoAte : atual.congelamentoAte) as Date | null,
-    );
+    // Um congelamento novo (começa depois do fim do anterior) não desconta os dias do antigo, que já foram somados.
+    const novo = !!pedido && !!atual.congelamentoAte && pedido > atual.congelamentoAte;
+    const antes = novo ? 0 : diasCongelados(atual.congelamentoPedido, atual.congelamentoAte);
+    const depois = diasCongelados(pedido, ate);
     const base = ("prazo" in updates ? updates.prazo : atual.prazo) as Date | null;
     if (base && depois !== antes) updates.prazo = new Date(base.getTime() + (depois - antes) * DIA);
   }
@@ -120,6 +125,7 @@ export async function PATCH(
     resumo: `Editou ${Object.keys(mudancas).join(", ")} de ${atual.nome}`,
     detalhe: mudancas,
   });
+  await atualizarStatusAutomatico([id]);
   await recalcularSaude([id]);
   const mentorado = await prisma.mentorada.findUnique({ where: { id } });
   return NextResponse.json(mentorado);

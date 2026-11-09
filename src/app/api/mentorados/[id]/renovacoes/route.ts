@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirUsuario, semPermissao } from "@/lib/auth";
 import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
 import { recalcularSaude } from "@/lib/saude-servidor";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -25,7 +26,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const updates: Record<string, unknown> = {};
   if (acao === "RENOVAÇÃO") updates.status = "Ativo";
-  if (novoPrazo) updates.prazo = new Date(novoPrazo);
+  // Renovou ou fez upgrade com novo prazo: volta a ser ativa (o status automático ajusta pelas datas logo abaixo).
+  if (novoPrazo) {
+    updates.prazo = new Date(novoPrazo);
+    updates.status = "Ativo";
+  }
   if (atualizarCadastro) {
     const meses = parseInt(duracao, 10);
     updates.status = "Ativo";
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (Number.isFinite(meses) && meses > 0) updates.duracao = meses;
   }
 
-  const [r, mentorada] = await prisma.$transaction([
+  const [r] = await prisma.$transaction([
     prisma.renovacao.create({
       data: {
         mentoradaId: id,
@@ -58,7 +63,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     resumo: `Registrou ${acao} para ${destino} de ${await nomeDaMentorada(id)}`,
     detalhe: { acao, destino, data, novoPrazo, atualizarCadastro: Boolean(atualizarCadastro) },
   });
+  await atualizarStatusAutomatico([id]);
   await recalcularSaude([id]);
+  const mentorada = await prisma.mentorada.findUnique({
+    where: { id },
+    select: { status: true, tipo: true, prazo: true, duracao: true, renovacaoStatus: true },
+  });
   return NextResponse.json({ ...r, mentorada });
 }
 

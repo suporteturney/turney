@@ -60,12 +60,14 @@ const diasCongelados = (pedido?: string | null, ate?: string | null) =>
 function avisoCongelamento(form: Form, d: Detalhe) {
   const { congelamentoPedido: pedido, congelamentoAte: ate } = form;
   if (pedido && ate && diasEntre(pedido, ate) < 0) return "A data final está antes do pedido";
-  const delta = diasCongelados(pedido, ate) - diasCongelados(d.congelamentoPedido, d.congelamentoAte);
+  // Um congelamento novo (começa depois do fim do anterior) não desconta os dias do antigo.
+  const novo = !!pedido && !!d.congelamentoAte && pedido > d.congelamentoAte.slice(0, 10);
+  const delta = diasCongelados(pedido, ate) - (novo ? 0 : diasCongelados(d.congelamentoPedido, d.congelamentoAte));
   if (delta && form.prazo) {
     const novo = new Date(Date.parse(form.prazo) + delta * 86400000).toISOString();
     return `Ao salvar, o encerramento passa para ${fmt(novo)} (${delta > 0 ? "+" : ""}${delta} dias).`;
   }
-  if (pedido && ate) return `${diasCongelados(pedido, ate)} dias de congelamento, já somados ao encerramento. Ao voltar, mude o status para Ativo.`;
+  if (pedido && ate) return `${diasCongelados(pedido, ate)} dias de congelamento, já somados ao encerramento. No dia seguinte ao fim, volta sozinha para Ativo.`;
   return undefined;
 }
 
@@ -184,6 +186,9 @@ export default function MentoradaDrawer({
   async function salvarDados() {
     if (!d) return;
     if (!form.nome?.trim()) return avisar("O nome não pode ficar vazio.");
+    if (form.status === "Congelado" && (!form.congelamentoPedido || !form.congelamentoAte)) {
+      return avisar("Para congelar, preencha o início e o fim do congelamento.");
+    }
     setSalvando(true);
     try {
       await chamar(`/api/mentorados/${d.id}`, "PATCH", form);
@@ -317,6 +322,11 @@ export default function MentoradaDrawer({
       const n = { ...f, [k]: e.target.value };
       if (k === "cancelamento" && e.target.value) n.status = "Churn";
       if (k === "congelamentoPedido" && e.target.value && !f.congelamentoPedido) n.status = "Congelado";
+      // Novo congelamento: começa hoje e pede a data final (as datas de um congelamento já terminado ficam para trás).
+      if (k === "status" && e.target.value === "Congelado" && (!f.congelamentoAte || f.congelamentoAte < hojeISO())) {
+        n.congelamentoPedido = hojeISO();
+        n.congelamentoAte = "";
+      }
       if (k === "origem" && !ehLiveEvento(e.target.value)) n.origemDetalhe = "";
       return n;
     });
@@ -406,12 +416,25 @@ export default function MentoradaDrawer({
                     {opcoes(PROGRAMAS, form.tipo ?? "").map(o => <option key={o}>{o}</option>)}
                   </select>
                 </F>
-                <F label="Status">
+                <F label="Status" hint="Muda sozinho: Em Renovação 30 dias antes do encerramento e Encerrado no dia seguinte a ele">
                   <select value={form.status ?? ""} onChange={set("status")}>
                     {opcoes(STATUS, form.status ?? "").map(o => <option key={o}>{o}</option>)}
                   </select>
                 </F>
               </div>
+              {(form.status === "Congelado" || form.congelamentoPedido || form.congelamentoAte) && (
+                <div className={s.row}>
+                  <F label="Início do congelamento" hint="Preencher marca o status como Congelado">
+                    <input type="date" value={form.congelamentoPedido ?? ""} onChange={set("congelamentoPedido")} />
+                  </F>
+                  <F label="Fim do congelamento" hint={avisoCongelamento(form, d)}>
+                    <input
+                      type="date" value={form.congelamentoAte ?? ""} min={form.congelamentoPedido || undefined}
+                      onChange={set("congelamentoAte")} autoFocus={form.status === "Congelado" && !form.congelamentoAte}
+                    />
+                  </F>
+                </div>
+              )}
               <div className={s.row}>
                 <F label="Área de aplicação"><input value={form.area ?? ""} onChange={set("area")} placeholder="Ex: Supply Chain, Engenharia, RH…" /></F>
                 <F label="Localização"><input value={form.localizacao ?? ""} onChange={set("localizacao")} placeholder="Ex: Brasil, Irlanda, Portugal…" /></F>
@@ -470,14 +493,6 @@ export default function MentoradaDrawer({
                   <input type="date" value={form.cancelamento ?? ""} onChange={set("cancelamento")} />
                 </F>
                 <div />
-              </div>
-              <div className={s.row}>
-                <F label="Pediu congelamento em" hint="Preencher marca o status como Congelado">
-                  <input type="date" value={form.congelamentoPedido ?? ""} onChange={set("congelamentoPedido")} />
-                </F>
-                <F label="Congelada até" hint={avisoCongelamento(form, d)}>
-                  <input type="date" value={form.congelamentoAte ?? ""} min={form.congelamentoPedido || undefined} onChange={set("congelamentoAte")} />
-                </F>
               </div>
               <div className={s.row3}>
                 <F label="Tempo de mentoria">

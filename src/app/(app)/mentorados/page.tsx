@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import MentoradosCliente from "./MentoradosCliente";
 
 export default async function MentoradosPage({
@@ -6,6 +7,7 @@ export default async function MentoradosPage({
 }: {
   searchParams: Promise<{ tipo?: string; status?: string; q?: string }>;
 }) {
+  await atualizarStatusAutomatico();
   const { tipo, status, q } = await searchParams;
 
   const mentorados = await prisma.mentorada.findMany({

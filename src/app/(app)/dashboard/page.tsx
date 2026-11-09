@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import DashboardCliente from "./DashboardCliente";
 
 export default async function DashboardPage() {
+  await atualizarStatusAutomatico();
   const [mentorados, renovacoes] = await Promise.all([
     prisma.mentorada.findMany({
       orderBy: { nome: "asc" },

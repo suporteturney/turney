@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { contaNaAssiduidade, inicioCiclo } from "@/lib/jornada";
 import SaudeCliente from "./SaudeCliente";
 
 export default async function SaudePage() {
+  await atualizarStatusAutomatico();
   const mentorados = await prisma.mentorada.findMany({
     orderBy: { nome: "asc" },
     select: {

@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import InsightsCliente from "./InsightsCliente";
 
 export default async function InsightsPage() {
+  await atualizarStatusAutomatico();
   const mentoradas = await prisma.mentorada.findMany({
     select: {
       id: true, nome: true, tipo: true, status: true, saude: true, disc: true, area: true, localizacao: true,

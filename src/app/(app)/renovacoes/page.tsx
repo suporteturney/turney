@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import RenovacoesCliente from "./RenovacoesCliente";
 
 export default async function RenovacoesPage() {
+  await atualizarStatusAutomatico();
   const mentorados = await prisma.mentorada.findMany({
     where: { prazo: { not: null } },
     orderBy: { prazo: "asc" },

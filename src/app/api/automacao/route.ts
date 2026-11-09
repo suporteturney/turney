@@ -6,6 +6,7 @@ import { diferencas, registrarAtividade } from "@/lib/atividade";
 import { proximoCodigo } from "@/lib/codigo";
 import { etapaFields, nomeEtapa } from "@/lib/jornada";
 import { recalcularSaude } from "@/lib/saude-servidor";
+import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { whatsappComDDI } from "@/lib/whatsapp";
 
 // Porta de entrada do Make (sem login). Protegida pela chave AUTOMACAO_CHAVE, que o Make
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest) {
   const q = Object.fromEntries(new URL(req.url).searchParams);
 
   if (q.lista === "ativas") {
+    await atualizarStatusAutomatico();
     const lista = await prisma.mentorada.findMany({
       where: { status: { in: STATUS_ATIVOS }, ...(q.tipo ? { tipo: q.tipo } : {}) },
       orderBy: { nome: "asc" },

@@ -28,6 +28,9 @@ function diasRestantes(prazo: string | null): number | null {
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const ATIVOS_KEY = "__ativos__";
 const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação"];
+// Padrão da tela: contratos ativos e os encerrados há até 30 dias, que ainda dá para renovar.
+const naJanela = (m: { status: string; prazo: string | null }) =>
+  ATIVOS.includes(m.status) || (m.status === "Encerrado" && (diasRestantes(m.prazo) ?? -999) >= -30);
 const casaTipo = (tipo: string, filtro: string) => tipo === filtro || tipo.startsWith(`${filtro} `);
 
 export default function RenovacoesCliente({ data }: { data: Linha[] }) {
@@ -74,7 +77,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
       linhas.filter(m => {
         if (fixadas.has(m.id)) return true;
         if (filtTipo && !casaTipo(m.tipo, filtTipo)) return false;
-        if (filtStatus === ATIVOS_KEY ? !ATIVOS.includes(m.status) : filtStatus && m.status !== filtStatus) return false;
+        if (filtStatus === ATIVOS_KEY ? !naJanela(m) : filtStatus && m.status !== filtStatus) return false;
         if (temPeriodo && !noPeriodo(m.prazo) && !m.renovacoes.some(r => noPeriodo(r.data))) return false;
         if (soVencidos && (diasRestantes(m.prazo) ?? 0) >= 0) return false;
         return true;
@@ -136,7 +139,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
           <div className={styles.tblHead}>
             <div className={r.headLeft}>
               <span className={styles.tblTitle}>
-                {filtStatus === ATIVOS_KEY ? "Contratos ativos" : filtStatus || "Todos os contratos"}{periodoTxt}
+                {filtStatus === ATIVOS_KEY ? "Ativos e encerrados há até 30 dias" : filtStatus || "Todos os contratos"}{periodoTxt}
               </span>
               <select
                 className={r.select}
@@ -154,7 +157,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                 onChange={e => { setFiltStatus(e.target.value); setFixadas(new Set()); }}
                 aria-label="Filtrar por status"
               >
-                <option value={ATIVOS_KEY}>Contratos ativos</option>
+                <option value={ATIVOS_KEY}>Ativos e encerrados há 30 dias</option>
                 <option value="">Todos os status</option>
                 {statusOpts.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
