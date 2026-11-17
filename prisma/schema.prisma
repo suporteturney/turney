@@ -101,6 +101,7 @@ model Mentorada {
   cancelamento DateTime?
   congelamentoPedido DateTime? // quando a mentorada pediu o congelamento
   congelamentoAte    DateTime? // até quando vai o congelamento
+  congelamentoMotivo String?   // por que a mentorada congelou
   vagaCargo    String?
   vagaEmpresa  String?
   vagaData     DateTime?

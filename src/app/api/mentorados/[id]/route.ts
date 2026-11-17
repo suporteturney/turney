@@ -32,7 +32,7 @@ const CAMPOS_TEXTO = [
   "nome", "email", "whatsapp", "status", "saude", "area",
   "localizacao", "turma", "produtoAnterior", "origem", "origemDetalhe", "resp", "tutora", "obs",
   "tipo", "linkedin", "drive", "asana", "disc", "vagaCargo", "vagaEmpresa",
-  "negociacao", "saudeMotivo", "renovacaoStatus",
+  "negociacao", "saudeMotivo", "renovacaoStatus", "congelamentoMotivo",
 ];
 const CAMPOS_INT = ["duracao", "mesesAntes"];
 const CAMPOS_DATA = ["inicio", "prazo", "cancelamento", "congelamentoPedido", "congelamentoAte", "vagaData"];
@@ -75,8 +75,9 @@ export async function PATCH(
   // O congelamento empurra o encerramento pelos dias congelados; mudar ou apagar as datas ajusta só a diferença.
   const pedido = ("congelamentoPedido" in updates ? updates.congelamentoPedido : atual.congelamentoPedido) as Date | null;
   const ate = ("congelamentoAte" in updates ? updates.congelamentoAte : atual.congelamentoAte) as Date | null;
-  if (updates.status === "Congelado" && atual.status !== "Congelado" && (!pedido || !ate)) {
-    return NextResponse.json({ erro: "Para congelar, preencha a data de início e a data final do congelamento." }, { status: 400 });
+  const motivo = "congelamentoMotivo" in updates ? updates.congelamentoMotivo : atual.congelamentoMotivo;
+  if (updates.status === "Congelado" && atual.status !== "Congelado" && (!pedido || !ate || !motivo)) {
+    return NextResponse.json({ erro: "Para congelar, preencha o motivo, a data de início e a data de término do congelamento." }, { status: 400 });
   }
   if ("congelamentoPedido" in updates || "congelamentoAte" in updates) {
     // Um congelamento novo (começa depois do fim do anterior) não desconta os dias do antigo, que já foram somados.

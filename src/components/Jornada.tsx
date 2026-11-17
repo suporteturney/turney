@@ -19,7 +19,7 @@ export type Detalhe = {
   obs: string | null; linkedin: string | null; drive: string | null; asana: string | null; disc: string | null;
   duracao: number | null; mesesAntes: number | null;
   inicio: string | null; prazo: string | null; cancelamento: string | null;
-  congelamentoPedido?: string | null; congelamentoAte?: string | null;
+  congelamentoPedido?: string | null; congelamentoAte?: string | null; congelamentoMotivo?: string | null;
   vagaCargo: string | null; vagaEmpresa: string | null; vagaData: string | null;
   negociacao: string | null; negociacaoEm: string | null;
   saudeMotivo: string | null; saudeMotivoEm: string | null;
@@ -119,7 +119,7 @@ function montarJornada(d: Detalhe): Evento[] {
   }
   if (d.congelamentoPedido) {
     ev.push({
-      key: "congela", data: d.congelamentoPedido, titulo: "Pediu congelamento",
+      key: "congela", data: d.congelamentoPedido, titulo: "Pediu congelamento", texto: d.congelamentoMotivo ?? undefined,
       meta: d.congelamentoAte ? `Congelada até ${fmt(d.congelamentoAte)}` : undefined, nivel: "alerta",
     });
   }

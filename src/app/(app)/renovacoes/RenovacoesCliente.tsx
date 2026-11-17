@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { opcoesStatus } from "@/lib/status";
 import { useRouter } from "next/navigation";
 import JornadaModal from "@/components/JornadaModal";
 import MentoradaDrawer from "@/components/MentoradaDrawer";
@@ -27,10 +28,11 @@ function diasRestantes(prazo: string | null): number | null {
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const ATIVOS_KEY = "__ativos__";
-const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação"];
-// Padrão da tela: contratos ativos e os encerrados há até 30 dias, que ainda dá para renovar.
+const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação", "Congelado"];
+// Padrão da tela: contratos ativos (inclusive congelados) e os encerrados há até 30 dias, que ainda dá para renovar.
 const naJanela = (m: { status: string; prazo: string | null }) =>
   ATIVOS.includes(m.status) || (m.status === "Encerrado" && (diasRestantes(m.prazo) ?? -999) >= -30);
+const META = 0.3; // meta de renovação: 30% dos contratos disponíveis no período
 const casaTipo = (tipo: string, filtro: string) => tipo === filtro || tipo.startsWith(`${filtro} `);
 
 export default function RenovacoesCliente({ data }: { data: Linha[] }) {
@@ -40,6 +42,8 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
   const [filtStatus, setFiltStatus] = useState(ATIVOS_KEY);
   const [filtMes, setFiltMes] = useState("");
   const [filtAno, setFiltAno] = useState("");
+  const [filtDe, setFiltDe] = useState("");
+  const [filtAte, setFiltAte] = useState("");
   const [soVencidos, setSoVencidos] = useState(false);
   const [fixadas, setFixadas] = useState<Set<string>>(new Set());
   const [jornada, setJornada] = useState<string | null>(null);
@@ -52,7 +56,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
   }, [linhas]);
 
   const statusOpts = useMemo(
-    () => [...new Set(linhas.map(m => m.status))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => opcoesStatus(linhas.map(m => m.status)),
     [linhas]
   );
 
@@ -64,12 +68,20 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
     return Array.from({ length: max - min + 1 }, (_, i) => String(max - i));
   }, [linhas]);
 
-  const temPeriodo = !!(filtMes || filtAno);
+  // Período: pelo calendário (de / até) ou por mês e ano — escolher um limpa o outro.
+  const temDatas = !!(filtDe || filtAte);
+  const temPeriodo = !!(filtMes || filtAno || temDatas);
   const noPeriodo = useMemo(
-    () => (iso: string | null) =>
-      !!iso && (!filtAno || iso.slice(0, 4) === filtAno) && (!filtMes || iso.slice(5, 7) === filtMes),
-    [filtMes, filtAno]
+    () => (iso: string | null) => {
+      if (!iso) return false;
+      const d = iso.slice(0, 10);
+      if (filtDe || filtAte) return (!filtDe || d >= filtDe) && (!filtAte || d <= filtAte);
+      return (!filtAno || d.slice(0, 4) === filtAno) && (!filtMes || d.slice(5, 7) === filtMes);
+    },
+    [filtMes, filtAno, filtDe, filtAte]
   );
+  const porMes = (mes: string, ano: string) => { setFiltMes(mes); setFiltAno(ano); setFiltDe(""); setFiltAte(""); setFixadas(new Set()); };
+  const porDatas = (de: string, ate: string) => { setFiltDe(de); setFiltAte(ate); setFiltMes(""); setFiltAno(""); setFixadas(new Set()); };
   const renovacoesNoPeriodo = (m: Linha) => (temPeriodo ? m.renovacoes.filter(r => noPeriodo(r.data)) : []);
 
   const lista = useMemo(
@@ -85,16 +97,38 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
     [linhas, fixadas, filtTipo, filtStatus, temPeriodo, noPeriodo, soVencidos]
   );
 
-  const mesAtual = new Date().toISOString().slice(0, 7);
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
   const renovaramNoPeriodo = lista.filter(m =>
     m.renovacoes.some(r => (temPeriodo ? noPeriodo(r.data) : r.data.slice(0, 7) === mesAtual))
   ).length;
 
-  const temFiltro = !!(filtTipo || filtStatus !== ATIVOS_KEY || filtMes || filtAno || soVencidos);
-  const limpar = () => { setFiltTipo(""); setFiltStatus(ATIVOS_KEY); setFiltMes(""); setFiltAno(""); setSoVencidos(false); setFixadas(new Set()); };
-  const periodoTxt = filtMes || filtAno
-    ? ` · vencimento em ${filtMes ? MESES[+filtMes - 1].toLowerCase() : "qualquer mês"}${filtAno ? ` de ${filtAno}` : " (todos os anos)"}`
-    : "";
+  const temFiltro = !!(filtTipo || filtStatus !== ATIVOS_KEY || temPeriodo || soVencidos);
+  const limpar = () => { setFiltTipo(""); setFiltStatus(ATIVOS_KEY); porMes("", ""); setSoVencidos(false); };
+  const datasTxt = filtDe && filtAte ? `de ${fmt(filtDe)} a ${fmt(filtAte)}` : filtDe ? `a partir de ${fmt(filtDe)}` : `até ${fmt(filtAte)}`;
+  const periodoTxt = temDatas
+    ? ` · vencimento ${datasTxt}`
+    : filtMes || filtAno
+      ? ` · vencimento em ${filtMes ? MESES[+filtMes - 1].toLowerCase() : "qualquer mês"}${filtAno ? ` de ${filtAno}` : " (todos os anos)"}`
+      : "";
+
+  // Meta do período filtrado (sem período, a do mês atual). Disponíveis para renovação: contratos do programa
+  // filtrado que vencem no período ou que renovaram nele (o prazo já mudou), menos os cancelados (Churn).
+  const meta = useMemo(() => {
+    const noMeta = temPeriodo ? noPeriodo : (iso: string | null) => !!iso && iso.slice(0, 7) === mesAtual;
+    const base = linhas.filter(m =>
+      (!filtTipo || casaTipo(m.tipo, filtTipo)) && m.status !== "Churn" &&
+      (noMeta(m.prazo) || m.renovacoes.some(x => noMeta(x.data)))
+    );
+    const feitas = base.filter(m => m.renovacoes.some(x => noMeta(x.data))).length;
+    const alvo = Math.ceil(base.length * META);
+    return { disponiveis: base.length, alvo, feitas, pct: alvo ? Math.min(100, Math.round((feitas / alvo) * 100)) : 0 };
+  }, [linhas, filtTipo, temPeriodo, noPeriodo, mesAtual]);
+  const metaTxt = temDatas
+    ? datasTxt
+    : filtMes || filtAno
+      ? `${filtMes ? MESES[+filtMes - 1] : "Todos os meses"}${filtAno ? ` de ${filtAno}` : " (todos os anos)"}`
+      : `${MESES[hoje.getMonth()]} de ${hoje.getFullYear()}`;
 
   const em30 = lista.filter(m => { const d = diasRestantes(m.prazo); return d !== null && d >= 0 && d <= 30; }).length;
   const em60 = lista.filter(m => { const d = diasRestantes(m.prazo); return d !== null && d > 30 && d <= 60; }).length;
@@ -135,6 +169,27 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
           </div>
         </div>
 
+        <div className={r.meta}>
+          <div className={r.metaTopo}>
+            <div>
+              <div className={styles.kpiLabel}>Meta de renovação · {metaTxt}{filtTipo ? ` · ${filtTipo}` : ""}</div>
+              <div className={r.metaNumeros}>
+                <strong>{meta.feitas}</strong> de <strong>{meta.alvo}</strong> renovações
+                <span className={meta.alvo && meta.feitas >= meta.alvo ? r.metaOk : r.metaFalta}>
+                  {!meta.alvo ? "sem contratos no período" : meta.feitas >= meta.alvo ? "Meta batida" : `Faltam ${meta.alvo - meta.feitas}`}
+                </span>
+              </div>
+            </div>
+            <div className={r.metaPct}>{meta.pct}%</div>
+          </div>
+          <div className={r.metaBarra} role="progressbar" aria-valuenow={meta.pct} aria-valuemin={0} aria-valuemax={100} aria-label="Andamento da meta">
+            <div style={{ width: `${meta.pct}%` }} />
+          </div>
+          <div className={styles.kpiDelta}>
+            Meta = 30% dos {meta.disponiveis} contratos disponíveis para renovação (vencem no período ou já renovaram nele; cancelados não contam).
+          </div>
+        </div>
+
         <div className={styles.tblCard}>
           <div className={styles.tblHead}>
             <div className={r.headLeft}>
@@ -164,7 +219,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
               <select
                 className={r.select}
                 value={filtMes}
-                onChange={e => { setFiltMes(e.target.value); setFixadas(new Set()); }}
+                onChange={e => porMes(e.target.value, filtAno)}
                 aria-label="Filtrar por mês de vencimento"
               >
                 <option value="">Todos os meses</option>
@@ -173,12 +228,18 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
               <select
                 className={r.select}
                 value={filtAno}
-                onChange={e => { setFiltAno(e.target.value); setFixadas(new Set()); }}
+                onChange={e => porMes(filtMes, e.target.value)}
                 aria-label="Filtrar por ano de vencimento"
               >
                 <option value="">Todos os anos</option>
                 {anos.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
+              <label className={r.datas}>
+                De
+                <input type="date" className={r.select} value={filtDe} max={filtAte || undefined} onChange={e => porDatas(e.target.value, filtAte)} aria-label="Vencimento a partir de" />
+                até
+                <input type="date" className={r.select} value={filtAte} min={filtDe || undefined} onChange={e => porDatas(filtDe, e.target.value)} aria-label="Vencimento até" />
+              </label>
               <label className={r.toggle}>
                 <input type="checkbox" checked={soVencidos} onChange={e => { setSoVencidos(e.target.checked); setFixadas(new Set()); }} />
                 Só vencidos
@@ -217,7 +278,7 @@ export default function RenovacoesCliente({ data }: { data: Linha[] }) {
                       </td>
                       <td><span className={`${styles.badge} ${styles.bSilver}`}>{m.tipo}</span></td>
                       <td>
-                        <span className={`${styles.badge} ${m.status === "Ativo" ? styles.bAtivo : m.status === "Em Renovação" ? styles.bRenov : styles.bSilver}`}>
+                        <span className={`${styles.badge} ${m.status === "Ativo" ? styles.bAtivo : m.status === "Em Renovação" ? styles.bRenov : m.status === "Congelado" ? styles.bCong : styles.bSilver}`}>
                           {m.status}
                         </span>
                       </td>

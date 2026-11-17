@@ -268,6 +268,7 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
 
   const tot = filtered.length;
   const atv = filtered.filter(d => d.status === "Ativo" || d.status === "Em Andamento").length;
+  const congelados = filtered.filter(d => d.status === "Congelado").length;
   const enc = filtered.filter(d => d.status === "Encerrado" || d.status === "Churn").length;
   const renov = filtered.filter(d => d.status === "Em Renovação").length;
   const risco = filtered.filter(d =>
@@ -363,7 +364,7 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
         {/* KPIs */}
         <div className={styles.kpiGrid}>
           <KpiCard label="Total de Mentorados" value={tot} delta="Histórico completo da base" color="#C9A876" />
-          <KpiCard label="Ativos" value={atv} delta="Contratos vigentes" color="#10B981" />
+          <KpiCard label="Ativos" value={atv} delta={congelados ? `Contratos vigentes · ${congelados} congelada${congelados > 1 ? "s" : ""} fora da conta` : "Contratos vigentes"} color="#10B981" />
           <KpiCard label="Em Renovação" value={renov} delta="Encerrando e em decisão" color="#73452B" />
           <KpiCard label="Encerrados" value={enc} delta="Contratos finalizados" color="#EF4444" />
           <KpiCard label="Renovações" value={`${txRenov}%`} delta={txRenovSub} color="#10B981" />

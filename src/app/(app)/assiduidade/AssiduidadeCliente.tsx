@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { opcoesStatus } from "@/lib/status";
 import JornadaModal from "@/components/JornadaModal";
 import styles from "../shared.module.css";
 import f from "../filtros.module.css";
@@ -22,7 +23,7 @@ export default function AssiduidadeCliente({ data }: { data: Linha[] }) {
     const grupos = [...new Set(set.filter(t => / \d+$/.test(t)).map(t => t.replace(/ \d+$/, "")))];
     return { set, grupos };
   }, [data]);
-  const statusOpts = useMemo(() => [...new Set(data.map(m => m.status))].sort((a, b) => a.localeCompare(b, "pt-BR")), [data]);
+  const statusOpts = useMemo(() => opcoesStatus(data.map(m => m.status)), [data]);
 
   const lista = useMemo(
     () =>

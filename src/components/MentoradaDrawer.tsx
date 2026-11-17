@@ -79,7 +79,7 @@ type Form = Record<string, string>;
 const CAMPOS_FORM = [
   "nome", "tipo", "status", "saude", "area", "localizacao", "email", "linkedin", "drive", "asana",
   "whatsapp", "disc", "produtoAnterior", "origem", "origemDetalhe", "resp", "tutora", "turma", "vagaCargo", "vagaEmpresa",
-  "saudeMotivo",
+  "saudeMotivo", "congelamentoMotivo",
 ] as const;
 
 function paraForm(d: Detalhe): Form {
@@ -186,8 +186,8 @@ export default function MentoradaDrawer({
   async function salvarDados() {
     if (!d) return;
     if (!form.nome?.trim()) return avisar("O nome não pode ficar vazio.");
-    if (form.status === "Congelado" && (!form.congelamentoPedido || !form.congelamentoAte)) {
-      return avisar("Para congelar, preencha o início e o fim do congelamento.");
+    if (form.status === "Congelado" && (!form.congelamentoMotivo?.trim() || !form.congelamentoPedido || !form.congelamentoAte)) {
+      return avisar("Para congelar, preencha o motivo, o início e o término do congelamento.");
     }
     setSalvando(true);
     try {
@@ -326,6 +326,7 @@ export default function MentoradaDrawer({
       if (k === "status" && e.target.value === "Congelado" && (!f.congelamentoAte || f.congelamentoAte < hojeISO())) {
         n.congelamentoPedido = hojeISO();
         n.congelamentoAte = "";
+        n.congelamentoMotivo = "";
       }
       if (k === "origem" && !ehLiveEvento(e.target.value)) n.origemDetalhe = "";
       return n;
@@ -423,17 +424,28 @@ export default function MentoradaDrawer({
                 </F>
               </div>
               {(form.status === "Congelado" || form.congelamentoPedido || form.congelamentoAte) && (
-                <div className={s.row}>
-                  <F label="Início do congelamento" hint="Preencher marca o status como Congelado">
-                    <input type="date" value={form.congelamentoPedido ?? ""} onChange={set("congelamentoPedido")} />
-                  </F>
-                  <F label="Fim do congelamento" hint={avisoCongelamento(form, d)}>
-                    <input
-                      type="date" value={form.congelamentoAte ?? ""} min={form.congelamentoPedido || undefined}
-                      onChange={set("congelamentoAte")} autoFocus={form.status === "Congelado" && !form.congelamentoAte}
-                    />
-                  </F>
-                </div>
+                <>
+                  <div className={s.row1}>
+                    <F label="Motivo do congelamento">
+                      <textarea
+                        rows={2} value={form.congelamentoMotivo ?? ""} onChange={set("congelamentoMotivo")}
+                        placeholder="Ex: licença-maternidade, mudança de país, problema de saúde…"
+                        autoFocus={form.status === "Congelado" && !form.congelamentoMotivo}
+                      />
+                    </F>
+                  </div>
+                  <div className={s.row}>
+                    <F label="Início do congelamento" hint="Preencher marca o status como Congelado">
+                      <input type="date" value={form.congelamentoPedido ?? ""} onChange={set("congelamentoPedido")} />
+                    </F>
+                    <F label="Término do congelamento" hint={avisoCongelamento(form, d)}>
+                      <input
+                        type="date" value={form.congelamentoAte ?? ""} min={form.congelamentoPedido || undefined}
+                        onChange={set("congelamentoAte")}
+                      />
+                    </F>
+                  </div>
+                </>
               )}
               <div className={s.row}>
                 <F label="Área de aplicação"><input value={form.area ?? ""} onChange={set("area")} placeholder="Ex: Supply Chain, Engenharia, RH…" /></F>

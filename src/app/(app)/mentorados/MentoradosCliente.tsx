@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
+import { opcoesStatus } from "@/lib/status";
 import { useRouter } from "next/navigation";
 import type { Mentorada } from "@/lib/generated/prisma";
 import MentoradaDrawer, { type Aba } from "@/components/MentoradaDrawer";
@@ -120,7 +121,7 @@ export default function MentoradosCliente({
   }, [mentorados]);
 
   const statusOpts = useMemo(
-    () => [...new Set(mentorados.map(m => m.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => opcoesStatus(mentorados.map(m => m.status)),
     [mentorados]
   );
 
