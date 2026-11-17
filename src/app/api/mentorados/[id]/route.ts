@@ -5,6 +5,9 @@ import { diferencas, registrarAtividade } from "@/lib/atividade";
 import { CAMPOS_COMERCIAIS } from "@/lib/permissoes";
 import { recalcularSaude } from "@/lib/saude-servidor";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
+import { prazoComCongelamento } from "@/lib/congelamento";
+
+const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 export async function GET(
   _req: NextRequest,
@@ -36,9 +39,6 @@ const CAMPOS_TEXTO = [
 ];
 const CAMPOS_INT = ["duracao", "mesesAntes"];
 const CAMPOS_DATA = ["inicio", "prazo", "cancelamento", "congelamentoPedido", "congelamentoAte", "vagaData"];
-const DIA = 86_400_000;
-const diasCongelados = (de: Date | null, ate: Date | null) =>
-  de && ate && ate > de ? Math.round((ate.getTime() - de.getTime()) / DIA) : 0;
 
 export async function PATCH(
   req: NextRequest,
@@ -72,20 +72,21 @@ export async function PATCH(
   const atual = await prisma.mentorada.findUnique({ where: { id } });
   if (!atual) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
 
-  // O congelamento empurra o encerramento pelos dias congelados; mudar ou apagar as datas ajusta só a diferença.
+  // O tempo congelado vira tempo a mais de mentoria; mudar ou apagar as datas ajusta só a diferença.
   const pedido = ("congelamentoPedido" in updates ? updates.congelamentoPedido : atual.congelamentoPedido) as Date | null;
   const ate = ("congelamentoAte" in updates ? updates.congelamentoAte : atual.congelamentoAte) as Date | null;
   const motivo = "congelamentoMotivo" in updates ? updates.congelamentoMotivo : atual.congelamentoMotivo;
   if (updates.status === "Congelado" && atual.status !== "Congelado" && (!pedido || !ate || !motivo)) {
     return NextResponse.json({ erro: "Para congelar, preencha o motivo, a data de início e a data de término do congelamento." }, { status: 400 });
   }
-  if ("congelamentoPedido" in updates || "congelamentoAte" in updates) {
-    // Um congelamento novo (começa depois do fim do anterior) não desconta os dias do antigo, que já foram somados.
-    const novo = !!pedido && !!atual.congelamentoAte && pedido > atual.congelamentoAte;
-    const antes = novo ? 0 : diasCongelados(atual.congelamentoPedido, atual.congelamentoAte);
-    const depois = diasCongelados(pedido, ate);
-    const base = ("prazo" in updates ? updates.prazo : atual.prazo) as Date | null;
-    if (base && depois !== antes) updates.prazo = new Date(base.getTime() + (depois - antes) * DIA);
+  const base = ("prazo" in updates ? updates.prazo : atual.prazo) as Date | null;
+  if (base && ("congelamentoPedido" in updates || "congelamentoAte" in updates)) {
+    const novoPrazo = prazoComCongelamento(
+      iso(base)!,
+      { de: iso(atual.congelamentoPedido), ate: iso(atual.congelamentoAte) },
+      { de: iso(pedido), ate: iso(ate) },
+    );
+    if (novoPrazo !== iso(base)) updates.prazo = new Date(novoPrazo);
   }
 
   // Só conta o que de fato mudou: campos comerciais pedem "comercial", o resto "cadastro".

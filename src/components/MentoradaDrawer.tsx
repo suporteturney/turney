@@ -6,6 +6,7 @@ import Jornada, {
 } from "./Jornada";
 import RenovarModal from "./RenovarModal";
 import { ehLiveEvento } from "@/lib/origem";
+import { duracaoCongelamento, prazoComCongelamento, textoDuracao } from "@/lib/congelamento";
 import { PESOS, ROTULO_PARTE, type Parte } from "@/lib/saude";
 import s from "./MentoradaDrawer.module.css";
 
@@ -53,21 +54,16 @@ function mesesDoContrato(inicio: string | null, prazo: string | null): string[] 
 }
 const labelMes = (ym: string) => `${MESES[+ym.slice(5, 7) - 1]}/${ym.slice(0, 4)}`;
 
-const diasCongelados = (pedido?: string | null, ate?: string | null) =>
-  pedido && ate ? Math.max(0, diasEntre(pedido, ate)) : 0;
-
-// O servidor estende o encerramento pela diferença entre o congelamento salvo e o novo.
+// Mostra antes de salvar como fica o encerramento (o servidor faz a mesma conta ao salvar).
 function avisoCongelamento(form: Form, d: Detalhe) {
-  const { congelamentoPedido: pedido, congelamentoAte: ate } = form;
-  if (pedido && ate && diasEntre(pedido, ate) < 0) return "A data final está antes do pedido";
-  // Um congelamento novo (começa depois do fim do anterior) não desconta os dias do antigo.
-  const novo = !!pedido && !!d.congelamentoAte && pedido > d.congelamentoAte.slice(0, 10);
-  const delta = diasCongelados(pedido, ate) - (novo ? 0 : diasCongelados(d.congelamentoPedido, d.congelamentoAte));
-  if (delta && form.prazo) {
-    const novo = new Date(Date.parse(form.prazo) + delta * 86400000).toISOString();
-    return `Ao salvar, o encerramento passa para ${fmt(novo)} (${delta > 0 ? "+" : ""}${delta} dias).`;
+  const novo = { de: form.congelamentoPedido || null, ate: form.congelamentoAte || null };
+  if (novo.de && novo.ate && novo.ate < novo.de) return "O término está antes do início";
+  const tempo = textoDuracao(duracaoCongelamento(novo));
+  if (form.prazo) {
+    const prazo = prazoComCongelamento(form.prazo, { de: d.congelamentoPedido ?? null, ate: d.congelamentoAte ?? null }, novo);
+    if (prazo !== form.prazo) return `${tempo} congelada. Ao salvar, o fim da mentoria passa de ${fmt(form.prazo)} para ${fmt(prazo)}.`;
   }
-  if (pedido && ate) return `${diasCongelados(pedido, ate)} dias de congelamento, já somados ao encerramento. No dia seguinte ao fim, volta sozinha para Ativo.`;
+  if (novo.de && novo.ate) return `${tempo} congelada, já somados ao fim da mentoria. No dia seguinte ao término, volta sozinha para Ativo.`;
   return undefined;
 }
 
