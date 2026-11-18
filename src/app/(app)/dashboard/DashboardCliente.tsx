@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import MentoradaDrawer from "@/components/MentoradaDrawer";
 import NovoMentoradoModal, { useNovoMentorado } from "@/components/NovoMentoradoModal";
@@ -32,6 +32,37 @@ type Mentorada = {
 
 type RenovacaoResumo = { mentoradaId: string; acao: string; data: string };
 
+// Painel com a lista por trás de cada número ou pedaço de gráfico.
+type ItemLista = { m: Mentorada; info?: string };
+type SecaoLista = { titulo?: string; itens: ItemLista[] };
+type Lista = { titulo: string; sub?: string; secoes: SecaoLista[] };
+
+const ehAtivo = (d: Mentorada) => d.status === "Ativo" || d.status === "Em Andamento";
+const fmtData = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
+const porNome = (a: ItemLista, b: ItemLista) => a.m.nome.localeCompare(b.m.nome, "pt-BR");
+
+// Quem estava ativo, entrou e saiu num mês ("AAAA-MM") — mesma conta do gráfico de evolução.
+function movimentoDoMes(data: Mentorada[], key: string) {
+  const [y, m] = key.split("-").map(Number);
+  const endOfMonth = new Date(y, m, 0);
+  const startOfMonth = new Date(y, m - 1, 1);
+  return {
+    ativos: data.filter(d => {
+      if (!d.inicio) return false;
+      const ini = new Date(d.inicio);
+      const pra = d.prazo ? new Date(d.prazo) : null;
+      return ini <= endOfMonth && (pra ? pra >= startOfMonth : ehAtivo(d));
+    }),
+    entradas: data.filter(d => d.inicio && d.inicio.startsWith(key)),
+    saidas: data.filter(d => d.prazo && d.prazo.startsWith(key) && (d.status === "Encerrado" || d.status === "Churn")),
+  };
+}
+
+const nomeMes = (key: string) => {
+  const t = new Date(`${key}-15T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
 function getLast12Months(referenceDate?: Date): { key: string; label: string }[] {
   const months = [];
   const now = referenceDate ?? new Date();
@@ -53,22 +84,15 @@ function ltvMonths(m: Mentorada): number {
 
 // ── SVG Charts ─────────────────────────────────────────────────────────────
 
-function LineSvg({ data }: { data: Mentorada[] }) {
+function LineSvg({ data, onMes }: { data: Mentorada[]; onMes: (key: string) => void }) {
   const months = getLast12Months();
   const W = 520, H = 160, P = 36;
   const ativos: number[] = [], ent: number[] = [], sai: number[] = [];
   months.forEach(({ key }) => {
-    const [y, m] = key.split("-").map(Number);
-    const endOfMonth = new Date(y, m, 0);
-    const startOfMonth = new Date(y, m - 1, 1);
-    ativos.push(data.filter(d => {
-      if (!d.inicio) return false;
-      const ini = new Date(d.inicio);
-      const pra = d.prazo ? new Date(d.prazo) : null;
-      return ini <= endOfMonth && (pra ? pra >= startOfMonth : d.status === "Ativo" || d.status === "Em Andamento");
-    }).length);
-    ent.push(data.filter(d => d.inicio && d.inicio.startsWith(key)).length);
-    sai.push(data.filter(d => d.prazo && d.prazo.startsWith(key) && (d.status === "Encerrado" || d.status === "Churn")).length);
+    const mv = movimentoDoMes(data, key);
+    ativos.push(mv.ativos.length);
+    ent.push(mv.entradas.length);
+    sai.push(mv.saidas.length);
   });
   const maxV = Math.max(...ativos, ...ent, ...sai, 1);
   const n = months.length;
@@ -99,6 +123,21 @@ function LineSvg({ data }: { data: Mentorada[] }) {
         const x = P + (i / (n - 1)) * (W - P * 2);
         return <text key={i} x={x} y={H - 4} textAnchor="middle" fontSize="9" fill="#9B8B7A">{label}</text>;
       })}
+      {months.map(({ key }, i) => {
+        const passo = (W - P * 2) / (n - 1);
+        const x = P + i * passo;
+        return (
+          <rect
+            key={`alvo-${key}`} className={styles.alvoMes}
+            x={x - passo / 2} y={P - 10} width={passo} height={H - P - 2}
+            role="button" tabIndex={0} aria-label={`Ver mentoradas de ${nomeMes(key)}`}
+            onClick={() => onMes(key)}
+            onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onMes(key); } }}
+          >
+            <title>{`${nomeMes(key)}: ${ativos[i]} ativos · ${ent[i]} entradas · ${sai[i]} saídas — clique para ver`}</title>
+          </rect>
+        );
+      })}
       <circle cx="12" cy="12" r="4" fill="#C9A876" />
       <text x="20" y="16" fontSize="10" fill="#5C4A35">Ativos</text>
       <line x1="68" y1="12" x2="82" y2="12" stroke="#10B981" strokeWidth="1.5" strokeDasharray="4 3" />
@@ -109,7 +148,7 @@ function LineSvg({ data }: { data: Mentorada[] }) {
   );
 }
 
-function BarSvg({ data }: { data: Mentorada[] }) {
+function BarSvg({ data, onMes }: { data: Mentorada[]; onMes: (key: string) => void }) {
   const months = getLast12Months();
   const W = 520, H = 130, P = 32, gap = 3;
   const now = new Date();
@@ -153,6 +192,16 @@ function BarSvg({ data }: { data: Mentorada[] }) {
                 fill="#10B981" rx="2" />
             )}
             <text x={x + bw / 2} y={H - 2} textAnchor="middle" fontSize="8" fill="#9B8B7A">{label}</text>
+            {venc > 0 && (
+              <rect
+                className={styles.alvoMes} x={x - gap / 2} y={P - 6} width={bw + gap} height={H - P}
+                role="button" tabIndex={0} aria-label={`Ver vencimentos de ${nomeMes(key)}`}
+                onClick={() => onMes(key)}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onMes(key); } }}
+              >
+                <title>{`${nomeMes(key)}: ${venc} vencimentos · ${renov} em renovação — clique para ver`}</title>
+              </rect>
+            )}
           </g>
         );
       })}
@@ -164,7 +213,7 @@ function BarSvg({ data }: { data: Mentorada[] }) {
   );
 }
 
-function DonutSvg({ data }: { data: Mentorada[] }) {
+function DonutSvg({ data, onPrograma }: { data: Mentorada[]; onPrograma: (k: string) => void }) {
   const progDefs = [
     { l: "Nexus 1", k: "Nexus 1", c: "#0E152F" },
     { l: "Nexus 2", k: "Nexus 2", c: "#73452B" },
@@ -189,7 +238,12 @@ function DonutSvg({ data }: { data: Mentorada[] }) {
     paths.push(
       <path key={idx}
         d={`M${xi.toFixed(1)},${yi.toFixed(1)} L${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${xo.toFixed(1)},${yo.toFixed(1)} A${r},${r} 0 ${lg},0 ${xi.toFixed(1)},${yi.toFixed(1)} Z`}
-        fill={p.c} stroke="white" strokeWidth="1.5" />
+        fill={p.c} stroke="white" strokeWidth="1.5" className={styles.fatia}
+        role="button" tabIndex={0} aria-label={`Ver mentoradas do ${p.l}`}
+        onClick={() => onPrograma(p.k)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPrograma(p.k); } }}>
+        <title>{`${p.l}: ${p.v} — clique para ver`}</title>
+      </path>
     );
     angle += a;
   });
@@ -202,7 +256,8 @@ function DonutSvg({ data }: { data: Mentorada[] }) {
       {progs.map((p, i) => {
         const lx = 135, ly = 14 + i * 22;
         return (
-          <g key={i}>
+          <g key={i} className={styles.legendaBtn} onClick={() => onPrograma(p.k)}>
+            <rect x={lx - 4} y={ly - 12} width="70" height="18" fill="transparent" />
             <rect x={lx} y={ly - 7} width="8" height="8" fill={p.c} rx="1" />
             <text x={lx + 12} y={ly} fontSize="10" fill="#5C4A35">{p.l}</text>
             <text x="198" y={ly} textAnchor="end" fontSize="10" fontWeight="700" fill="#0E152F">{p.v}</text>
@@ -224,6 +279,8 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
   const [jornada, setJornada] = useState<string | null>(null);
   const [filterMes, setFilterMes] = useState("");
   const [filterMentorada, setFilterMentorada] = useState("");
+  const [lista, setLista] = useState<Lista | null>(null);
+  const [cadastro, setCadastro] = useState<string | null>(null);
 
   const mesOpts = useMemo(() => {
     const opts: { key: string; label: string }[] = [];
@@ -309,12 +366,76 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
 
   const isFiltered = !!filterMes || !!filterMentorada;
 
+  // ── Listas por trás de cada número ──
+  const recorte = isFiltered ? ` · ${[filterMes ? nomeMes(filterMes) : "", filterMentorada ? `busca "${filterMentorada}"` : ""].filter(Boolean).join(" · ")}` : "";
+  const comPrazo = (m: Mentorada): ItemLista => ({ m, info: m.prazo ? `Encerramento em ${fmtData(m.prazo)}` : undefined });
+  const abrir = (titulo: string, itens: ItemLista[], sub?: string) =>
+    setLista({ titulo, sub: (sub ?? "") + recorte || undefined, secoes: [{ itens: [...itens].sort(porNome) }] });
+  const porId = new Map(data.map(m => [m.id, m]));
+  const SAUDE_INFO = (m: Mentorada) => m.saudeMotivo || m.motivoVarredura || (m.prazo ? `Encerramento em ${fmtData(m.prazo)}` : undefined);
+
+  const listas = {
+    total: () => abrir("Total de mentorados", filtered.map(comPrazo), "Toda a base"),
+    ativos: () => abrir("Ativos", ativos.map(comPrazo), "Status Ativo ou Em Andamento"),
+    renovacao: () => abrir("Em Renovação", filtered.filter(d => d.status === "Em Renovação").map(comPrazo)),
+    encerrados: () => abrir("Encerrados", filtered.filter(d => d.status === "Encerrado" || d.status === "Churn")
+      .map(m => ({ m, info: `${m.status === "Churn" ? "Cancelou (Churn)" : "Encerrado"}${m.prazo ? ` · ${fmtData(m.prazo)}` : ""}` }))),
+    renovacoes: () => {
+      const grupo = (acao: string, titulo: string, singular: string): SecaoLista => ({
+        titulo,
+        itens: renovsFiltradas
+          .filter(r => r.acao === acao && porId.has(r.mentoradaId))
+          .sort((a, b) => b.data.localeCompare(a.data))
+          .map(r => ({ m: porId.get(r.mentoradaId)!, info: `${singular} em ${fmtData(r.data)}` })),
+      });
+      setLista({
+        titulo: "Renovações",
+        sub: (filterMes ? "Registradas no mês" : "Todas as registradas") + recorte,
+        secoes: [grupo("RENOVAÇÃO", "Renovações", "Renovou"), grupo("UPGRADE", "Upgrades", "Upgrade"), grupo("DOWNGRADE", "Downgrades", "Downgrade")].filter(x => x.itens.length),
+      });
+    },
+    entradas: () => abrir(`Novas entradas · ${mesLabelCap}`, filtered.filter(d => d.inicio && d.inicio.startsWith(mesAtual))
+      .map(m => ({ m, info: `Início em ${fmtData(m.inicio)}` }))),
+    risco: () => abrir("Em Risco", ativos.filter(d => d.saude === "Risco").map(m => ({ m, info: SAUDE_INFO(m) })), "Ativos com saúde Risco"),
+    saude: (nivel: string) => abrir(`Saúde: ${nivel}`, ativos.filter(d => d.saude === nivel).map(m => ({ m, info: SAUDE_INFO(m) })), "Mentoradas ativas"),
+    ltv: () => setLista({
+      titulo: "Tempo com a Turney",
+      sub: `Média de ${ltvMed} meses${recorte}`,
+      secoes: [{ itens: filtered.filter(d => d.inicio).map(m => ({ m, info: `${ltvMonths(m)} meses · desde ${fmtData(m.inicio)}` }))
+        .sort((a, b) => ltvMonths(b.m) - ltvMonths(a.m)) }],
+    }),
+    aprovacoes: () => abrir("Aprovações em vaga", filtered.filter(d => d.vagaData || d.vagaCargo || d.vagaEmpresa)
+      .map(m => ({ m, info: [m.vagaCargo, m.vagaEmpresa, m.vagaData ? fmtData(m.vagaData) : ""].filter(Boolean).join(" · ") || "Aprovada" }))),
+    evolucao: (key: string) => {
+      const mv = movimentoDoMes(filtered, key);
+      setLista({
+        titulo: `Evolução da base · ${nomeMes(key)}`,
+        secoes: [
+          { titulo: "Entradas", itens: mv.entradas.map(m => ({ m, info: `Início em ${fmtData(m.inicio)}` })).sort(porNome) },
+          { titulo: "Saídas", itens: mv.saidas.map(m => ({ m, info: `${m.status} · ${fmtData(m.prazo)}` })).sort(porNome) },
+          { titulo: "Ativos no mês", itens: mv.ativos.map(comPrazo).sort(porNome) },
+        ],
+      });
+    },
+    vencimentos: (key: string) => {
+      const vencem = filtered.filter(d => d.prazo && d.prazo.startsWith(key));
+      setLista({
+        titulo: `Vencimentos · ${nomeMes(key)}`,
+        secoes: [
+          { titulo: "Em Renovação", itens: vencem.filter(d => d.status === "Em Renovação").map(comPrazo).sort(porNome) },
+          { titulo: "Demais vencimentos", itens: vencem.filter(d => d.status !== "Em Renovação").map(m => ({ m, info: `${m.status} · ${fmtData(m.prazo)}` })).sort(porNome) },
+        ],
+      });
+    },
+    programa: (tipo: string) => abrir(tipo, filtered.filter(d => d.tipo === tipo).map(comPrazo), "Por programa · todos os status"),
+  };
+
   return (
     <>
       <div className={styles.topbar}>
         <div>
           <div className={styles.pageTitle}>Dashboard</div>
-          <div className={styles.pageSub}>Visão estratégica da base de mentorados</div>
+          <div className={styles.pageSub}>Visão estratégica da base de mentorados — clique em qualquer número ou gráfico para ver quem está nele</div>
         </div>
         <div className={styles.topbarRight}>
           <span className={styles.topbarDate}>
@@ -363,15 +484,15 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
 
         {/* KPIs */}
         <div className={styles.kpiGrid}>
-          <KpiCard label="Total de Mentorados" value={tot} delta="Histórico completo da base" color="#C9A876" />
-          <KpiCard label="Ativos" value={atv} delta={congelados ? `Contratos vigentes · ${congelados} congelada${congelados > 1 ? "s" : ""} fora da conta` : "Contratos vigentes"} color="#10B981" />
-          <KpiCard label="Em Renovação" value={renov} delta="Encerrando e em decisão" color="#73452B" />
-          <KpiCard label="Encerrados" value={enc} delta="Contratos finalizados" color="#EF4444" />
-          <KpiCard label="Renovações" value={`${txRenov}%`} delta={txRenovSub} color="#10B981" />
-          <KpiCard label="Novas Entradas" value={entradas} delta={`Iniciaram em ${mesLabelCap}`} color="#C9A876" />
-          <KpiCard label="Em Risco" value={risco} delta="Saúde = Risco (ativos)" color="#EF4444" />
-          <KpiCard label="LTV Médio" value={`${ltvMed}m`} delta="Tempo médio com a Turney" color="#C9A876" />
-          <KpiCard label="🏆 Aprovações em Vaga" value={aprovacoes} delta="Mentoradas aprovadas na base" color="#F59E0B" />
+          <KpiCard label="Total de Mentorados" value={tot} delta="Histórico completo da base" color="#C9A876" onClick={listas.total} />
+          <KpiCard label="Ativos" value={atv} delta={congelados ? `Contratos vigentes · ${congelados} congelada${congelados > 1 ? "s" : ""} fora da conta` : "Contratos vigentes"} color="#10B981" onClick={listas.ativos} />
+          <KpiCard label="Em Renovação" value={renov} delta="Encerrando e em decisão" color="#73452B" onClick={listas.renovacao} />
+          <KpiCard label="Encerrados" value={enc} delta="Contratos finalizados" color="#EF4444" onClick={listas.encerrados} />
+          <KpiCard label="Renovações" value={`${txRenov}%`} delta={txRenovSub} color="#10B981" onClick={listas.renovacoes} />
+          <KpiCard label="Novas Entradas" value={entradas} delta={`Iniciaram em ${mesLabelCap}`} color="#C9A876" onClick={listas.entradas} />
+          <KpiCard label="Em Risco" value={risco} delta="Saúde = Risco (ativos)" color="#EF4444" onClick={listas.risco} />
+          <KpiCard label="LTV Médio" value={`${ltvMed}m`} delta="Tempo médio com a Turney" color="#C9A876" onClick={listas.ltv} />
+          <KpiCard label="🏆 Aprovações em Vaga" value={aprovacoes} delta="Mentoradas aprovadas na base" color="#F59E0B" onClick={listas.aprovacoes} />
         </div>
 
         {/* Row 2 */}
@@ -379,14 +500,14 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
           <div className={styles.card}>
             <div className={styles.cardTitle}>Evolução da Base</div>
             <div className={styles.cardSub}>Últimos 12 meses — ativos, entradas e saídas</div>
-            <LineSvg data={filtered} />
+            <LineSvg data={filtered} onMes={listas.evolucao} />
           </div>
           <div className={styles.card}>
             <div className={styles.cardTitle}>Saúde da Base</div>
             <div className={styles.cardSub}>Distribuição por status · ativos</div>
-            <HBar label="Saudável" color="#10B981" pct={sauPct} n={saudavel} />
-            <HBar label="Atenção" color="#D97706" pct={atePct} n={atencao} />
-            <HBar label="Risco" color="#EF4444" pct={risPct} n={risco} />
+            <HBar label="Saudável" color="#10B981" pct={sauPct} n={saudavel} onClick={() => listas.saude("Saudável")} />
+            <HBar label="Atenção" color="#D97706" pct={atePct} n={atencao} onClick={() => listas.saude("Atenção")} />
+            <HBar label="Risco" color="#EF4444" pct={risPct} n={risco} onClick={() => listas.saude("Risco")} />
             <div className={styles.divider} />
             <div className={styles.sectionMini}>
               Críticos agora <span className={styles.criticoCount}>{criticos.length}</span>
@@ -415,12 +536,12 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
           <div className={`${styles.card} ${styles.span2}`}>
             <div className={styles.cardTitle}>Taxa de Renovação Mensal</div>
             <div className={styles.cardSub}>Últimos 12 meses — vencimentos vs em renovação</div>
-            <BarSvg data={filtered} />
+            <BarSvg data={filtered} onMes={listas.vencimentos} />
           </div>
           <div className={styles.card}>
             <div className={styles.cardTitle}>Por Programa</div>
             <div className={styles.cardSub}>Distribuição total</div>
-            <DonutSvg data={filtered} />
+            <DonutSvg data={filtered} onPrograma={listas.programa} />
           </div>
         </div>
 
@@ -512,31 +633,102 @@ export default function DashboardCliente({ data, renovacoes }: { data: Mentorada
           onChanged={() => router.refresh()}
         />
       )}
-      {jornada && <JornadaModal key={jornada} id={jornada} onClose={() => setJornada(null)} />}
+      {lista && <ListaPainel lista={lista} onFechar={() => setLista(null)} onAbrir={setJornada} />}
+      {jornada && (
+        <JornadaModal
+          key={jornada} id={jornada} onClose={() => setJornada(null)}
+          onAbrirCadastro={() => { setCadastro(jornada); setJornada(null); }}
+        />
+      )}
+      {cadastro && (
+        <MentoradaDrawer key={cadastro} id={cadastro} onClose={() => setCadastro(null)} onChanged={() => router.refresh()} />
+      )}
       {toast && <div className={styles.toast} role="status">{toast}</div>}
     </>
   );
 }
 
-function KpiCard({ label, value, delta, color }: { label: string; value: string | number; delta: string; color: string }) {
+function KpiCard({ label, value, delta, color, onClick }: { label: string; value: string | number; delta: string; color: string; onClick: () => void }) {
   return (
-    <div className={styles.kpi} style={{ "--kpi-color": color } as React.CSSProperties}>
-      <div className={styles.kpiLabel}>{label}</div>
+    <button type="button" className={`${styles.kpi} ${styles.kpiBtn}`} style={{ "--kpi-color": color } as React.CSSProperties} onClick={onClick}>
+      <div className={styles.kpiLabel}>{label}<span className={styles.kpiVer} aria-hidden="true">ver lista →</span></div>
       <div className={styles.kpiValue}>{value}</div>
       <div className={styles.kpiDelta}>{delta}</div>
-    </div>
+    </button>
   );
 }
 
-function HBar({ label, color, pct, n }: { label: string; color: string; pct: number; n: number }) {
+function HBar({ label, color, pct, n, onClick }: { label: string; color: string; pct: number; n: number; onClick: () => void }) {
   return (
-    <div className={styles.hbar}>
+    <button type="button" className={`${styles.hbar} ${styles.hbarBtn}`} onClick={onClick} aria-label={`Ver mentoradas com saúde ${label} (${n})`}>
       <div className={styles.hbarDot} style={{ background: color }} />
       <div className={styles.hbarLabel}>{label}</div>
       <div className={styles.hbarTrack}>
         <div className={styles.hbarFill} style={{ background: color, width: `${pct}%` }} />
       </div>
       <div className={styles.hbarN}>{n}</div>
+    </button>
+  );
+}
+
+const STATUS_CHIP: Record<string, string> = {
+  "Ativo": styles.chipOk, "Em Andamento": styles.chipOk, "Em Renovação": styles.chipRenov,
+  "Congelado": styles.chipCong, "Encerrado": styles.chipFim, "Churn": styles.chipFim,
+};
+const SAUDE_CHIP: Record<string, string> = { "Saudável": styles.chipOk, "Atenção": styles.chipAte, "Risco": styles.chipRis };
+
+function ListaPainel({ lista, onFechar, onAbrir }: { lista: Lista; onFechar: () => void; onAbrir: (id: string) => void }) {
+  const [busca, setBusca] = useState("");
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => { if (e.key === "Escape") onFechar(); };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [onFechar]);
+
+  const q = busca.trim().toLowerCase();
+  const secoes = lista.secoes.map(sec => ({ ...sec, itens: q ? sec.itens.filter(i => i.m.nome.toLowerCase().includes(q) || i.m.tipo.toLowerCase().includes(q)) : sec.itens }));
+  const total = lista.secoes.reduce((a, sec) => a + sec.itens.length, 0);
+  const visiveis = secoes.reduce((a, sec) => a + sec.itens.length, 0);
+
+  return (
+    <div className={styles.listaFundo} onClick={onFechar}>
+      <aside className={styles.listaPainel} role="dialog" aria-modal="true" aria-labelledby="lista-titulo" onClick={e => e.stopPropagation()}>
+        <header className={styles.listaTopo}>
+          <div>
+            <h2 id="lista-titulo" className={styles.listaTitulo}>{lista.titulo} <span>{total}</span></h2>
+            {lista.sub && <p className={styles.listaSub}>{lista.sub}</p>}
+          </div>
+          <button className={styles.listaFechar} onClick={onFechar} aria-label="Fechar lista">×</button>
+        </header>
+        {total > 6 && (
+          <input
+            className={styles.listaBusca} type="search" placeholder="Filtrar por nome ou programa…"
+            value={busca} onChange={e => setBusca(e.target.value)} aria-label="Filtrar a lista" autoFocus
+          />
+        )}
+        <div className={styles.listaCorpo}>
+          {!total && <p className={styles.emptyMsg}>Ninguém aqui.</p>}
+          {!!total && !visiveis && <p className={styles.emptyMsg}>Ninguém com esse nome nesta lista.</p>}
+          {secoes.map((sec, i) => (!sec.itens.length ? null : (
+            <section key={i}>
+              {sec.titulo && <h3 className={styles.listaSecao}>{sec.titulo} <span>{sec.itens.length}</span></h3>}
+              <ul className={styles.listaItens}>
+                {sec.itens.map((it, j) => (
+                  <li key={`${it.m.id}-${j}`}>
+                    <button className={styles.listaNome} onClick={() => onAbrir(it.m.id)} title="Ver jornada">{it.m.nome}</button>
+                    <div className={styles.listaChips}>
+                      <span className={styles.chip}>{it.m.tipo}</span>
+                      <span className={`${styles.chip} ${STATUS_CHIP[it.m.status] ?? ""}`}>{it.m.status}</span>
+                      {it.m.saude && <span className={`${styles.chip} ${SAUDE_CHIP[it.m.saude] ?? ""}`}>{it.m.saude}</span>}
+                    </div>
+                    {it.info && <div className={styles.listaInfo}>{it.info}</div>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )))}
+        </div>
+      </aside>
     </div>
   );
 }

@@ -10,6 +10,7 @@ const MENU = [
   {
     grupo: "PRINCIPAL",
     itens: [
+      { href: "/inicio", label: "Meu painel", icon: "home" },
       { href: "/dashboard", label: "Dashboard", icon: "grid" },
       { href: "/mentorados", label: "Mentorados", icon: "users" },
       { href: "/renovacoes", label: "Renovações", icon: "refresh" },
@@ -42,6 +43,11 @@ const MENU_ADMIN = {
 };
 
 const ICONS: Record<string, React.ReactNode> = {
+  home: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />
+    </svg>
+  ),
   kanban: (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="3" width="5" height="18" rx="1" /><rect x="10" y="3" width="5" height="12" rx="1" /><rect x="17" y="3" width="4" height="8" rx="1" />

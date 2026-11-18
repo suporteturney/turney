@@ -497,3 +497,150 @@
 }
 .thNegoc { min-width: 280px; }
 .tdNegoc { width: 38%; min-width: 280px; vertical-align: top !important; }
+
+/* ── Dashboard interativo: números e gráficos abrem a lista ─────────────── */
+.kpiBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+}
+.kpiBtn:hover { border-color: #D6C3A0; transform: translateY(-1px); }
+.kpiBtn:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.kpiLabel { display: flex; justify-content: space-between; gap: 8px; }
+.kpiVer {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--brown);
+  opacity: 0;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.kpiBtn:hover .kpiVer, .kpiBtn:focus-visible .kpiVer { opacity: 1; }
+
+.hbarBtn {
+  width: 100%;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  padding: 4px 6px;
+  margin: 0 -6px 6px;
+  width: calc(100% + 12px);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.hbarBtn:hover { background: #F6F1E7; }
+.hbarBtn:focus-visible { outline: 2px solid var(--champagne); outline-offset: 1px; }
+
+.alvoMes { fill: transparent; cursor: pointer; outline: none; }
+.alvoMes:hover, .alvoMes:focus-visible { fill: rgba(201, 168, 118, 0.12); }
+.fatia { cursor: pointer; outline: none; transition: opacity 0.12s; }
+.fatia:hover, .fatia:focus-visible { opacity: 0.8; }
+.legendaBtn { cursor: pointer; }
+.legendaBtn:hover text { fill: var(--brown); }
+
+/* Painel lateral com a lista */
+.listaFundo {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(6, 10, 31, 0.35);
+  display: flex;
+  justify-content: flex-end;
+}
+.listaPainel {
+  width: min(440px, 100%);
+  height: 100%;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -12px 0 40px rgba(6, 10, 31, 0.18);
+  animation: listaEntra 0.18s ease-out;
+}
+@keyframes listaEntra { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .listaPainel { animation: none; } .kpiBtn:hover { transform: none; } }
+
+.listaTopo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--bdr);
+}
+.listaTitulo { font-size: 16px; font-weight: 800; color: var(--navy-mid); display: flex; align-items: center; gap: 8px; text-wrap: balance; }
+.listaTitulo span, .listaSecao span {
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--champ-dim);
+  color: var(--brown);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.listaSub { font-size: 11px; color: var(--txt3); margin-top: 3px; }
+.listaFechar { background: none; border: none; font-size: 24px; line-height: 1; color: var(--txt3); cursor: pointer; padding: 0 4px; }
+.listaFechar:hover { color: var(--navy-mid); }
+.listaBusca {
+  margin: 12px 20px 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 11px;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  outline: none;
+}
+.listaBusca:focus { border-color: var(--champagne); }
+.listaCorpo { flex: 1; overflow-y: auto; padding: 8px 20px 24px; }
+.listaSecao {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin: 16px 0 4px;
+}
+.listaItens { list-style: none; }
+.listaItens li { padding: 10px 0; border-bottom: 1px solid #F0E9DD; display: flex; flex-direction: column; gap: 5px; }
+.listaNome {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-mid);
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px dashed var(--champ-bdr);
+}
+.listaNome:hover { color: var(--brown); }
+.listaNome:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.listaChips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9px;
+  background: #F6F1E7;
+  color: var(--txt2);
+}
+.chipOk { background: var(--ok-bg); color: #065f46; }
+.chipAte { background: var(--warn-bg); color: #92400e; }
+.chipRis { background: var(--danger-bg); color: #991b1b; }
+.chipRenov { background: #ede9fe; color: #4c1d95; }
+.chipCong { background: #e0f2fe; color: #075985; }
+.chipFim { background: #f1f5f9; color: #475569; }
+.listaInfo { font-size: 11px; color: var(--txt3); line-height: 1.45; }

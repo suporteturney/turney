@@ -1,0 +1,224 @@
+/* Meu painel — saudação, atenção e atividades de quem entrou */
+
+.hero {
+  padding: 8px 2px 22px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--bdr);
+}
+.data {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--champagne);
+}
+.saudacao {
+  margin-top: 6px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--navy-mid);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.resumo {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--txt2);
+  max-width: 62ch;
+  line-height: 1.5;
+}
+.resumo strong { color: var(--navy-mid); }
+.aviso {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--txt3);
+  max-width: 70ch;
+}
+
+.grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.bloco {
+  background: var(--surface);
+  border: 1px solid var(--bdr);
+  border-radius: 12px;
+  padding: 16px 18px 18px;
+}
+.blocoTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.blocoTitulo { font-size: 14px; font-weight: 800; color: var(--navy-mid); }
+.blocoConta {
+  min-width: 26px;
+  padding: 2px 9px;
+  border-radius: 12px;
+  background: var(--champ-dim);
+  color: var(--brown);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.link { font-size: 12px; font-weight: 700; color: var(--brown); }
+.link:hover { text-decoration: underline; }
+.vazio { font-size: 12px; color: var(--txt3); padding: 6px 0; }
+
+/* Alertas */
+.alerta {
+  border-left: 3px solid var(--tom);
+  background: var(--tom-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+.vermelho { --tom: var(--danger); --tom-bg: #FEF5F5; --tom-txt: #991b1b; }
+.amarelo { --tom: #F59E0B; --tom-bg: #FFFAEF; --tom-txt: #92400e; }
+.azul { --tom: #0EA5E9; --tom-bg: #F2F9FE; --tom-txt: #075985; }
+.alertaTitulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--tom-txt);
+}
+.alertaTitulo b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--tom); flex-shrink: 0; }
+.alertaLista { list-style: none; margin-top: 6px; }
+.alertaLista li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(14, 21, 47, 0.06);
+}
+.alertaLista li:first-child { border-top: none; }
+.info { flex-basis: 100%; font-size: 11px; color: var(--txt2); line-height: 1.4; }
+.mais {
+  margin-top: 4px;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tom-txt);
+  cursor: pointer;
+}
+.mais:hover { text-decoration: underline; }
+
+.nome {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-mid);
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px dashed var(--champ-bdr);
+}
+.nome:hover { color: var(--brown); }
+.nome:focus-visible, .mais:focus-visible, .check:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.tipo { font-size: 10px; font-weight: 700; color: var(--txt3); }
+
+/* Atividades */
+.tGrupo + .tGrupo { margin-top: 14px; }
+.tGrupoTitulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin-bottom: 6px;
+}
+.tGrupoTitulo span {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--beige);
+  font-variant-numeric: tabular-nums;
+}
+.tLista { list-style: none; border: 1px solid #F0E9DD; border-radius: 9px; overflow: hidden; }
+.tarefa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-top: 1px solid #F0E9DD;
+  border-left: 3px solid transparent;
+  transition: opacity 0.3s;
+}
+.tarefa:first-child { border-top: none; }
+.tAtrasada { border-left-color: var(--danger); }
+.tHoje { border-left-color: #F59E0B; }
+.tFeita { opacity: 0.45; }
+.tFeita .tTitulo { text-decoration: line-through; }
+.check { width: 16px; height: 16px; accent-color: var(--brown); cursor: pointer; flex-shrink: 0; }
+.tCorpo { flex: 1; min-width: 0; }
+.tTitulo { font-size: 13px; font-weight: 700; color: var(--navy-mid); }
+.tMeta { display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; font-size: 11px; color: var(--txt3); margin-top: 2px; }
+.tMeta .nome { font-size: 11px; font-weight: 600; }
+.tPrazo { font-size: 11px; font-weight: 700; color: var(--txt2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tAtrasada .tPrazo { color: #991b1b; }
+.tHoje .tPrazo { color: #92400e; }
+.depois { margin-top: 10px; font-size: 11px; color: var(--txt3); }
+
+/* Carteira */
+.numeros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.numeros div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--linen);
+}
+.numeros strong { font-size: 24px; font-weight: 800; color: var(--navy-mid); line-height: 1; font-variant-numeric: tabular-nums; }
+.numeros span { font-size: 11px; color: var(--txt3); }
+.fases { list-style: none; margin-top: 14px; display: grid; gap: 6px; }
+.fases li { display: grid; grid-template-columns: minmax(120px, 210px) 1fr 32px; align-items: center; gap: 10px; }
+.faseNome { font-size: 12px; color: var(--txt2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.faseTrilho { height: 7px; background: #F0E9DD; border-radius: 4px; overflow: hidden; }
+.faseTrilho span { display: block; height: 100%; background: var(--champagne); border-radius: 4px; }
+.faseN { font-size: 12px; font-weight: 700; color: var(--navy-mid); text-align: right; font-variant-numeric: tabular-nums; }
+
+.erro {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  max-width: min(400px, calc(100vw - 32px));
+  display: flex;
+  gap: 10px;
+  background: #7f1d1d;
+  color: var(--linen);
+  font-size: 12px;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.erro button { background: none; border: none; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+
+@media (max-width: 900px) {
+  .grade { grid-template-columns: 1fr; }
+  .numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .saudacao { font-size: 24px; }
+}
