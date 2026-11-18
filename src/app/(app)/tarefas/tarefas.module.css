@@ -1,0 +1,153 @@
+.kpis { margin-bottom: 16px; }
+
+.nova {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+}
+.nova input {
+  font: inherit;
+  font-size: 13px;
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 7px;
+  padding: 7px 10px;
+  background: var(--surface);
+  outline: none;
+}
+.nova input:focus { border-color: var(--champagne); }
+.novaTitulo { flex: 2 1 260px; }
+.novaMentorada { flex: 1 1 200px; }
+
+.btnPrim {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  padding: 7px 14px;
+  cursor: pointer;
+  background: var(--navy-mid);
+  color: var(--champagne);
+  border: 1px solid var(--navy-mid);
+}
+.btnPrim:disabled { opacity: 0.4; cursor: default; }
+.btnPrim:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+
+.filtros { margin-bottom: 6px; }
+.busca { width: 240px; cursor: text; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt2); cursor: pointer; }
+
+.grupo { margin-top: 16px; }
+.grupoTitulo {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--txt2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.grupoTitulo span {
+  font-size: 10px;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--beige);
+  color: var(--txt2);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.tAtrasada span { background: var(--danger-bg); color: #991b1b; }
+.tHoje span { background: var(--warn-bg); color: #92400e; }
+.vazio { font-size: 12px; color: var(--txt3); padding: 4px 2px; }
+
+.lista {
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-top: 1px solid #F0E9DD;
+  border-left: 3px solid transparent;
+}
+.item:first-child { border-top: none; }
+.atrasada { border-left-color: var(--danger); }
+.hoje { border-left-color: #F59E0B; }
+.feita .titulo { text-decoration: line-through; color: var(--txt3); }
+
+.check { width: 17px; height: 17px; accent-color: var(--brown); cursor: pointer; flex-shrink: 0; }
+.corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.titulo { font-size: 13px; font-weight: 700; color: var(--navy-mid); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 11px; color: var(--txt3); }
+.tipo { font-size: 10px; font-weight: 700; color: var(--txt2); background: #F6F1E7; border-radius: 4px; padding: 1px 6px; }
+.origem { font-size: 11px; color: var(--txt3); }
+
+.lado { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+.prazo { font-size: 11px; font-weight: 700; color: var(--txt2); font-variant-numeric: tabular-nums; }
+.atrasada .prazo { color: #991b1b; }
+.hoje .prazo { color: #92400e; }
+.acoes { display: flex; align-items: center; gap: 6px; }
+.data {
+  font: inherit;
+  font-size: 11px;
+  color: var(--txt2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: var(--surface);
+}
+.whats {
+  font-size: 11px;
+  font-weight: 700;
+  color: #065f46;
+  background: var(--ok-bg);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.excluir {
+  font: inherit;
+  font-size: 11px;
+  color: var(--txt3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.excluir:hover { color: #991b1b; }
+
+.aviso {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  max-width: min(400px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #7f1d1d;
+  color: var(--linen);
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.aviso button { background: none; border: none; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+
+@media (max-width: 700px) {
+  .item { flex-wrap: wrap; }
+  .lado { width: 100%; align-items: flex-start; padding-left: 29px; }
+  .busca { width: 100%; }
+}

@@ -16,6 +16,8 @@ const MENU = [
       { href: "/acompanhamento", label: "Acompanhamento", icon: "file" },
       { href: "/saude", label: "Saúde da Base", icon: "heart" },
       { href: "/assiduidade", label: "Assiduidade", icon: "calendar" },
+      { href: "/pipeline", label: "Pipeline", icon: "kanban" },
+      { href: "/tarefas", label: "Tarefas", icon: "check" },
       { href: "/jornada", label: "Jornada", icon: "clock" },
       { href: "/analises", label: "Análises", icon: "bar-chart" },
       { href: "/insights", label: "Insights", icon: "zap" },
@@ -40,6 +42,16 @@ const MENU_ADMIN = {
 };
 
 const ICONS: Record<string, React.ReactNode> = {
+  kanban: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="5" height="18" rx="1" /><rect x="10" y="3" width="5" height="12" rx="1" /><rect x="17" y="3" width="4" height="8" rx="1" />
+    </svg>
+  ),
+  check: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="18" height="18" rx="3" /><polyline points="8 12 11 15 16 9" />
+    </svg>
+  ),
   shield: (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -115,7 +127,7 @@ const ICONS: Record<string, React.ReactNode> = {
   dot: <span className={styles.navDot} />,
 };
 
-export default function Sidebar({ usuario }: { usuario: UsuarioSessao }) {
+export default function Sidebar({ usuario, tarefasVencendo = 0 }: { usuario: UsuarioSessao; tarefasVencendo?: number }) {
   const pathname = usePathname();
   const router = useRouter();
   const menu = pode(usuario, "equipe") ? [...MENU, MENU_ADMIN] : MENU;
@@ -153,6 +165,9 @@ export default function Sidebar({ usuario }: { usuario: UsuarioSessao }) {
               >
                 <span className={styles.navIcon}>{ICONS[item.icon]}</span>
                 {item.label}
+                {item.href === "/tarefas" && tarefasVencendo > 0 && (
+                  <span className={styles.navBadge} title="Tarefas atrasadas ou para hoje">{tarefasVencendo}</span>
+                )}
               </Link>
             ))}
           </div>

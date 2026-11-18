@@ -87,6 +87,19 @@
   font-weight: 600;
 }
 
+.navBadge {
+  margin-left: auto;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--champagne);
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .navIcon {
   flex-shrink: 0;
   opacity: 0.7;

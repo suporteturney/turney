@@ -93,6 +93,11 @@ model Mentorada {
   jornadaEtapa   String?
   jornadaEtapaEm DateTime?
 
+  // Pipeline (Kanban): em que etapa a mentorada está e desde quando
+  pipelineFaseId String?
+  pipelineFase   PipelineFase? @relation(fields: [pipelineFaseId], references: [id], onDelete: SetNull)
+  pipelineFaseEm DateTime?
+
   linkedin     String?
   drive        String?
   asana        String?
@@ -125,6 +130,40 @@ model Mentorada {
   renovacoes  Renovacao[]
   varreduraItens VarreduraItem[]
   saudeRegistros SaudeRegistro[]
+  tarefas     Tarefa[]
+}
+
+// Etapas do Kanban (Pipeline), criadas e excluídas pela equipe.
+// Se a etapa tiver tarefa automática, entrar nela cria a tarefa com prazo em dias úteis.
+model PipelineFase {
+  id              String   @id @default(cuid())
+  nome            String
+  ordem           Int
+  tarefaTexto     String?  // ex: "Enviar o roadmap"
+  tarefaDiasUteis Int?     // prazo contado a partir da data em que entrou na etapa
+  createdAt       DateTime @default(now())
+
+  mentoradas Mentorada[]
+  tarefas    Tarefa[]
+}
+
+// Tarefas da equipe (criadas à mão ou automáticas pelo Pipeline).
+model Tarefa {
+  id           String     @id @default(cuid())
+  titulo       String
+  prazo        DateTime
+  mentoradaId  String?
+  mentorada    Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  faseId       String?    // etapa do Pipeline que criou a tarefa automática
+  fase         PipelineFase? @relation(fields: [faseId], references: [id], onDelete: SetNull)
+  automatica   Boolean    @default(false)
+  criadaPor    String?
+  concluidaEm  DateTime?
+  concluidaPor String?
+  createdAt    DateTime   @default(now())
+
+  @@index([concluidaEm, prazo])
+  @@index([mentoradaId])
 }
 
 model Observacao {
