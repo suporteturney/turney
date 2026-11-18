@@ -146,6 +146,8 @@
 }
 
 /* Botões */
+.topoAcoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.btn:disabled { opacity: 0.5; cursor: default; }
 .btn, .btnPrim, .btnPerigo {
   font: inherit;
   font-size: 12px;

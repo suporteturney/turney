@@ -62,6 +62,7 @@ export default function PipelineCliente({
   const [aviso, setAviso] = useState<{ erro: boolean; texto: string } | null>(null);
   const [cadastro, setCadastro] = useState<string | null>(null);
   const [gerenciar, setGerenciar] = useState(false);
+  const [buscandoAgenda, setBuscandoAgenda] = useState(false);
 
   useEffect(() => {
     if (!aviso) return;
@@ -115,6 +116,28 @@ export default function PipelineCliente({
     }
   }
 
+  async function buscarAgenda() {
+    setBuscandoAgenda(true);
+    try {
+      const r = await enviar("/api/agenda/sincronizar", "POST");
+      const feitos = r.aplicados as { mentorada: string; data: string; etapa: string }[];
+      const partes = [
+        feitos.length
+          ? `${feitos.length} atualizada(s): ${feitos.map(a => `${a.mentorada} (${fmt(a.data)} → ${a.etapa})`).join("; ")}.`
+          : "Nenhuma mentoria nova na agenda.",
+        r.naoEncontrados.length
+          ? `Não identifiquei: ${(r.naoEncontrados as { titulo: string; data: string; motivo: string }[]).map(x => `"${x.titulo}" em ${fmt(x.data)} (${x.motivo})`).join("; ")}.`
+          : "",
+        r.erros.length ? `Erro: ${r.erros.join("; ")}` : "",
+      ].filter(Boolean);
+      setAviso({ erro: r.erros.length > 0, texto: partes.join(" ") });
+      if (feitos.length) router.refresh();
+    } catch (e) {
+      setAviso({ erro: true, texto: (e as Error).message });
+    }
+    setBuscandoAgenda(false);
+  }
+
   function soltar(card: Card, colId: string) {
     const faseId = colId === SEM ? null : colId;
     if ((card.pipelineFaseId ?? null) === faseId) return;
@@ -130,9 +153,16 @@ export default function PipelineCliente({
           <div className={styles.pageTitle}>Pipeline</div>
           <div className={styles.pageSub}>Em que etapa da jornada está cada mentorada ativa — arraste o card para mudar de etapa</div>
         </div>
-        {podeEditar && (
-          <button className={p.btn} onClick={() => setGerenciar(true)}>Gerenciar etapas</button>
-        )}
+        <div className={p.topoAcoes}>
+          {podeMover && (
+            <button className={p.btn} onClick={buscarAgenda} disabled={buscandoAgenda} title="Procura Mentorias Estratégicas na agenda das mentoras">
+              {buscandoAgenda ? "Buscando…" : "Buscar na agenda agora"}
+            </button>
+          )}
+          {podeEditar && (
+            <button className={p.btn} onClick={() => setGerenciar(true)}>Gerenciar etapas</button>
+          )}
+        </div>
       </div>
 
       <div className={`${styles.content} ${p.content}`}>

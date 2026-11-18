@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { exigirUsuario } from "@/lib/auth";
+import { sincronizarAgendas } from "@/lib/agenda-servidor";
 import { prisma } from "@/lib/prisma";
 import { hojeISO } from "@/lib/dias-uteis";
 import Sidebar from "@/components/Sidebar";
@@ -11,6 +13,8 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const usuario = await exigirUsuario();
+  // Lê as agendas das mentoras depois de mostrar a página (no máximo a cada 3 horas).
+  after(() => sincronizarAgendas().catch(e => console.error("Falha ao ler as agendas", e)));
   // Contador do menu: tarefas abertas com prazo até hoje (atrasadas ou do dia).
   const tarefasVencendo = await prisma.tarefa
     .count({ where: { concluidaEm: null, prazo: { lte: new Date(hojeISO()) } } })

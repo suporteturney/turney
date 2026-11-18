@@ -3,7 +3,7 @@
 O painel tem uma "porta de entrada" para o Make: o endereço
 
 ```
-https://turney-painel.vercel.app/api/automacao
+https://painel.turneyacademy.com/api/automacao
 ```
 
 Por ela, o Make cadastra aluna nova, completa o cadastro, muda a etapa da jornada e consulta quem está onde.
@@ -31,7 +31,7 @@ Módulo **HTTP → Make a request**:
 
 | Campo | Valor |
 |---|---|
-| URL | `https://turney-painel.vercel.app/api/automacao` |
+| URL | `https://painel.turneyacademy.com/api/automacao` |
 | Method | `POST` (ou `GET` para consultar) |
 | Headers | `x-chave-automacao` = a chave · `Content-Type` = `application/json` |
 | Body type | Raw → JSON |
@@ -108,7 +108,7 @@ A cada evento (formulário respondido, call terminada, roadmap na pasta):
 
 ## 4. Consultar
 
-- Uma aluna: `GET https://turney-painel.vercel.app/api/automacao?email=maria@email.com` (ou `?codigo=`, `?whatsapp=`, `?id=`).
+- Uma aluna: `GET https://painel.turneyacademy.com/api/automacao?email=maria@email.com` (ou `?codigo=`, `?whatsapp=`, `?id=`).
 - Todas as ativas (para o agente diário de CS): `GET ...?lista=ativas` (opcional `&tipo=Nexus 1`).
 
 Cada aluna vem com `jornadaEtapa`, `diasNaEtapa`, `tutora`, `whatsappDDI` (pronto para o ManyChat), `saude` e `saudeNota`.
