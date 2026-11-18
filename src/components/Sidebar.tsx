@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { UsuarioSessao } from "@/lib/auth";
 import { pode, rotuloPapel } from "@/lib/permissoes";
+import Isotipo from "@/components/Isotipo";
 import styles from "./Sidebar.module.css";
 
 const MENU = [
@@ -133,7 +134,7 @@ export default function Sidebar({ usuario }: { usuario: UsuarioSessao }) {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logo}>
-        <div className={styles.logoMark}>t</div>
+        <div className={styles.logoMark}><Isotipo size={18} /></div>
         <div>
           <div className={styles.logoName}>TURNEY</div>
           <div className={styles.logoSub}>PÓS VENDA</div>

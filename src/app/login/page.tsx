@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Isotipo from "@/components/Isotipo";
 import styles from "./login.module.css";
 
 export default function LoginPage() {
@@ -36,7 +37,7 @@ export default function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <div className={styles.logoMark}>t</div>
+        <div className={styles.logoMark}><Isotipo size={26} /></div>
         <h1 className={styles.title}>TURNEY</h1>
         <p className={styles.sub}>CS Hub · Pós Venda</p>
 
