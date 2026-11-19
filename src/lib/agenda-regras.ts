@@ -284,3 +284,12 @@ export function programaDoEncontro(titulo: string, agenda: string): "Atlas" | "N
   const atlas = /\batlas\b/.test(t), nexus = /\bnexus\b/.test(t);
   return atlas && !nexus ? "Atlas" : nexus && !atlas ? "Nexus" : null;
 }
+
+// Atlas tem duas turmas com encontros próprios: "Atlas" (turma 1) e "Atlas 2.0" (turma 2).
+// No cadastro, a turma 2 é marcada no campo Turma como "Atlas 2.0" (ou "2.0"). "Atlas 02" (turma antiga) não conta.
+export const ehTurma2 = (turma: string | null | undefined) => /(^|\s)2\.0\b|\batlas\s+2\b(?!\d)/i.test(turma ?? "");
+export function turmaDoEncontro(titulo: string, agenda: string): "Atlas" | "Atlas 2.0" | null {
+  const t = normalizar(`${titulo} ${agenda}`);
+  if (!/\batlas\b/.test(t)) return null;
+  return /\batlas 2\b|\batlas 2 0\b/.test(t) ? "Atlas 2.0" : "Atlas";
+}

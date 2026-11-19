@@ -1,5 +1,5 @@
 // Cálculo da saúde da mentorada (0 a 100) a partir de três partes:
-//   jornada (etapas no prazo), encontros (presença nos obrigatórios) e acompanhamento (cor da última varredura).
+//   jornada (etapas no prazo), encontros (presença nos obrigatórios + bônus pelos opcionais) e acompanhamento (cor da última varredura).
 // Arquivo sem imports para poder ser usado também pelos scripts em /scripts (Node puro).
 
 export type Nivel = "Saudável" | "Atenção" | "Risco";
@@ -21,9 +21,15 @@ const BONUS = { entrevista: 10, aprovacao: 10 };
 const FOLGA_DIAS = 3; // atraso até aqui ainda vale nota cheia
 const TOLERANCIA_ATRASO = 15;
 
-// Encontros em grupo que contam na assiduidade (mesma regra de encontrosGrupo em jornada.ts).
+// Encontros em grupo (mesma regra de encontrosGrupo em jornada.ts):
+// - obrigatórios contam na assiduidade (presença e falta);
+// - opcionais só ajudam: cada presença soma um bônus pequeno, falta não tira nada.
 const OBRIGATORIOS = (tipo: string) =>
   tipo === "Atlas" ? ["hotseat", "tutoria"] : /^Nexus\b/.test(tipo) ? ["evolutionDay", "masterclassDay"] : [];
+const OPCIONAIS = (tipo: string) =>
+  tipo === "Atlas" ? ["masterclassDay", "codigoAprovacao"] : /^Nexus\b/.test(tipo) ? ["codigoAprovacao"] : [];
+export const BONUS_OPCIONAL = 5; // pontos por presença em encontro opcional
+export const BONUS_OPCIONAL_MAX = 15;
 export const JANELA_ENCONTROS_DIAS = 60;
 const MIN_ENCONTROS = 2;
 
@@ -96,19 +102,23 @@ function notaEncontros(e: EntradaSaude, hoje: string) {
   const obrig = OBRIGATORIOS(e.tipo);
   const desde = somaDias(hoje, -JANELA_ENCONTROS_DIAS);
   const ini = inicioDoCiclo(e);
-  const validos = e.presencas.filter(p => {
-    const [ym, chave, data] = p.encontro.split("|");
+  const naJanela = (encontro: string, chaves: string[]) => {
+    const [ym, chave, data] = encontro.split("|");
     const quando = data ?? `${ym}-15`;
-    return obrig.includes(chave) && quando >= desde && quando <= hoje && (!ini || quando >= dia(ini));
-  });
+    return chaves.includes(chave) && quando >= desde && quando <= hoje && (!ini || quando >= dia(ini));
+  };
+  const validos = e.presencas.filter(p => naJanela(p.encontro, obrig));
+  const opcionais = e.presencas.filter(p => p.presente && naJanela(p.encontro, OPCIONAIS(e.tipo))).length;
+  const bonus = Math.min(BONUS_OPCIONAL_MAX, opcionais * BONUS_OPCIONAL);
+  const textoBonus = opcionais ? ` · +${bonus} por ${opcionais} ${opcionais === 1 ? "encontro opcional" : "encontros opcionais"}` : "";
   // Com só 1 encontro no período (ex.: acabou de entrar), uma falta pesaria demais.
   if (validos.length < MIN_ENCONTROS) {
     return { nota: null, detalhe: `Menos de ${MIN_ENCONTROS} encontros obrigatórios nos últimos ${JANELA_ENCONTROS_DIAS} dias` };
   }
   const pres = validos.filter(p => p.presente).length;
   return {
-    nota: Math.round((pres / validos.length) * 100),
-    detalhe: `${pres} de ${validos.length} encontros obrigatórios nos últimos ${JANELA_ENCONTROS_DIAS} dias`,
+    nota: Math.min(100, Math.round((pres / validos.length) * 100) + bonus),
+    detalhe: `${pres} de ${validos.length} encontros obrigatórios nos últimos ${JANELA_ENCONTROS_DIAS} dias${textoBonus}`,
   };
 }
 

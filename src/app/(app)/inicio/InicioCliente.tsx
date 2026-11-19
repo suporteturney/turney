@@ -1049,17 +1049,21 @@ function JanelaEncontro({
   );
 }
 
-type Candidata = { id: string; nome: string; tipo: string; presente: boolean | null };
+type Candidata = { id: string; nome: string; tipo: string; presente: boolean | null; daTurma: boolean };
 type DadosPresenca = {
-  chave: string | null; opcoes: { key: string; label: string }[]; programa?: string | null; opcional?: boolean; data?: string; candidatos: Candidata[];
+  chave: string | null; opcoes: { key: string; label: string }[]; programa?: string | null; turma?: string | null;
+  regras?: { programa: string; opcional: boolean }[]; data?: string; candidatos: Candidata[];
+  excluidas?: { congeladas: number; depois: number };
 };
 
-// Quem participou de um encontro em grupo — grava na aba "Presença nos Encontros" de cada mentorada.
+// Quem participou de um encontro em grupo: marca só quem foi; quem é da turma e não foi marcada leva falta.
+// Grava na aba "Presença nos Encontros" de cada mentorada.
 function Participantes({ ev, podeMarcar, onSalvo }: { ev: Ev; podeMarcar: boolean; onSalvo: (txt: string) => void }) {
   const [aberto, setAberto] = useState(false);
   const [dados, setDados] = useState<DadosPresenca | null>(null);
-  const [marc, setMarc] = useState<Record<string, boolean | null>>({});
+  const [foi, setFoi] = useState<Set<string>>(new Set());
   const [busca, setBusca] = useState("");
+  const [outraTurma, setOutraTurma] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -1072,38 +1076,62 @@ function Participantes({ ev, podeMarcar, onSalvo }: { ev: Ev; podeMarcar: boolea
       const j = await res.json();
       if (!res.ok) throw new Error(j.erro ?? "Não foi possível carregar a lista.");
       setDados(j);
-      setMarc(Object.fromEntries((j.candidatos as Candidata[]).map(c => [c.id, c.presente])));
+      setFoi(new Set((j.candidatos as Candidata[]).filter(c => c.presente).map(c => c.id)));
     } catch (e) { setErro((e as Error).message); }
     setCarregando(false);
   }
 
   const abrir = () => { setAberto(true); if (!dados) carregar(); };
-  const original = Object.fromEntries((dados?.candidatos ?? []).map(c => [c.id, c.presente]));
-  const mudadas = Object.keys(marc).filter(id => marc[id] !== original[id]);
+  const candidatos = dados?.candidatos ?? [];
+  const daTurma = candidatos.filter(c => c.daTurma);
+  const outras = candidatos.filter(c => !c.daTurma);
   const q = busca.trim().toLowerCase();
-  const lista = (dados?.candidatos ?? []).filter(c => !q || c.nome.toLowerCase().includes(q));
-  const nPres = Object.values(marc).filter(v => v === true).length;
-  const nFalta = Object.values(marc).filter(v => v === false).length;
-  const ciclo = (v: boolean | null) => (v === null ? true : v === true ? false : null);
+  const filtra = (l: Candidata[]) => l.filter(c => !q || c.nome.toLowerCase().includes(q));
+  const jaRegistrado = candidatos.filter(c => c.presente !== null);
+  const nPres = candidatos.filter(c => foi.has(c.id)).length;
+  const nFalta = daTurma.filter(c => !foi.has(c.id)).length;
+  const alternar = (id: string) => setFoi(f => { const n = new Set(f); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  async function salvar() {
+  // Marcadas = presente; da turma e não marcada = falta; de fora da turma e não marcada = tira o registro (se tinha).
+  function marcacoes(presentes: Set<string>) {
+    const m: Record<string, boolean | null> = {};
+    for (const c of candidatos) {
+      if (presentes.has(c.id)) m[c.id] = true;
+      else if (c.daTurma) m[c.id] = false;
+      else if (c.presente !== null) m[c.id] = null;
+    }
+    return m;
+  }
+
+  async function salvar(presentes: Set<string>) {
     setSalvando(true); setErro(null);
     try {
-      const r = await enviar("/api/agenda/participantes", "POST", {
-        eventoId: ev.id, chave: dados?.chave, marcacoes: Object.fromEntries(mudadas.map(id => [id, marc[id]])),
-      });
-      onSalvo(`Presença salva: ${plural(r.presentes, "presente", "presentes")}${r.faltas ? `, ${plural(r.faltas, "falta", "faltas")}` : ""}`);
+      const r = await enviar("/api/agenda/participantes", "POST", { eventoId: ev.id, chave: dados?.chave, marcacoes: marcacoes(presentes) });
+      onSalvo(r.presentes ? `Presença salva: ${plural(r.presentes, "presente", "presentes")}, ${plural(r.faltas, "falta", "faltas")}` : `Registrado: ninguém participou (${plural(r.faltas, "falta", "faltas")})`);
     } catch (e) { setErro((e as Error).message); }
     setSalvando(false);
   }
 
-  if (!aberto) {
-    return (
-      <button className={s.btnPresenca} onClick={abrir}>
-        ✓ Marcar quem participou
-      </button>
-    );
+  function ninguem() {
+    if (!window.confirm(`Registrar que ninguém participou? ${plural(daTurma.length, "mentorada leva", "mentoradas levam")} falta neste encontro.`)) return;
+    setFoi(new Set());
+    salvar(new Set());
   }
+
+  if (!aberto) {
+    return <button className={s.btnPresenca} onClick={abrir}>✓ Marcar quem participou</button>;
+  }
+
+  const item = (c: Candidata) => (
+    <li key={c.id}>
+      <label className={`${s.presItem} ${foi.has(c.id) ? s.presSim : ""}`}>
+        <input type="checkbox" checked={foi.has(c.id)} onChange={() => alternar(c.id)} disabled={!podeMarcar} />
+        <span className={s.presMarca} aria-hidden="true">{foi.has(c.id) ? "✓" : ""}</span>
+        <span className={s.presNome}>{c.nome}</span>
+        <span className={s.presEstado}>{foi.has(c.id) ? "Participou" : c.daTurma ? "falta" : "—"}</span>
+      </label>
+    </li>
+  );
 
   return (
     <fieldset className={s.grupoOpcoes}>
@@ -1117,57 +1145,58 @@ function Participantes({ ev, podeMarcar, onSalvo }: { ev: Ev; podeMarcar: boolea
               {!dados.chave && <option value="">Escolha qual encontro é este…</option>}
               {dados.opcoes.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
-            {dados.programa && <small>só mentoradas do {dados.programa}</small>}
+            {(dados.turma || dados.programa) && <small>turma {dados.turma ?? dados.programa}</small>}
           </label>
-          {dados.opcional && <p className={s.legenda}>Este encontro é opcional: falta aqui não conta na assiduidade.</p>}
-          {dados.chave && !dados.candidatos.length && <p className={s.vazio}>Nenhuma mentorada ativa tem esse encontro no programa.</p>}
-          {dados.candidatos.length > 0 && (
+          {(dados.regras ?? []).length > 0 && (
+            <div className={s.regras}>
+              {dados.regras!.map(r => (
+                <span key={r.programa} className={`${s.regra} ${r.opcional ? s.regraOpc : s.regraObr}`}>
+                  {r.programa}: {r.opcional ? "opcional — presença soma bônus na saúde, falta não pesa" : "obrigatório — presença e falta contam na saúde"}
+                </span>
+              ))}
+            </div>
+          )}
+          {dados.chave && !candidatos.length && <p className={s.vazio}>Nenhuma mentorada ativa tem esse encontro no programa.</p>}
+          {candidatos.length > 0 && (
             <>
+              {jaRegistrado.length > 0 && (
+                <p className={s.legenda} style={{ margin: 0 }}>
+                  Já registrado: {plural(jaRegistrado.filter(c => c.presente).length, "presente", "presentes")}, {plural(jaRegistrado.filter(c => c.presente === false).length, "falta", "faltas")}. Salvar de novo substitui.
+                </p>
+              )}
               <div className={s.presTopo}>
                 <input className={s.presBusca} type="search" placeholder="Buscar mentorada…" value={busca} onChange={e => setBusca(e.target.value)} aria-label="Buscar mentorada" />
-                <span className={s.dica}>{plural(nPres, "presente", "presentes")} · {plural(nFalta, "falta", "faltas")} · {dados.candidatos.length - nPres - nFalta} sem registro</span>
+                <span className={s.dica}>Marque só quem participou · {plural(nPres, "presente", "presentes")} · {plural(nFalta, "falta", "faltas")}</span>
               </div>
-              {podeMarcar && (
-                <div className={s.presMassa}>
-                  <button type="button" className={s.btnMini} onClick={() => setMarc(m => Object.fromEntries(Object.keys(m).map(id => [id, m[id] ?? false])))}>
-                    Falta para quem não foi marcada
+              <ul className={s.presLista}>{filtra(daTurma).map(item)}</ul>
+              {outras.length > 0 && (
+                <>
+                  <button type="button" className={s.linkBtn} style={{ alignSelf: "flex-start", fontSize: 11 }} onClick={() => setOutraTurma(v => !v)} aria-expanded={outraTurma}>
+                    {outraTurma ? "▾" : "▸"} {outras.length} {outras.length === 1 ? "mentorada" : "mentoradas"} de outra turma (não levam falta)
                   </button>
-                  <button type="button" className={s.btnMini} onClick={() => setMarc(Object.fromEntries((dados.candidatos).map(c => [c.id, null])))}>
-                    Limpar tudo
-                  </button>
-                </div>
+                  {outraTurma && <ul className={s.presLista}>{filtra(outras).map(item)}</ul>}
+                </>
               )}
-              <ul className={s.presLista}>
-                {lista.map(c => {
-                  const v = marc[c.id];
-                  return (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        className={`${s.presItem} ${v === true ? s.presSim : v === false ? s.presNao : ""}`}
-                        onClick={() => podeMarcar && setMarc(m => ({ ...m, [c.id]: ciclo(m[c.id]) }))}
-                        disabled={!podeMarcar}
-                        aria-label={`${c.nome}: ${v === true ? "presente" : v === false ? "falta" : "sem registro"}. Clique para mudar.`}
-                      >
-                        <span className={s.presMarca} aria-hidden="true">{v === true ? "✓" : v === false ? "✗" : ""}</span>
-                        <span className={s.presNome}>{c.nome}</span>
-                        <span className={s.presEstado}>{v === true ? "Presente" : v === false ? "Falta" : "—"}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className={s.legenda}>Clique no nome para alternar: presente → falta → sem registro. Fica salvo na aba “Presença nos Encontros” de cada mentorada.</p>
+              {dados.excluidas && (dados.excluidas.congeladas > 0 || dados.excluidas.depois > 0) && (
+                <p className={s.legenda} style={{ margin: 0 }}>
+                  Não aparecem (e não levam falta): {[
+                    dados.excluidas.congeladas ? plural(dados.excluidas.congeladas, "congelada", "congeladas") : "",
+                    dados.excluidas.depois ? `${plural(dados.excluidas.depois, "entrou", "entraram")} depois deste encontro` : "",
+                  ].filter(Boolean).join(" e ")}.
+                  {dados.turma === "Atlas 2.0" || dados.turma === "Atlas" ? " A turma vem do campo Turma do cadastro (“Atlas 2.0” para a turma 2)." : ""}
+                </p>
+              )}
             </>
           )}
         </>
       )}
       {erro && <p className={s.modalErro} role="alert">{erro}</p>}
-      {podeMarcar && dados?.candidatos.length ? (
+      {podeMarcar && candidatos.length > 0 ? (
         <div className={s.modalAcoes}>
+          <button type="button" className={s.btnPerigo} onClick={ninguem} disabled={salvando}>Ninguém participou</button>
           <span className={s.espaco} />
-          <button type="button" className={s.btnPrim} onClick={salvar} disabled={!mudadas.length || salvando}>
-            {salvando ? "Salvando…" : mudadas.length ? `Salvar presenças (${mudadas.length})` : "Nada mudou"}
+          <button type="button" className={s.btnPrim} onClick={() => salvar(foi)} disabled={salvando}>
+            {salvando ? "Salvando…" : `Salvar presença (${nPres} ✓ · ${nFalta} ✗)`}
           </button>
         </div>
       ) : null}

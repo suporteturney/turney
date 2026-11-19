@@ -4,7 +4,7 @@ import { exigirUsuario, semPermissao } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { recalcularSaude } from "@/lib/saude-servidor";
 import { encontrosGrupo } from "@/lib/jornada";
-import { chaveDoEncontro, programaDoEncontro } from "@/lib/agenda-regras";
+import { chaveDoEncontro, ehTurma2, programaDoEncontro, turmaDoEncontro } from "@/lib/agenda-regras";
 
 // Presença das mentoradas num encontro em grupo da agenda.
 // Grava no mesmo lugar da aba "Presença nos Encontros": chave "AAAA-MM|encontro|AAAA-MM-DD".
@@ -35,16 +35,37 @@ export async function GET(req: NextRequest) {
   if (!c.chave || !c.presencaKey) return NextResponse.json({ chave: null, opcoes: OPCOES, candidatos: [] });
 
   const programa = programaDoEncontro(c.ev.titulo, c.ev.agenda);
+  const turma = turmaDoEncontro(c.ev.titulo, c.ev.agenda);
   const lista = await prisma.mentorada.findMany({
     where: { status: { in: ATIVOS } },
     orderBy: { nome: "asc" },
-    select: { id: true, nome: true, tipo: true, presencas: { where: { encontro: c.presencaKey }, select: { presente: true } } },
+    select: {
+      id: true, nome: true, tipo: true, status: true, turma: true, inicio: true,
+      presencas: { where: { encontro: c.presencaKey }, select: { presente: true } },
+    },
   });
-  const candidatos = lista
-    .filter(m => encontrosGrupo(m.tipo).some(e => e.key === c.chave) && (!programa || m.tipo.startsWith(programa)))
-    .map(m => ({ id: m.id, nome: m.nome, tipo: m.tipo, presente: m.presencas[0]?.presente ?? null }));
-  const opcional = candidatos.length > 0 && encontrosGrupo(candidatos[0].tipo).find(e => e.key === c.chave)?.opcional === true;
-  return NextResponse.json({ chave: c.chave, opcoes: OPCOES, programa, opcional, data: c.data, candidatos });
+  const doPrograma = lista.filter(m => encontrosGrupo(m.tipo).some(e => e.key === c.chave) && (!programa || m.tipo.startsWith(programa)));
+  // Congeladas e quem entrou depois do encontro não levam falta (e não aparecem, a não ser que já tenham registro).
+  const fora = (m: (typeof lista)[number]) => m.status === "Congelado" || (!!m.inicio && m.inicio.toISOString().slice(0, 10) > c.data);
+  const candidatos = doPrograma
+    .filter(m => !fora(m) || m.presencas.length)
+    .map(m => ({
+      id: m.id, nome: m.nome, tipo: m.tipo, presente: m.presencas[0]?.presente ?? null,
+      // Encontro do Atlas: só a turma certa leva falta automática.
+      daTurma: !fora(m) && (m.tipo !== "Atlas" || !turma || (turma === "Atlas 2.0") === ehTurma2(m.turma)),
+    }));
+  const excluidas = {
+    congeladas: doPrograma.filter(m => m.status === "Congelado").length,
+    depois: doPrograma.filter(m => m.status !== "Congelado" && fora(m)).length,
+  };
+  // Regra por programa (ex.: Masterclass é opcional no Atlas e obrigatória no Nexus).
+  const regras: { programa: string; opcional: boolean }[] = [];
+  for (const m of candidatos) {
+    const prog = /^Nexus\b/.test(m.tipo) ? "Nexus" : m.tipo;
+    if (regras.some(r => r.programa === prog)) continue;
+    regras.push({ programa: prog, opcional: encontrosGrupo(m.tipo).find(e => e.key === c.chave)?.opcional === true });
+  }
+  return NextResponse.json({ chave: c.chave, opcoes: OPCOES, programa, turma, regras, data: c.data, candidatos, excluidas });
 }
 
 export async function POST(req: NextRequest) {
