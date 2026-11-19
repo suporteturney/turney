@@ -68,7 +68,9 @@ export default async function InicioPage() {
 
   // O mesmo encontro pode estar em mais de uma agenda (ex.: mentora e suporte convidadas): mostra uma vez só.
   const vistos = new Set<string>();
+  // Compromisso pessoal só aparece para a dona da agenda.
   const encontros = eventos.filter(e => {
+    if (e.tipo === "pessoal" && !ehDela(usuario.nome, e.agenda)) return false;
     const chave = `${e.uid.split("|")[0]}|${e.inicio.getTime()}`;
     if (vistos.has(chave)) return false;
     vistos.add(chave);
@@ -119,6 +121,7 @@ export default async function InicioPage() {
       carteiraPropria={carteiraPropria}
       gestora={gestora}
       podeEditar={podeOperar(usuario) && !usuario.trocarSenha}
+      podePresenca={pode(usuario, "presencas") && !usuario.trocarSenha}
       equipe={gestora ? equipe : equipe.filter(e => e.nome === eu)}
       fases={fases}
       todasMentoradas={mentoradas.map(m => ({ id: m.id, nome: m.nome }))}

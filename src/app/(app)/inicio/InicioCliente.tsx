@@ -22,7 +22,7 @@ type Enc = {
   id: string; nome: string; tipo: string; status: string; prazo: string; renovacaoStatus: string | null;
   saude: string | null; whatsapp: string | null; cuida: string | null;
 };
-type TipoEv = "individual" | "grupo" | "onboarding" | "outro";
+type TipoEv = "individual" | "grupo" | "onboarding" | "pessoal" | "outro";
 type Ev = {
   id: string; titulo: string; inicio: string; fim: string | null; tipo: string; link: string | null; agenda: string; convidados: number;
   mentorada: { id: string; nome: string; tipo: string } | null;
@@ -46,9 +46,10 @@ const TIPOS: { k: TipoEv; label: string }[] = [
   { k: "individual", label: "Individuais" },
   { k: "grupo", label: "Em grupo" },
   { k: "onboarding", label: "Onboarding" },
+  { k: "pessoal", label: "Pessoais" },
   { k: "outro", label: "Outros" },
 ];
-const ROTULO_TIPO: Record<string, string> = { individual: "Individual", grupo: "Grupo", onboarding: "Onboarding", outro: "Outro" };
+const ROTULO_TIPO: Record<string, string> = { individual: "Individual", grupo: "Grupo", onboarding: "Onboarding", pessoal: "Pessoal", outro: "Outro" };
 const PAPEL: Record<string, string> = { admin: "Administradora", mentora: "Mentora", suporte: "Suporte", leitura: "Somente leitura", "sem acesso": "ainda sem acesso" };
 const linkWhats = (n: string | null) => {
   const d = (n ?? "").replace(/\D/g, "");
@@ -58,7 +59,8 @@ const iniciais = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2)
 const CORES = ["#73452B", "#2F4A6B", "#5B6B3A", "#7A3E5C", "#3F6E6A", "#8A5A1F"];
 const corDe = (nome: string) => CORES[[...nome].reduce((a, c) => a + c.charCodeAt(0), 0) % CORES.length];
 const juntar = (xs: string[]) => xs.join(", ").replace(/, ([^,]*)$/, " e $1");
-const tipoEv = (t: string): TipoEv => (["individual", "grupo", "onboarding"].includes(t) ? (t as TipoEv) : "outro");
+const tipoEv = (t: string): TipoEv => (["individual", "grupo", "onboarding", "pessoal"].includes(t) ? (t as TipoEv) : "outro");
+const deTrabalho = (t: string) => !["pessoal", "outro"].includes(tipoEv(t));
 
 async function enviar(url: string, method: string, body?: unknown) {
   const res = await fetch(url, {
@@ -100,11 +102,11 @@ function motivosDe(m: M, hoje: string, tarefas: T[]): Motivo[] {
 }
 
 export default function InicioCliente({
-  eu, nome, saudacao, hoje, segunda, agora: agoraIni, agendaLigada, carteiraPropria, gestora, podeEditar, equipe, fases,
-  todasMentoradas, mentoradas, encerrando, encontros, tarefas: tarefasIni,
+  eu, nome, saudacao, hoje, segunda, agora: agoraIni, agendaLigada, carteiraPropria, gestora, podeEditar, podePresenca, equipe, fases,
+  todasMentoradas, mentoradas, encerrando, encontros: encontrosIni, tarefas: tarefasIni,
 }: {
   eu: string; nome: string; saudacao: string; hoje: string; segunda: string; agora: number; agendaLigada: boolean;
-  carteiraPropria: boolean; gestora: boolean; podeEditar: boolean;
+  carteiraPropria: boolean; gestora: boolean; podeEditar: boolean; podePresenca: boolean;
   equipe: Pessoa[]; fases: { id: string; nome: string }[]; todasMentoradas: { id: string; nome: string }[];
   mentoradas: M[]; encerrando: Enc[]; encontros: Ev[]; tarefas: T[];
 }) {
@@ -122,6 +124,10 @@ export default function InicioCliente({
   const [semana, setSemana] = useState(0);
   const [janela, setJanela] = useState<Janela | null>(null);
   const [jornada, setJornada] = useState<string | null>(null);
+  const [evento, setEvento] = useState<Ev | null>(null);
+  const [encontros, setEncontros] = useState(encontrosIni);
+  const [origemEnc, setOrigemEnc] = useState(encontrosIni);
+  if (origemEnc !== encontrosIni) { setOrigemEnc(encontrosIni); setEncontros(encontrosIni); }
   const [cadastro, setCadastro] = useState<{ id: string; aba: Aba } | null>(null);
   const [aviso, setAviso] = useState<{ txt: string; erro?: boolean } | null>(null);
   const [arrastando, setArrastando] = useState<string | null>(null);
@@ -147,7 +153,7 @@ export default function InicioCliente({
   // ── Encontros ──
   const agendas = [...new Set(encontros.map(e => e.agenda))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const encFiltrados = encontros.filter(e => tiposOn.has(tipoEv(e.tipo)) && (!agendaFiltro || e.agenda === agendaFiltro));
-  const encHoje = encontros.filter(e => diaDe(e.inicio) === hoje && tipoEv(e.tipo) !== "outro");
+  const encHoje = encontros.filter(e => diaDe(e.inicio) === hoje && deTrabalho(e.tipo));
   const fimDe = (e: Ev) => (e.fim ? Date.parse(e.fim) : Date.parse(e.inicio) + 60 * 60_000);
   const proximo = encHoje.find(e => fimDe(e) > agora);
 
@@ -339,7 +345,7 @@ export default function InicioCliente({
         <span className={s.evSub}>
           {ROTULO_TIPO[tipo]}{tipo === "grupo" && e.convidados ? ` · ${e.convidados} pessoas` : ""}{agendas.length > 1 ? ` · ${e.agenda.split(" ")[0]}` : ""}
         </span>
-        {e.mentorada && <button className={s.evAbrir} onClick={() => setJornada(e.mentorada!.id)} aria-label={`Abrir a jornada de ${e.mentorada.nome}`} />}
+        <button className={s.evAbrir} onClick={() => setEvento(e)} aria-label={`Detalhes de ${e.titulo}`} />
         {e.link && !passou && <a className={s.evLink} href={e.link} target="_blank" rel="noreferrer" aria-label={`Entrar no encontro ${e.titulo}`}>↗</a>}
       </li>
     );
@@ -430,7 +436,7 @@ export default function InicioCliente({
                           <span className={s.tlTipo}>{ROTULO_TIPO[tipo]}</span>
                           {st && <span className={`${s.st} ${st.cls}`}>{st.txt}</span>}
                         </div>
-                        <p className={s.tlTitulo}>{e.titulo}</p>
+                        <button className={s.tlTitulo} onClick={() => setEvento(e)} title="Ver detalhes e trocar o tipo">{e.titulo}</button>
                         <p className={s.meta}>
                           {e.mentorada && <button className={s.nome} onClick={() => setJornada(e.mentorada!.id)}>{e.mentorada.nome}</button>}
                           <span>{e.mentorada ? "· " : ""}agenda de {e.agenda}</span>
@@ -546,7 +552,7 @@ export default function InicioCliente({
               )}
             </div>
           </div>
-          {podeEditar && verTarefas && <p className={s.legenda}>Arraste uma tarefa para outro dia para mudar o prazo · clique na tarefa para editar ou trocar o responsável · clique num encontro para abrir a jornada da mentorada.</p>}
+          {podeEditar && verTarefas && <p className={s.legenda}>Arraste uma tarefa para outro dia para mudar o prazo · clique na tarefa para editar ou trocar o responsável · clique num encontro para ver detalhes ou trocar o tipo.</p>}
 
           <div className={s.quadro}>
             {atrasadasQuadro.length > 0 &&
@@ -729,6 +735,27 @@ export default function InicioCliente({
           onConcluir={t => { setJanela(null); concluir(t, !t.concluidaEm); }}
         />
       )}
+      {evento && (
+        <JanelaEncontro
+          key={evento.id}
+          ev={evento}
+          podeEditar={podeEditar}
+          podePresenca={podePresenca}
+          onAviso={txt => setAviso({ txt })}
+          onFechar={() => setEvento(null)}
+          onJornada={id => { setEvento(null); setJornada(id); }}
+          onSalvo={(txt, tipo, escopo) => {
+            const alvo = evento;
+            setEncontros(es => es.map(x => {
+              const mesmo = escopo === "titulo" ? x.titulo.trim().toLowerCase() === alvo.titulo.trim().toLowerCase() : x.id === alvo.id;
+              return mesmo && tipo !== "auto" ? { ...x, tipo } : x;
+            }));
+            setEvento(null);
+            setAviso({ txt });
+            router.refresh();
+          }}
+        />
+      )}
       {jornada && (
         <JornadaModal key={jornada} id={jornada} onClose={() => setJornada(null)} onAbrirCadastro={() => { setCadastro({ id: jornada, aba: "dados" }); setJornada(null); }} />
       )}
@@ -841,5 +868,220 @@ function JanelaTarefa({
         )}
       </form>
     </div>
+  );
+}
+
+// Detalhes de um encontro + trocar o tipo à mão.
+function JanelaEncontro({
+  ev, podeEditar, podePresenca, onAviso, onFechar, onJornada, onSalvo,
+}: {
+  ev: Ev; podeEditar: boolean; podePresenca: boolean; onAviso: (txt: string) => void; onFechar: () => void; onJornada: (id: string) => void;
+  onSalvo: (txt: string, tipo: string, escopo: "evento" | "titulo") => void;
+}) {
+  const [tipo, setTipo] = useState<string>(tipoEv(ev.tipo));
+  const [escopo, setEscopo] = useState<"evento" | "titulo">("evento");
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onFechar]);
+
+  const quando = new Date(ev.inicio).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
+
+  async function salvar(t: string) {
+    setErro(null);
+    setSalvando(true);
+    try {
+      const r = await enviar("/api/agenda/tipo", "POST", { eventoId: ev.id, tipo: t, escopo });
+      const qtd = escopo === "titulo" ? ` (${plural(r.alterados, "encontro", "encontros")} com esse nome)` : "";
+      onSalvo(t === "auto" ? `Voltou para o tipo automático${qtd}` : `Marcado como ${ROTULO_TIPO[t]}${qtd}`, t, escopo);
+    } catch (e) { setErro((e as Error).message); }
+    setSalvando(false);
+  }
+
+  return (
+    <div className={s.fundo} onClick={onFechar}>
+      <div className={s.modal} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="encontro-titulo">
+        <div className={s.modalTopo}>
+          <h2 id="encontro-titulo" className={s.modalTitulo}>{ev.titulo}</h2>
+          <button type="button" className={s.fechar} onClick={onFechar} aria-label="Fechar">×</button>
+        </div>
+        <p className={s.modalInfo}>
+          <span className={s.primeiraMaiuscula}>{quando}</span>, {hora(ev.inicio)}{ev.fim ? `–${hora(ev.fim)}` : ""} · agenda de {ev.agenda}
+          {ev.convidados > 0 ? ` · ${plural(ev.convidados, "convidado", "convidados")}` : ""}
+        </p>
+        <div className={s.encAcoes}>
+          {ev.mentorada && <button className={s.btn} onClick={() => onJornada(ev.mentorada!.id)}>Abrir jornada de {ev.mentorada.nome.split(" ")[0]}</button>}
+          {ev.link && <a className={s.btn} href={ev.link} target="_blank" rel="noreferrer">Entrar no encontro ↗</a>}
+        </div>
+
+        {tipoEv(ev.tipo) === "grupo" && <Participantes ev={ev} podeMarcar={podePresenca} onSalvo={txt => { onAviso(txt); onFechar(); }} />}
+
+        {podeEditar && (
+          <>
+            <fieldset className={s.grupoOpcoes}>
+              <legend>Tipo do encontro</legend>
+              <div className={s.opcoesTipo}>
+                {TIPOS.map(t => (
+                  <label key={t.k} className={`${s.opTipo} ${s[`tog_${t.k}`]} ${tipo === t.k ? s.opOn : ""}`}>
+                    <input type="radio" name="tipo" value={t.k} checked={tipo === t.k} onChange={() => setTipo(t.k)} />
+                    <span className={s.togPonto} aria-hidden="true" />{ROTULO_TIPO[t.k]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className={s.grupoOpcoes}>
+              <legend>Vale para</legend>
+              <label className={s.opEscopo}>
+                <input type="radio" name="escopo" checked={escopo === "evento"} onChange={() => setEscopo("evento")} />
+                Só este encontro
+              </label>
+              <label className={s.opEscopo}>
+                <input type="radio" name="escopo" checked={escopo === "titulo"} onChange={() => setEscopo("titulo")} />
+                Todos os encontros chamados “{ev.titulo}” (inclusive os próximos)
+              </label>
+            </fieldset>
+            {tipo === "pessoal" && <p className={s.legenda}>Compromissos pessoais ficam escondidos no painel e só aparecem para a dona da agenda, ligando o filtro “Pessoais”.</p>}
+            {erro && <p className={s.modalErro} role="alert">{erro}</p>}
+            <div className={s.modalAcoes}>
+              <button type="button" className={s.btn} onClick={() => salvar("auto")} disabled={salvando} title="Deixa o sistema decidir pelo título de novo">Voltar ao automático</button>
+              <span className={s.espaco} />
+              <button type="button" className={s.btn} onClick={onFechar}>Cancelar</button>
+              <button type="button" className={s.btnPrim} onClick={() => salvar(tipo)} disabled={salvando}>{salvando ? "Salvando…" : "Salvar"}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type Candidata = { id: string; nome: string; tipo: string; presente: boolean | null };
+type DadosPresenca = {
+  chave: string | null; opcoes: { key: string; label: string }[]; programa?: string | null; opcional?: boolean; data?: string; candidatos: Candidata[];
+};
+
+// Quem participou de um encontro em grupo — grava na aba "Presença nos Encontros" de cada mentorada.
+function Participantes({ ev, podeMarcar, onSalvo }: { ev: Ev; podeMarcar: boolean; onSalvo: (txt: string) => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [dados, setDados] = useState<DadosPresenca | null>(null);
+  const [marc, setMarc] = useState<Record<string, boolean | null>>({});
+  const [busca, setBusca] = useState("");
+  const [carregando, setCarregando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function carregar(chave?: string) {
+    setCarregando(true); setErro(null);
+    try {
+      const qs = new URLSearchParams({ eventoId: ev.id, ...(chave ? { chave } : {}) });
+      const res = await fetch(`/api/agenda/participantes?${qs}`);
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.erro ?? "Não foi possível carregar a lista.");
+      setDados(j);
+      setMarc(Object.fromEntries((j.candidatos as Candidata[]).map(c => [c.id, c.presente])));
+    } catch (e) { setErro((e as Error).message); }
+    setCarregando(false);
+  }
+
+  const abrir = () => { setAberto(true); if (!dados) carregar(); };
+  const original = Object.fromEntries((dados?.candidatos ?? []).map(c => [c.id, c.presente]));
+  const mudadas = Object.keys(marc).filter(id => marc[id] !== original[id]);
+  const q = busca.trim().toLowerCase();
+  const lista = (dados?.candidatos ?? []).filter(c => !q || c.nome.toLowerCase().includes(q));
+  const nPres = Object.values(marc).filter(v => v === true).length;
+  const nFalta = Object.values(marc).filter(v => v === false).length;
+  const ciclo = (v: boolean | null) => (v === null ? true : v === true ? false : null);
+
+  async function salvar() {
+    setSalvando(true); setErro(null);
+    try {
+      const r = await enviar("/api/agenda/participantes", "POST", {
+        eventoId: ev.id, chave: dados?.chave, marcacoes: Object.fromEntries(mudadas.map(id => [id, marc[id]])),
+      });
+      onSalvo(`Presença salva: ${plural(r.presentes, "presente", "presentes")}${r.faltas ? `, ${plural(r.faltas, "falta", "faltas")}` : ""}`);
+    } catch (e) { setErro((e as Error).message); }
+    setSalvando(false);
+  }
+
+  if (!aberto) {
+    return (
+      <button className={s.btnPresenca} onClick={abrir}>
+        ✓ Marcar quem participou
+      </button>
+    );
+  }
+
+  return (
+    <fieldset className={s.grupoOpcoes}>
+      <legend>Quem participou</legend>
+      {carregando && <p className={s.vazio}>Carregando…</p>}
+      {dados && (
+        <>
+          <label className={s.campoLinha}>
+            Encontro
+            <select value={dados.chave ?? ""} onChange={e => carregar(e.target.value)} disabled={!podeMarcar}>
+              {!dados.chave && <option value="">Escolha qual encontro é este…</option>}
+              {dados.opcoes.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+            {dados.programa && <small>só mentoradas do {dados.programa}</small>}
+          </label>
+          {dados.opcional && <p className={s.legenda}>Este encontro é opcional: falta aqui não conta na assiduidade.</p>}
+          {dados.chave && !dados.candidatos.length && <p className={s.vazio}>Nenhuma mentorada ativa tem esse encontro no programa.</p>}
+          {dados.candidatos.length > 0 && (
+            <>
+              <div className={s.presTopo}>
+                <input className={s.presBusca} type="search" placeholder="Buscar mentorada…" value={busca} onChange={e => setBusca(e.target.value)} aria-label="Buscar mentorada" />
+                <span className={s.dica}>{plural(nPres, "presente", "presentes")} · {plural(nFalta, "falta", "faltas")} · {dados.candidatos.length - nPres - nFalta} sem registro</span>
+              </div>
+              {podeMarcar && (
+                <div className={s.presMassa}>
+                  <button type="button" className={s.btnMini} onClick={() => setMarc(m => Object.fromEntries(Object.keys(m).map(id => [id, m[id] ?? false])))}>
+                    Falta para quem não foi marcada
+                  </button>
+                  <button type="button" className={s.btnMini} onClick={() => setMarc(Object.fromEntries((dados.candidatos).map(c => [c.id, null])))}>
+                    Limpar tudo
+                  </button>
+                </div>
+              )}
+              <ul className={s.presLista}>
+                {lista.map(c => {
+                  const v = marc[c.id];
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        className={`${s.presItem} ${v === true ? s.presSim : v === false ? s.presNao : ""}`}
+                        onClick={() => podeMarcar && setMarc(m => ({ ...m, [c.id]: ciclo(m[c.id]) }))}
+                        disabled={!podeMarcar}
+                        aria-label={`${c.nome}: ${v === true ? "presente" : v === false ? "falta" : "sem registro"}. Clique para mudar.`}
+                      >
+                        <span className={s.presMarca} aria-hidden="true">{v === true ? "✓" : v === false ? "✗" : ""}</span>
+                        <span className={s.presNome}>{c.nome}</span>
+                        <span className={s.presEstado}>{v === true ? "Presente" : v === false ? "Falta" : "—"}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className={s.legenda}>Clique no nome para alternar: presente → falta → sem registro. Fica salvo na aba “Presença nos Encontros” de cada mentorada.</p>
+            </>
+          )}
+        </>
+      )}
+      {erro && <p className={s.modalErro} role="alert">{erro}</p>}
+      {podeMarcar && dados?.candidatos.length ? (
+        <div className={s.modalAcoes}>
+          <span className={s.espaco} />
+          <button type="button" className={s.btnPrim} onClick={salvar} disabled={!mudadas.length || salvando}>
+            {salvando ? "Salvando…" : mudadas.length ? `Salvar presenças (${mudadas.length})` : "Nada mudou"}
+          </button>
+        </div>
+      ) : null}
+      {!podeMarcar && <p className={s.legenda}>Seu acesso só permite ver. Para marcar presença, precisa da permissão Presenças.</p>}
+    </fieldset>
   );
 }

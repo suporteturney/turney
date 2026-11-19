@@ -21,6 +21,7 @@
 .individual { color: #1E40AF; background: #EFF4FF; border-color: #C7D7FE; }
 .grupo { color: #6B21A8; background: #F7F0FF; border-color: #E4CCFD; }
 .onboarding { color: #065F46; background: #ECFDF5; border-color: #A7F3D0; }
+.pessoal { color: #9D174D; background: #FDF2F8; border-color: #FBCFE8; }
 .nota { margin-top: 12px; font-size: 11px; line-height: 1.6; color: var(--txt3); }
 .nota b { color: var(--txt2); }
 

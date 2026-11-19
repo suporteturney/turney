@@ -346,3 +346,17 @@ model EventoAgenda {
   @@index([inicio])
   @@index([agenda, inicio])
 }
+
+// Tipo de encontro escolhido à mão (vale mais que a regra automática do título).
+// escopo "evento" = só aquela ocorrência (chave = UID do Google); "titulo" = todos com o mesmo nome (chave = título normalizado).
+model TipoEncontroManual {
+  id        String   @id @default(cuid())
+  escopo    String
+  chave     String
+  tipo      String   // individual | grupo | onboarding | pessoal | outro
+  titulo    String   // título como estava na agenda (para mostrar)
+  criadaPor String?
+  createdAt DateTime @default(now())
+
+  @@unique([escopo, chave])
+}

@@ -174,12 +174,21 @@ const pick = (b: Bruto): EventoAgenda => ({ uid: b.uid, inicio: b.inicio, fim: b
 // ---------- Tipo do encontro ----------
 
 export type TipoEncontro = "individual" | "grupo" | "onboarding" | "outro";
+export const TIPOS_MANUAIS = ["individual", "grupo", "onboarding", "pessoal", "outro"] as const;
+export type TipoManual = (typeof TIPOS_MANUAIS)[number];
+
+// Escolha feita à mão: primeiro a do encontro, depois a de todos com o mesmo nome, senão a regra do título.
+export type Manuais = { porEvento: Map<string, string>; porTitulo: Map<string, string> };
+export const chaveTitulo = (titulo: string) => normalizar(titulo);
+export function tipoFinal(ev: { uid: string; titulo: string }, convidados: number, manuais?: Manuais): TipoManual {
+  return (manuais?.porEvento.get(ev.uid) ?? manuais?.porTitulo.get(chaveTitulo(ev.titulo)) ?? classificar(ev.titulo, convidados)) as TipoManual;
+}
 
 export function classificar(titulo: string, convidados: number): TipoEncontro {
   const t = normalizar(titulo);
   if (/\bonboarding\b|boas vindas|kick ?off|\bintegracao\b/.test(t)) return "onboarding";
   if (/\bindividual\b|\b1 ?[x:]? ?1\b/.test(t)) return "individual";
-  if (/\bencontro|ao vivo|\bgrupo\b|\bturma\b|coletiv|\blive\b|\baula\b|master ?class|workshop|hot ?seat|plantao|\bimersao|\btutoria|codigo da aprovacao|\bevolution\b/.test(t)) return "grupo";
+  if (/\bencontro|ao vivo|\bgrupo\b|\bturma\b|coletiv|\blive\b|master ?class|workshop|hot ?seat|plantao|\bimersao|\btutoria|codigo da aprovacao|\bevolution\b/.test(t)) return "grupo";
   if (/mentoria|estrategic|entrevista|devolutiva|\bsessao\b|roadmap|feedback/.test(t)) return convidados >= 6 ? "grupo" : "individual";
   if (convidados >= 6) return "grupo";
   return "outro";
@@ -237,17 +246,41 @@ export function acharMentorada<T extends { nome: string; email: string | null; s
 // Para mostrar no painel: tenta achar a mentorada de qualquer encontro (individual, onboarding…).
 // Grupo não tem uma mentorada só.
 export function mentoradaDoEncontro<T extends { nome: string; email: string | null; status: string }>(
-  ev: { titulo: string; emails: string[] }, dona: { nome: string; email: string }, lista: T[], tipo: TipoEncontro,
+  ev: { titulo: string; emails: string[] }, dona: { nome: string; email: string }, lista: T[], tipo: string,
 ): T | null {
-  if (tipo === "grupo") return null;
+  if (tipo === "grupo" || tipo === "pessoal") return null;
   const r = acharMentorada(ev, dona, lista);
   if (r.mentorada) return r.mentorada;
-  // "Onboarding - Fulana Silva", "Fulana Silva | Devolutiva", "Onboarding com Fulana Silva"
-  const trechos = ev.titulo.split(/\s+[-–|:]\s+|\s+com\s+|\s+(?:and|e|&)\s+/i).map(x => x.replace(/\(.*?\)/g, "").trim()).filter(Boolean);
+  // "Onboarding - Fulana Silva", "Fulana Silva | Devolutiva", "Onboarding com Fulana Silva", "Onboarding | Turney Academy (Fulana Silva)"
+  // Agendamento do Google: "Onboarding | Turney Academy (Fulana Silva)" — o nome vem entre parênteses.
+  const entreParenteses = [...ev.titulo.matchAll(/\(([^)]+)\)/g)].map(m => m[1].trim());
+  const trechos = [
+    ...entreParenteses,
+    ...ev.titulo.split(/\s+[-–|:]\s+|\s+com\s+|\s+(?:and|e|&)\s+/i).map(x => x.replace(/\(.*?\)/g, "").trim()),
+  ].filter(Boolean);
   const achadas = new Set<T>();
   for (const tr of trechos) {
     const a = porPalavras(tr, lista);
     if (a.length === 1) achadas.add(a[0]);
   }
   return achadas.size === 1 ? [...achadas][0] : null;
+}
+
+// ---------- Encontro em grupo → chave da presença (aba "Presença nos Encontros") ----------
+
+export function chaveDoEncontro(titulo: string): string | null {
+  const t = normalizar(titulo);
+  if (/hot ?seat/.test(t)) return "hotseat";
+  if (/\btutoria/.test(t)) return "tutoria";
+  if (/codigo da aprovacao/.test(t)) return "codigoAprovacao";
+  if (/\bevolution/.test(t)) return "evolutionDay";
+  if (/master ?class/.test(t)) return "masterclassDay";
+  return null;
+}
+
+// "… | Mentoria Nexus" ou agenda "Mentoria Atlas" → programa do encontro (para listar só quem é de lá).
+export function programaDoEncontro(titulo: string, agenda: string): "Atlas" | "Nexus" | null {
+  const t = normalizar(`${titulo} ${agenda}`);
+  const atlas = /\batlas\b/.test(t), nexus = /\bnexus\b/.test(t);
+  return atlas && !nexus ? "Atlas" : nexus && !atlas ? "Nexus" : null;
 }

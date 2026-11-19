@@ -5,7 +5,7 @@ import { recalcularSaude } from "@/lib/saude-servidor";
 import { etapaFields } from "@/lib/jornada";
 import { hojeISO, somarDiasUteis } from "@/lib/dias-uteis";
 import { criarTarefaDaEtapa } from "@/lib/pipeline-servidor";
-import { acharMentorada, classificar, ehMentoriaEstrategica, lerIcal, mentoradaDoEncontro, type EventoAgenda } from "@/lib/agenda-regras";
+import { acharMentorada, ehMentoriaEstrategica, lerIcal, mentoradaDoEncontro, tipoFinal, type EventoAgenda, type Manuais } from "@/lib/agenda-regras";
 
 // Agendas do Google lidas pela plataforma:
 // - cadastradas na tela Agendas (tabela AgendaFonte), e/ou
@@ -59,6 +59,9 @@ export async function baixarAgenda(url: string, de: Date, ate: Date): Promise<Ev
   } catch {
     throw new Error("não consegui abrir o link (confira se copiou o endereço inteiro)");
   }
+  if ((res.status === 404 || res.status === 403) && /\/public\//.test(url)) {
+    throw new Error("esse é o “Endereço público”, e essa agenda não é pública — use o “Endereço secreto no formato iCal” (o que tem “private” no link)");
+  }
   if (res.status === 404 || res.status === 403) throw new Error("o Google recusou o link — copie de novo o “Endereço secreto no formato iCal”");
   if (!res.ok) throw new Error(`a agenda respondeu ${res.status}`);
   const texto = await res.text();
@@ -83,6 +86,7 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
   const lista = await prisma.mentorada.findMany({
     select: { id: true, nome: true, email: true, status: true, tipo: true, pipelineFaseId: true },
   });
+  const manuais = await carregarManuais();
 
   for (const fonte of fontes) {
     let eventos: EventoAgenda[];
@@ -100,7 +104,7 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
     const daJanela = eventos.filter(ev => ev.inicio >= guardarDe && ev.inicio <= ate);
     const linhas = daJanela.map(ev => {
       const convidados = ev.emails.filter(e => e !== dona.email.toLowerCase()).length;
-      const tipo = classificar(ev.titulo, convidados);
+      const tipo = tipoFinal(ev, convidados, manuais);
       return {
         agenda: fonte.nome, uid: ev.uid, titulo: ev.titulo.slice(0, 300), inicio: ev.inicio, fim: ev.fim, tipo,
         link: ev.link, convidados, mentoradaId: mentoradaDoEncontro(ev, dona, lista, tipo)?.id ?? null,
@@ -116,7 +120,8 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
     }
 
     // 2. Mentorias Estratégicas que já aconteceram marcam a Jornada e o Pipeline.
-    const mentorias = eventos.filter(ev => ev.inicio.getTime() < agora && ev.inicio.getTime() >= agora - JANELA_MENTORIA * DIA && ehMentoriaEstrategica(ev.titulo));
+    const mentorias = eventos.filter(ev => ev.inicio.getTime() < agora && ev.inicio.getTime() >= agora - JANELA_MENTORIA * DIA && ehMentoriaEstrategica(ev.titulo)
+      && !["pessoal", "outro", "grupo"].includes(tipoFinal(ev, 0, manuais)));
     r.lidos += mentorias.length;
     for (const ev of mentorias) {
       const data = diaBrasil(ev.inicio);
@@ -131,6 +136,14 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
     }
   }
   return r;
+}
+
+export async function carregarManuais(): Promise<Manuais> {
+  const regras = await prisma.tipoEncontroManual.findMany().catch(() => []);
+  return {
+    porEvento: new Map(regras.filter(r => r.escopo === "evento").map(r => [r.chave, r.tipo])),
+    porTitulo: new Map(regras.filter(r => r.escopo === "titulo").map(r => [r.chave, r.tipo])),
+  };
 }
 
 // Grava a data (se ainda não tinha) e leva o card do Pipeline para a etapa certa.

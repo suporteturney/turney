@@ -196,6 +196,7 @@
 .ev_grupo { --ev: #7C3AED; --ev-bg: #F5F0FF; --ev-txt: #5B21B6; }
 .ev_onboarding { --ev: #059669; --ev-bg: #ECFDF5; --ev-txt: #065F46; }
 .ev_outro { --ev: #64748B; --ev-bg: #F1F5F9; --ev-txt: #334155; }
+.ev_pessoal { --ev: #DB2777; --ev-bg: #FDF2F8; --ev-txt: #9D174D; }
 
 /* ── Seu dia: linha do tempo ── */
 .timeline { list-style: none; display: flex; flex-direction: column; gap: 6px; }
@@ -215,7 +216,9 @@
 .tlCorpo { min-width: 0; }
 .tlTopo { display: flex; align-items: center; gap: 6px; }
 .tlTipo { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ev-txt); }
-.tlTitulo { font-size: 13px; font-weight: 700; color: var(--navy-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tlTitulo { display: block; max-width: 100%; background: none; border: none; padding: 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--navy-mid); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tlTitulo:hover { color: var(--brown); text-decoration: underline; }
+.tlTitulo:focus-visible, .opTipo:focus-within, .opEscopo:focus-within { outline: 2px solid var(--champagne); outline-offset: 2px; }
 .st { font-size: 10px; font-weight: 800; border-radius: 5px; padding: 1px 6px; }
 .stAgora { background: #DCFCE7; color: #166534; }
 .stLogo { background: var(--warn-bg); color: #92400e; }
@@ -287,6 +290,7 @@
 .tog_grupo { --ev: #7C3AED; }
 .tog_onboarding { --ev: #059669; }
 .tog_outro { --ev: #64748B; }
+.tog_pessoal { --ev: #DB2777; }
 .togOn { color: var(--navy-mid); border-color: color-mix(in srgb, var(--ev, var(--navy-mid)) 45%, var(--bdr)); }
 .togOn .togPonto { background: var(--ev); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev) 18%, transparent); }
 .sel { font: inherit; font-size: 11px; font-weight: 600; color: var(--navy-mid); background: var(--surface); border: 1px solid var(--bdr); border-radius: 20px; padding: 4px 8px; }
@@ -392,7 +396,7 @@
 
 /* ── Janela de tarefa ── */
 .fundo { position: fixed; inset: 0; z-index: 80; background: rgba(6, 10, 31, 0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 16px; }
-.modal { width: min(500px, 100%); max-height: 90vh; overflow-y: auto; background: var(--surface); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 24px 60px rgba(6, 10, 31, 0.35); }
+.modal { width: min(560px, 100%); max-height: 90vh; overflow-y: auto; background: var(--surface); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 24px 60px rgba(6, 10, 31, 0.35); }
 .modalTopo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .modalTitulo { font-size: 16px; font-weight: 800; color: var(--navy-mid); }
 .modalInfo { font-size: 12px; color: var(--txt2); margin-top: -6px; }
@@ -432,3 +436,47 @@
   .kpi:hover, .btnOuro:hover { transform: none; }
 }
 .eqItem > .btnMini { grid-row: 1; grid-column: 2; }
+
+/* Janela do encontro */
+.primeiraMaiuscula { text-transform: capitalize; }
+.encAcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.encAcoes a.btn { text-decoration: none; }
+.grupoOpcoes { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.grupoOpcoes legend { padding: 0; margin-bottom: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt3); }
+.opcoesTipo { display: flex; flex-wrap: wrap; gap: 6px; }
+.opTipo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--txt2); background: var(--surface); border: 1px solid var(--bdr); border-radius: 20px; padding: 6px 12px; cursor: pointer; }
+.opTipo input, .opEscopo input { position: absolute; opacity: 0; pointer-events: none; }
+.opTipo:hover { border-color: var(--champagne); }
+.opOn { color: var(--navy-mid); background: color-mix(in srgb, var(--ev) 8%, white); border-color: color-mix(in srgb, var(--ev) 55%, var(--bdr)); }
+.opOn .togPonto { background: var(--ev); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev) 18%, transparent); }
+.opEscopo { position: relative; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--navy-mid); padding: 8px 10px; border: 1px solid var(--bdr); border-radius: 9px; cursor: pointer; }
+.opEscopo::before { content: ""; flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #CFC5B3; background: var(--surface); }
+.opEscopo:has(input:checked) { border-color: var(--champagne); background: #FBF6EC; }
+.opEscopo:has(input:checked)::before { border-color: var(--brown); background: radial-gradient(circle, var(--brown) 40%, transparent 45%); }
+
+/* Presença no encontro */
+.btnPresenca { align-self: flex-start; font: inherit; font-size: 12px; font-weight: 800; color: #5B21B6; background: #F5F0FF; border: 1px solid #E4CCFD; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.btnPresenca:hover { border-color: #7C3AED; }
+.btnPresenca:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.campoLinha { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; font-weight: 600; color: var(--txt2); }
+.campoLinha select { font: inherit; font-size: 13px; color: var(--navy-mid); border: 1px solid var(--bdr); border-radius: 8px; padding: 6px 8px; background: var(--surface); }
+.campoLinha small { font-weight: 500; color: var(--txt3); }
+.presTopo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.presBusca { flex: 1; min-width: 160px; font: inherit; font-size: 12px; border: 1px solid var(--bdr); border-radius: 8px; padding: 6px 10px; outline: none; }
+.presBusca:focus { border-color: var(--champagne); }
+.presMassa { display: flex; flex-wrap: wrap; gap: 6px; }
+.presLista { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; max-height: 300px; overflow-y: auto; padding: 2px; }
+.presItem { width: 100%; display: flex; align-items: center; gap: 8px; font: inherit; text-align: left; background: var(--surface); border: 1px solid var(--bdr); border-radius: 8px; padding: 6px 8px; cursor: pointer; }
+.presItem:disabled { cursor: default; }
+.presItem:hover:not(:disabled) { border-color: var(--champagne); }
+.presItem:focus-visible { outline: 2px solid var(--champagne); outline-offset: 1px; }
+.presMarca { flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: 11px; font-weight: 800; border: 1.5px solid #CFC5B3; color: #FFFFFF; }
+.presNome { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--navy-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.presEstado { font-size: 10px; font-weight: 700; color: var(--txt3); }
+.presSim { background: #F0FDF4; border-color: #86EFAC; }
+.presSim .presMarca { background: #16A34A; border-color: #16A34A; }
+.presSim .presEstado { color: #166534; }
+.presNao { background: #FEF2F2; border-color: #FCA5A5; }
+.presNao .presMarca { background: #DC2626; border-color: #DC2626; }
+.presNao .presEstado { color: #991b1b; }
+@media (max-width: 560px) { .presLista { grid-template-columns: 1fr; } }

@@ -10,7 +10,7 @@ type Fonte = {
 };
 
 const ROTULO: Record<string, [string, string]> = {
-  individual: ["individual", "individuais"], grupo: ["em grupo", "em grupo"], onboarding: ["onboarding", "onboardings"], outro: ["outro", "outros"],
+  individual: ["individual", "individuais"], grupo: ["em grupo", "em grupo"], onboarding: ["onboarding", "onboardings"], pessoal: ["pessoal", "pessoais"], outro: ["outro", "outros"],
 };
 const quando = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
@@ -122,7 +122,7 @@ export default function AgendasCliente({ fontes, vercel }: { fontes: Fonte[]; ve
             <p className={a.nota}>
               O painel lê as agendas sozinho, no máximo a cada 2 horas, quando alguém abre a plataforma. Os encontros são separados assim:
               <b> Onboarding</b> (título com “onboarding”), <b>Individual</b> (“individual”, “mentoria estratégica”, “entrevista”, “devolutiva”),
-              <b> Grupo</b> (“encontro”, “ao vivo”, “masterclass”, “tutoria”, “hotseat”, “código da aprovação”, “evolution”, “turma”, “aula”, “grupo” ou 6+ convidados). O resto aparece como <b>Outros</b>.
+              <b> Grupo</b> (“encontro”, “ao vivo”, “masterclass”, “tutoria”, “hotseat”, “código da aprovação”, “evolution”, “turma”, “grupo” ou 6+ convidados). O resto aparece como <b>Outros</b>. Para corrigir, clique no encontro no Meu painel e troque o tipo (inclusive para <b>Pessoal</b>) — só para aquele encontro ou para todos com o mesmo nome.
             </p>
           </section>
 
