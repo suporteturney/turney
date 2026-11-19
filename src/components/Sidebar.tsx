@@ -40,6 +40,7 @@ const MENU_ADMIN = {
   itens: [
     { href: "/equipe", label: "Equipe", icon: "shield" },
     { href: "/agendas", label: "Agendas", icon: "calendar" },
+    { href: "/hubla", label: "Hubla", icon: "layers" },
     { href: "/atividades", label: "Atividades", icon: "list" },
   ],
 };

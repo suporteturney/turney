@@ -142,6 +142,7 @@ model Mentorada {
   saudeRegistros SaudeRegistro[]
   tarefas     Tarefa[]
   eventosAgenda EventoAgenda[]
+  eventosHubla  EventoHubla[]
 }
 
 // Etapas do Kanban (Pipeline), criadas e excluídas pela equipe.
@@ -369,4 +370,33 @@ model TipoEncontroManual {
   createdAt DateTime @default(now())
 
   @@unique([escopo, chave])
+}
+
+// Configurações guardadas pela tela (ex.: token do webhook da Hubla).
+model Configuracao {
+  chave         String   @id
+  valor         String
+  atualizadaPor String?
+  atualizadaEm  DateTime @updatedAt
+}
+
+// Área de membros da Hubla: acesso liberado/removido, módulo e curso concluídos.
+// Só o necessário para o acompanhamento — nada de pagamento, documento ou endereço.
+model EventoHubla {
+  id          String     @id @default(cuid())
+  chave       String     @unique // evita duplicar o mesmo aviso (a Hubla manda um por oferta)
+  tipo        String     // acesso_liberado | acesso_removido | modulo_concluido | curso_concluido
+  email       String
+  nome        String?
+  produtoId   String?
+  produto     String?
+  modulo      String?
+  data        DateTime
+  mentoradaId String?
+  mentorada   Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+
+  @@index([mentoradaId, data])
+  @@index([email])
+  @@index([data])
 }
