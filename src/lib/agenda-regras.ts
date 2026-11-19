@@ -179,7 +179,7 @@ export function classificar(titulo: string, convidados: number): TipoEncontro {
   const t = normalizar(titulo);
   if (/\bonboarding\b|boas vindas|kick ?off|\bintegracao\b/.test(t)) return "onboarding";
   if (/\bindividual\b|\b1 ?[x:]? ?1\b/.test(t)) return "individual";
-  if (/\bencontro|ao vivo|\bgrupo\b|\bturma\b|coletiv|\blive\b|\baula\b|masterclass|workshop|hot ?seat|plantao|\bimersao/.test(t)) return "grupo";
+  if (/\bencontro|ao vivo|\bgrupo\b|\bturma\b|coletiv|\blive\b|\baula\b|master ?class|workshop|hot ?seat|plantao|\bimersao|\btutoria|codigo da aprovacao|\bevolution\b/.test(t)) return "grupo";
   if (/mentoria|estrategic|entrevista|devolutiva|\bsessao\b|roadmap|feedback/.test(t)) return convidados >= 6 ? "grupo" : "individual";
   if (convidados >= 6) return "grupo";
   return "outro";

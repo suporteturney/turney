@@ -122,7 +122,7 @@ export default function AgendasCliente({ fontes, vercel }: { fontes: Fonte[]; ve
             <p className={a.nota}>
               O painel lê as agendas sozinho, no máximo a cada 2 horas, quando alguém abre a plataforma. Os encontros são separados assim:
               <b> Onboarding</b> (título com “onboarding”), <b>Individual</b> (“individual”, “mentoria estratégica”, “entrevista”, “devolutiva”),
-              <b> Grupo</b> (“encontro”, “ao vivo”, “turma”, “aula”, “grupo” ou 6+ convidados). O resto aparece como <b>Outros</b>.
+              <b> Grupo</b> (“encontro”, “ao vivo”, “masterclass”, “tutoria”, “hotseat”, “código da aprovação”, “evolution”, “turma”, “aula”, “grupo” ou 6+ convidados). O resto aparece como <b>Outros</b>.
             </p>
           </section>
 
