@@ -26,8 +26,8 @@ const TOLERANCIA_ATRASO = 15;
 // - opcionais só ajudam: cada presença soma um bônus pequeno, falta não tira nada.
 const OBRIGATORIOS = (tipo: string) =>
   tipo === "Atlas" ? ["hotseat", "tutoria"] : /^Nexus\b/.test(tipo) ? ["evolutionDay", "masterclassDay"] : [];
-const OPCIONAIS = (tipo: string) =>
-  tipo === "Atlas" ? ["masterclassDay", "codigoAprovacao"] : /^Nexus\b/.test(tipo) ? ["codigoAprovacao"] : [];
+// O Código da Aprovação é opcional para todos os programas.
+const OPCIONAIS = (tipo: string) => (tipo === "Atlas" ? ["masterclassDay", "codigoAprovacao"] : ["codigoAprovacao"]);
 export const BONUS_OPCIONAL = 5; // pontos por presença em encontro opcional
 export const BONUS_OPCIONAL_MAX = 15;
 export const JANELA_ENCONTROS_DIAS = 60;

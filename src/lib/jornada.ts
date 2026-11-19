@@ -91,7 +91,8 @@ export function encontrosGrupo(tipo: string): EncontroGrupo[] {
       { key: "codigoAprovacao", label: "O Código da Aprovação", opcional: true },
     ];
   }
-  return [];
+  // O Código da Aprovação é para todas as mentoradas, de qualquer programa (opcional).
+  return [{ key: "codigoAprovacao", label: "O Código da Aprovação", opcional: true }];
 }
 
 // Encontro opcional não entra na assiduidade (falta em opcional não penaliza).

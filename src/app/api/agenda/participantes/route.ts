@@ -34,8 +34,10 @@ export async function GET(req: NextRequest) {
   if (!c) return NextResponse.json({ erro: "Encontro não encontrado. Atualize a página." }, { status: 404 });
   if (!c.chave || !c.presencaKey) return NextResponse.json({ chave: null, opcoes: OPCOES, candidatos: [] });
 
-  const programa = programaDoEncontro(c.ev.titulo, c.ev.agenda);
-  const turma = turmaDoEncontro(c.ev.titulo, c.ev.agenda);
+  // O Código da Aprovação é para todas as mentoradas (qualquer programa e turma), mesmo estando na agenda de um programa.
+  const paraTodas = c.chave === "codigoAprovacao";
+  const programa = paraTodas ? null : programaDoEncontro(c.ev.titulo, c.ev.agenda);
+  const turma = paraTodas ? null : turmaDoEncontro(c.ev.titulo, c.ev.agenda);
   const lista = await prisma.mentorada.findMany({
     where: { status: { in: ATIVOS } },
     orderBy: { nome: "asc" },
