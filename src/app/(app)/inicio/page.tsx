@@ -66,16 +66,19 @@ export default async function InicioPage() {
     prisma.agendaFonte.count({ where: { ativo: true } }).catch(() => 0),
   ]);
 
-  // O mesmo encontro pode estar em mais de uma agenda (ex.: mentora e suporte convidadas): mostra uma vez só.
-  const vistos = new Set<string>();
-  // Compromisso pessoal só aparece para a dona da agenda.
-  const encontros = eventos.filter(e => {
-    if (e.tipo === "pessoal" && !ehDela(usuario.nome, e.agenda)) return false;
+  // O mesmo encontro pode estar em mais de uma agenda (ex.: agenda do grupo + convite na agenda pessoal):
+  // mostra uma vez só, ficando com a cópia que tem mais informação (a pessoal às vezes só diz "Busy").
+  const nota = (e: (typeof eventos)[number]) =>
+    (/^(busy|ocupad[oa])$/i.test(e.titulo.trim()) ? 0 : 2) + (e.tipo === "outro" ? 0 : 1) + (e.mentoradaId ? 1 : 0);
+  const melhores = new Map<string, (typeof eventos)[number]>();
+  for (const e of eventos) {
+    // Compromisso pessoal só aparece para a dona da agenda.
+    if (e.tipo === "pessoal" && !ehDela(usuario.nome, e.agenda)) continue;
     const chave = `${e.uid.split("|")[0]}|${e.inicio.getTime()}`;
-    if (vistos.has(chave)) return false;
-    vistos.add(chave);
-    return true;
-  });
+    const atual = melhores.get(chave);
+    if (!atual || nota(e) > nota(atual)) melhores.set(chave, e);
+  }
+  const encontros = [...melhores.values()].sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
 
   // Equipe: acessos ativos (sem repetir nomes).
   const equipe: { nome: string; papel: string }[] = [];
