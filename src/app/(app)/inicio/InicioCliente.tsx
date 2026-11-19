@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import JornadaModal from "@/components/JornadaModal";
+import Avatar from "@/components/Avatar";
 import MentoradaDrawer, { type Aba } from "@/components/MentoradaDrawer";
 import styles from "../shared.module.css";
 import s from "./inicio.module.css";
@@ -27,7 +28,7 @@ type Ev = {
   id: string; titulo: string; inicio: string; fim: string | null; tipo: string; link: string | null; agenda: string; convidados: number;
   mentorada: { id: string; nome: string; tipo: string } | null;
 };
-type Pessoa = { nome: string; papel: string };
+type Pessoa = { nome: string; papel: string; foto: string | null };
 type Tom = "vermelho" | "amarelo" | "azul";
 type Motivo = { txt: string; peso: number; tom: Tom };
 type Janela = { modo: "nova"; prazo: string; responsavel: string; mentoradaId?: string } | { modo: "editar"; t: T };
@@ -55,9 +56,6 @@ const linkWhats = (n: string | null) => {
   const d = (n ?? "").replace(/\D/g, "");
   return d ? `https://wa.me/${d.length <= 11 ? `55${d}` : d}` : null;
 };
-const iniciais = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase();
-const CORES = ["#73452B", "#2F4A6B", "#5B6B3A", "#7A3E5C", "#3F6E6A", "#8A5A1F"];
-const corDe = (nome: string) => CORES[[...nome].reduce((a, c) => a + c.charCodeAt(0), 0) % CORES.length];
 const juntar = (xs: string[]) => xs.join(", ").replace(/, ([^,]*)$/, " e $1");
 const tipoEv = (t: string): TipoEv => (["individual", "grupo", "onboarding", "pessoal"].includes(t) ? (t as TipoEv) : "outro");
 const deTrabalho = (t: string) => !["pessoal", "outro"].includes(tipoEv(t));
@@ -268,11 +266,10 @@ export default function InicioCliente({
   const alternarTipo = (k: TipoEv) => setTiposOn(set => { const n = new Set(set); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
   // ── Peças ──
+  const fotoDe = new Map(equipe.map(p => [p.nome, p.foto]));
   const avatar = (nomeP: string | null, peq = false) =>
     nomeP ? (
-      <span className={`${s.avatar} ${peq ? s.avatarPeq : ""}`} style={{ background: corDe(nomeP) }} title={nomeP} aria-hidden="true">
-        {iniciais(nomeP)}
-      </span>
+      <Avatar nome={nomeP} foto={fotoDe.get(nomeP)} tamanho={peq ? 20 : 30} />
     ) : (
       <span className={`${s.avatar} ${s.avatarVazio} ${peq ? s.avatarPeq : ""}`} title="Sem responsável" aria-hidden="true">?</span>
     );

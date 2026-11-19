@@ -5,6 +5,7 @@ import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { podeOperar } from "@/lib/pipeline-servidor";
 import { hojeISO } from "@/lib/dias-uteis";
 import { casaNome } from "@/lib/nomes-equipe";
+import { urlFoto } from "@/lib/foto";
 import InicioCliente from "./InicioCliente";
 
 // "Meu painel": o que cada pessoa da equipe precisa ver ao entrar.
@@ -51,7 +52,7 @@ export default async function InicioPage() {
       },
     }),
     prisma.pipelineFase.findMany({ orderBy: { ordem: "asc" }, select: { id: true, nome: true } }),
-    prisma.usuario.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { nome: true, papel: true } }),
+    prisma.usuario.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true, papel: true, foto: { select: { atualizadaEm: true } } } }),
     prisma.mentorada.findMany({
       where: { prazo: { gte: new Date(segunda), lte: new Date(domingoQueVem) }, status: { notIn: ["Churn", "Congelado"] } },
       orderBy: { prazo: "asc" },
@@ -81,8 +82,12 @@ export default async function InicioPage() {
   const encontros = [...melhores.values()].sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
 
   // Equipe: acessos ativos (sem repetir nomes).
-  const equipe: { nome: string; papel: string }[] = [];
-  for (const u of usuarios) if (!equipe.some(e => norm(e.nome) === norm(u.nome))) equipe.push({ nome: u.nome, papel: u.papel });
+  const equipe: { nome: string; papel: string; foto: string | null }[] = [];
+  for (const u of usuarios) {
+    const ja = equipe.find(e => norm(e.nome) === norm(u.nome));
+    if (!ja) equipe.push({ nome: u.nome, papel: u.papel, foto: urlFoto(u.id, u.foto) });
+    else if (!ja.foto) ja.foto = urlFoto(u.id, u.foto);
+  }
 
   // Nome escrito na tarefa ou na mentorada → nome completo de quem tem acesso (se achar).
   const nomeDaEquipe = (campo: string | null) => {
@@ -96,7 +101,7 @@ export default async function InicioPage() {
   // Quem aparece como responsável mas ainda não tem acesso (ex.: Daryane antes de ganhar login).
   for (const t of tarefas) {
     const d = dono(t);
-    if (d && !equipe.some(e => norm(e.nome) === norm(d))) equipe.push({ nome: d, papel: "sem acesso" });
+    if (d && !equipe.some(e => norm(e.nome) === norm(d))) equipe.push({ nome: d, papel: "sem acesso", foto: null });
   }
   const eu = equipe.find(e => norm(e.nome) === norm(usuario.nome))?.nome ?? usuario.nome;
   equipe.sort((a, b) => (a.nome === eu ? -1 : b.nome === eu ? 1 : a.nome.localeCompare(b.nome, "pt-BR")));

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from "@/lib/auth";
 import { pode } from "@/lib/permissoes";
+import { urlFoto } from "@/lib/foto";
 import EquipeCliente from "./EquipeCliente";
 import styles from "../shared.module.css";
 
@@ -15,12 +16,12 @@ export default async function EquipePage() {
   }
   const lista = await prisma.usuario.findMany({
     orderBy: [{ ativo: "desc" }, { nome: "asc" }],
-    select: { id: true, nome: true, email: true, papel: true, permissoes: true, ativo: true, trocarSenha: true, ultimoAcesso: true },
+    select: { id: true, nome: true, email: true, papel: true, permissoes: true, ativo: true, trocarSenha: true, ultimoAcesso: true, foto: { select: { atualizadaEm: true } } },
   });
   return (
     <EquipeCliente
       euId={usuario.id}
-      inicial={lista.map(u => ({ ...u, ultimoAcesso: u.ultimoAcesso?.toISOString() ?? null }))}
+      inicial={lista.map(({ foto, ...u }) => ({ ...u, ultimoAcesso: u.ultimoAcesso?.toISOString() ?? null, foto: urlFoto(u.id, foto) }))}
     />
   );
 }

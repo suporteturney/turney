@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/(app)/shared.module.css";
 import m from "@/app/(app)/acompanhamento/importar.module.css";
 
-export default function TrocarSenha({ primeiroAcesso, nome }: { primeiroAcesso: boolean; nome: string }) {
+export default function TrocarSenha({ primeiroAcesso, nome, extra }: { primeiroAcesso: boolean; nome: string; extra?: React.ReactNode }) {
   const router = useRouter();
   const [atual, setAtual] = useState("");
   const [nova, setNova] = useState("");
@@ -36,13 +36,14 @@ export default function TrocarSenha({ primeiroAcesso, nome }: { primeiroAcesso: 
     <>
       <div className={styles.topbar}>
         <div>
-          <div className={styles.pageTitle}>{primeiroAcesso ? `Boas-vindas, ${nome.split(" ")[0]}!` : "Minha senha"}</div>
+          <div className={styles.pageTitle}>{primeiroAcesso ? `Boas-vindas, ${nome.split(" ")[0]}!` : "Minha conta"}</div>
           <div className={styles.pageSub}>
-            {primeiroAcesso ? "Antes de começar, crie a sua senha. A senha provisória que você recebeu deixa de valer." : "Troque a senha que você usa para entrar na plataforma"}
+            {primeiroAcesso ? "Antes de começar, crie a sua senha. A senha provisória que você recebeu deixa de valer." : "Sua foto e a senha que você usa para entrar na plataforma"}
           </div>
         </div>
       </div>
       <div className={styles.content}>
+        {extra}
         <form className={styles.card} style={{ maxWidth: 440, display: "flex", flexDirection: "column", gap: 12 }} onSubmit={salvar}>
           <label className={m.field}>
             <span>{primeiroAcesso ? "Senha provisória" : "Senha atual"}</span>

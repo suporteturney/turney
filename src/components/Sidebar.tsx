@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { UsuarioSessao } from "@/lib/auth";
 import { pode, rotuloPapel } from "@/lib/permissoes";
 import Isotipo from "@/components/Isotipo";
+import Avatar from "@/components/Avatar";
 import styles from "./Sidebar.module.css";
 
 const MENU = [
@@ -134,7 +135,7 @@ const ICONS: Record<string, React.ReactNode> = {
   dot: <span className={styles.navDot} />,
 };
 
-export default function Sidebar({ usuario, tarefasVencendo = 0 }: { usuario: UsuarioSessao; tarefasVencendo?: number }) {
+export default function Sidebar({ usuario, tarefasVencendo = 0, foto = null }: { usuario: UsuarioSessao; tarefasVencendo?: number; foto?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const menu = pode(usuario, "equipe") ? [...MENU, MENU_ADMIN] : MENU;
@@ -183,13 +184,13 @@ export default function Sidebar({ usuario, tarefasVencendo = 0 }: { usuario: Usu
 
       <div className={styles.foot}>
         <div className={styles.csBadge}>
-          <svg className={styles.csBadgeIcon} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
+          <Link href="/conta" title={foto ? "Minha conta" : "Colocar minha foto"}>
+            <Avatar nome={usuario.nome} foto={foto} tamanho={28} titulo={false} />
+          </Link>
           <div>
             <div className={styles.csBadgeTitle}>{usuario.nome}</div>
             <div className={styles.csBadgeSub}>
-              {rotuloPapel(usuario.papel)} · <Link href="/conta" className={styles.contaLink}>minha senha</Link>
+              {rotuloPapel(usuario.papel)} · <Link href="/conta" className={styles.contaLink}>minha conta</Link>
             </div>
           </div>
           <button onClick={sair} className={styles.sairBtn} title="Sair">

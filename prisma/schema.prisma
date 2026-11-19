@@ -28,6 +28,16 @@ model Usuario {
 
   sessoes    Sessao[]
   atividades Atividade[]
+  foto       FotoUsuario?
+}
+
+// Foto de perfil (bolinha), já reduzida no navegador para 192×192 JPEG.
+model FotoUsuario {
+  usuarioId    String   @id
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dados        Bytes
+  tipo         String   @default("image/jpeg")
+  atualizadaEm DateTime @updatedAt
 }
 
 // Registro de atividades: quem fez o quê e quando

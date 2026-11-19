@@ -31,3 +31,5 @@
   user-select: all;
 }
 .senhaAcoes { display: flex; gap: 8px; }
+
+.pessoa { display: flex; align-items: center; gap: 10px; }

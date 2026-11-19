@@ -2,13 +2,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PAPEIS, PERMISSOES, rotuloPapel, type Permissao } from "@/lib/permissoes";
+import Avatar from "@/components/Avatar";
+import FotoPerfil from "@/components/FotoPerfil";
 import styles from "../shared.module.css";
 import m from "../acompanhamento/importar.module.css";
 import e from "./equipe.module.css";
 
 type Pessoa = {
   id: string; nome: string; email: string; papel: string; permissoes: string[];
-  ativo: boolean; trocarSenha: boolean; ultimoAcesso: string | null;
+  ativo: boolean; trocarSenha: boolean; ultimoAcesso: string | null; foto: string | null;
 };
 type Edicao = { id: string | null; nome: string; email: string; papel: string; permissoes: string[] };
 
@@ -115,8 +117,13 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
                 {inicial.map(p => (
                   <tr key={p.id} className={p.ativo ? "" : e.inativo}>
                     <td>
-                      <strong>{p.nome}</strong>{p.id === euId && <span className={e.voce}> (você)</span>}
-                      <div className={e.email}>{p.email}</div>
+                      <div className={e.pessoa}>
+                        <Avatar nome={p.nome} foto={p.foto} tamanho={34} />
+                        <div>
+                          <strong>{p.nome}</strong>{p.id === euId && <span className={e.voce}> (você)</span>}
+                          <div className={e.email}>{p.email}</div>
+                        </div>
+                      </div>
                     </td>
                     <td>
                       {rotuloPapel(p.papel)}
@@ -157,6 +164,12 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
               <button className={m.close} onClick={() => setEd(null)} aria-label="Fechar">✕</button>
             </header>
             <div className={m.body}>
+              {ed.id && (
+                <div className={m.field}>
+                  <span>Foto</span>
+                  <FotoPerfil usuarioId={ed.id} nome={ed.nome || "?"} foto={inicial.find(p => p.id === ed.id)?.foto ?? null} compacto onMudou={() => router.refresh()} />
+                </div>
+              )}
               <div className={m.row}>
                 <label className={m.field}>
                   <span>Nome</span>
