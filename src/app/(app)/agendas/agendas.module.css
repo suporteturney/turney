@@ -1,0 +1,48 @@
+.grade { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.bloco { background: var(--surface); border: 1px solid var(--bdr); border-radius: 12px; padding: 18px; }
+.titulo { font-size: 14px; font-weight: 800; color: var(--navy-mid); margin-bottom: 12px; }
+.vazio { font-size: 12px; color: var(--txt3); padding: 4px 0 10px; }
+.lista { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.item { border: 1px solid var(--bdr); border-radius: 10px; padding: 12px; background: var(--linen); }
+.pausada { opacity: 0.6; }
+.itemTopo { display: flex; align-items: center; gap: 10px; }
+.itemNome { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.itemNome b { font-size: 13px; color: var(--navy-mid); }
+.itemNome small { font-size: 11px; color: var(--txt3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.itemAcoes { display: flex; gap: 6px; }
+.status { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.sOk { background: var(--ok); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18); }
+.sErro { background: var(--danger); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18); }
+.sPausa { background: #C9BFAE; }
+.info { margin-top: 6px; font-size: 11px; color: var(--txt2); }
+.erroTxt { margin-top: 6px; font-size: 11px; color: #991b1b; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 8px; font-size: 10px; color: var(--txt3); }
+.chip { font-weight: 700; border-radius: 5px; padding: 2px 6px; background: var(--surface); border: 1px solid var(--bdr); color: var(--txt2); }
+.individual { color: #1E40AF; background: #EFF4FF; border-color: #C7D7FE; }
+.grupo { color: #6B21A8; background: #F7F0FF; border-color: #E4CCFD; }
+.onboarding { color: #065F46; background: #ECFDF5; border-color: #A7F3D0; }
+.nota { margin-top: 12px; font-size: 11px; line-height: 1.6; color: var(--txt3); }
+.nota b { color: var(--txt2); }
+
+.form { display: flex; flex-direction: column; gap: 12px; }
+.campo { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--txt2); }
+.campo small { font-weight: 500; color: var(--txt3); }
+.campo input { font: inherit; font-size: 13px; color: var(--txt); border: 1px solid var(--bdr); border-radius: 7px; padding: 8px 10px; background: var(--surface); outline: none; }
+.campo input:focus { border-color: var(--champagne); }
+.msgOk { font-size: 12px; color: #065F46; background: #ECFDF5; border-radius: 7px; padding: 8px 10px; }
+.msgErro { font-size: 12px; color: #991b1b; background: var(--danger-bg); border-radius: 7px; padding: 8px 10px; }
+
+.btn, .btnPrim, .btnMini, .btnPerigo { font: inherit; font-weight: 700; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.btnPrim { align-self: flex-start; font-size: 13px; padding: 9px 16px; background: var(--navy-mid); color: var(--champagne); border: 1px solid var(--navy-mid); }
+.btnPrim:disabled, .btn:disabled { opacity: 0.45; cursor: default; }
+.btn { font-size: 12px; padding: 8px 14px; background: var(--surface); color: var(--navy-mid); border: 1px solid var(--bdr); }
+.btn:hover:not(:disabled), .btnMini:hover { border-color: var(--champagne); }
+.btnMini { font-size: 11px; padding: 4px 9px; background: var(--surface); color: var(--navy-mid); border: 1px solid var(--bdr); }
+.btnPerigo { font-size: 11px; padding: 4px 9px; background: transparent; color: #991b1b; border: 1px solid #F5C2C2; }
+.btnPerigo:hover { background: var(--danger-bg); }
+.ajudaBtn { margin-top: 16px; background: none; border: none; padding: 0; font: inherit; font-size: 12px; font-weight: 700; color: var(--brown); cursor: pointer; }
+.passos { margin: 10px 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--txt2); line-height: 1.5; }
+.passos b { color: var(--navy-mid); }
+.btn:focus-visible, .btnPrim:focus-visible, .btnMini:focus-visible, .btnPerigo:focus-visible, .ajudaBtn:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+
+@media (max-width: 1000px) { .grade { grid-template-columns: 1fr; } }

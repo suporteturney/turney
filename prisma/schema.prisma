@@ -131,6 +131,7 @@ model Mentorada {
   varreduraItens VarreduraItem[]
   saudeRegistros SaudeRegistro[]
   tarefas     Tarefa[]
+  eventosAgenda EventoAgenda[]
 }
 
 // Etapas do Kanban (Pipeline), criadas e excluídas pela equipe.
@@ -311,4 +312,37 @@ model SaudeRegistro {
 
   @@index([mentoradaId, data])
   @@index([data])
+}
+
+// Agendas do Google lidas pelo painel (link iCal secreto de cada agenda).
+model AgendaFonte {
+  id            String    @id @default(cuid())
+  nome          String    // de quem é a agenda (ex.: Amanda Dutra)
+  email         String?   // e-mail da dona da agenda (para não confundir com o da mentorada)
+  url           String    // link iCal secreto — nunca mostrar inteiro na tela
+  ativo         Boolean   @default(true)
+  ultimaLeitura DateTime?
+  ultimoErro    String?
+  eventos       Int?      // quantos encontros vieram na última leitura
+  criadaPor     String?
+  createdAt     DateTime  @default(now())
+}
+
+// Encontros da agenda (janela de algumas semanas para trás e para frente), relidos a cada sincronização.
+model EventoAgenda {
+  id          String     @id @default(cuid())
+  agenda      String     // nome de quem é a agenda
+  uid         String     // UID do Google (+ ocorrência)
+  titulo      String
+  inicio      DateTime
+  fim         DateTime?
+  tipo        String     // individual | grupo | onboarding | outro
+  link        String?    // Google Meet
+  convidados  Int        @default(0)
+  mentoradaId String?
+  mentorada   Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+
+  @@index([inicio])
+  @@index([agenda, inicio])
 }

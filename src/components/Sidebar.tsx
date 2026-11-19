@@ -38,6 +38,7 @@ const MENU_ADMIN = {
   grupo: "ADMINISTRAÇÃO",
   itens: [
     { href: "/equipe", label: "Equipe", icon: "shield" },
+    { href: "/agendas", label: "Agendas", icon: "calendar" },
     { href: "/atividades", label: "Atividades", icon: "list" },
   ],
 };

@@ -12,7 +12,7 @@ export async function POST() {
   if (negado) return negado;
   const r = await sincronizarAgendas({ forcar: true });
   if (!r.configurado) {
-    return NextResponse.json({ erro: "A agenda ainda não foi ligada (falta o link iCal secreto na Vercel)." }, { status: 400 });
+    return NextResponse.json({ erro: "Nenhuma agenda ligada ainda. Cadastre o link da agenda em Administração › Agendas." }, { status: 400 });
   }
   return NextResponse.json(r);
 }

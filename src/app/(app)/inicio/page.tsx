@@ -31,7 +31,7 @@ export default async function InicioPage() {
   const segunda = ate(-diaSemana);
   const domingoQueVem = ate(13 - diaSemana);
 
-  const [mentoradas, tarefas, fases, usuarios, encerrando] = await Promise.all([
+  const [mentoradas, tarefas, fases, usuarios, encerrando, eventos, fontes] = await Promise.all([
     prisma.mentorada.findMany({
       where: { status: { in: ATIVOS } },
       orderBy: { nome: "asc" },
@@ -57,7 +57,23 @@ export default async function InicioPage() {
       orderBy: { prazo: "asc" },
       select: { id: true, nome: true, tipo: true, status: true, prazo: true, renovacaoStatus: true, saude: true, whatsapp: true, resp: true, tutora: true },
     }),
+    // Encontros das agendas do Google (semana passada até 4 semanas à frente).
+    prisma.eventoAgenda.findMany({
+      where: { inicio: { gte: new Date(Date.parse(segunda) - 7 * DIA), lt: new Date(Date.parse(segunda) + 35 * DIA) } },
+      orderBy: { inicio: "asc" },
+      include: { mentorada: { select: { id: true, nome: true, tipo: true } } },
+    }).catch(() => []),
+    prisma.agendaFonte.count({ where: { ativo: true } }).catch(() => 0),
   ]);
+
+  // O mesmo encontro pode estar em mais de uma agenda (ex.: mentora e suporte convidadas): mostra uma vez só.
+  const vistos = new Set<string>();
+  const encontros = eventos.filter(e => {
+    const chave = `${e.uid.split("|")[0]}|${e.inicio.getTime()}`;
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
 
   // Equipe: acessos ativos (sem repetir nomes).
   const equipe: { nome: string; papel: string }[] = [];
@@ -90,6 +106,12 @@ export default async function InicioPage() {
   return (
     <InicioCliente
       eu={eu}
+      agora={new Date().getTime()}
+      agendaLigada={fontes > 0 || !!process.env.AGENDAS_ICS?.trim()}
+      encontros={encontros.map(e => ({
+        id: e.id, titulo: e.titulo, inicio: e.inicio.toISOString(), fim: e.fim?.toISOString() ?? null, tipo: e.tipo,
+        link: e.link, agenda: e.agenda, convidados: e.convidados, mentorada: e.mentorada,
+      }))}
       nome={usuario.nome.split(" ")[0]}
       saudacao={hora < 5 ? "Boa noite" : hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite"}
       hoje={hoje}
