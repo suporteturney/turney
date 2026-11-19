@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { registrarAtividade } from "@/lib/atividade";
 import { recalcularSaude } from "@/lib/saude-servidor";
 import { etapaFields } from "@/lib/jornada";
-import { hojeISO, somarDiasUteis } from "@/lib/dias-uteis";
-import { criarTarefaDaEtapa } from "@/lib/pipeline-servidor";
+import { hojeISO } from "@/lib/dias-uteis";
+import { aoMarcarMentoriaEstrategica } from "@/lib/pipeline-servidor";
 import { acharMentorada, ehMentoriaEstrategica, lerIcal, mentoradaDoEncontro, tipoFinal, type EventoAgenda, type Manuais } from "@/lib/agenda-regras";
 
 // Agendas do Google lidas pela plataforma:
@@ -170,26 +170,7 @@ async function aplicarMentoria(
     resumo: `Marcou Mentoria Individual em ${data.split("-").reverse().join("/")} para ${m.nome} (Mentoria Estratégica na agenda de ${mentora})`,
   });
 
-  let etapa = "Jornada";
-  const fases = await prisma.pipelineFase.findMany({ orderBy: { ordem: "asc" } });
-  const porNome = (n: string) => fases.find(f => f.nome.toLowerCase() === n.toLowerCase());
-  const estrategica = fases.find(f => f.id === "fase_mentoria_estrategica") ?? porNome("Mentoria Estratégica");
-  const aplicacoes = fases.find(f => f.id === "fase_aplicacoes") ?? porNome("Aplicações");
-  const atual = fases.find(f => f.id === m.pipelineFaseId);
-  const ativa = ["Ativo", "Em Andamento", "Em Renovação", "Congelado"].includes(m.status);
-  // Só avança quem ainda está antes da Mentoria Estratégica (ou sem etapa).
-  if (ativa && estrategica && (!atual || atual.ordem < estrategica.ordem)) {
-    const prazo = somarDiasUteis(data, estrategica.tarefaDiasUteis ?? 5);
-    // Prazo do roadmap ainda correndo: fica em Mentoria Estratégica com a tarefa. Já passou: segue para Aplicações.
-    const destino = prazo >= hojeISO() || !aplicacoes ? estrategica : aplicacoes;
-    await prisma.mentorada.update({ where: { id: m.id }, data: { pipelineFaseId: destino.id, pipelineFaseEm: new Date(data) } });
-    if (destino.id === estrategica.id) await criarTarefaDaEtapa(estrategica, m.id, data, sistema.nome);
-    await registrarAtividade(sistema, {
-      acao: "editou", entidade: "pipeline", mentoradaId: m.id,
-      resumo: `Moveu ${m.nome} para "${destino.nome}" no Pipeline (Mentoria Estratégica em ${data.split("-").reverse().join("/")})`,
-    });
-    etapa = destino.nome;
-  }
+  const etapa = (await aoMarcarMentoriaEstrategica(m, data, sistema)) ?? "Jornada";
   await recalcularSaude([m.id]);
   return etapa;
 }

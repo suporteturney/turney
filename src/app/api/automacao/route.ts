@@ -6,6 +6,7 @@ import { diferencas, registrarAtividade } from "@/lib/atividade";
 import { proximoCodigo } from "@/lib/codigo";
 import { etapaFields, nomeEtapa } from "@/lib/jornada";
 import { recalcularSaude } from "@/lib/saude-servidor";
+import { aoMarcarMentoriaEstrategica } from "@/lib/pipeline-servidor";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { whatsappComDDI } from "@/lib/whatsapp";
 
@@ -229,6 +230,7 @@ async function avancar(d: Record<string, unknown>) {
       ].filter(Boolean).join(" e ") + " pela automação",
     });
   }
+  if (campoMarco?.key === "sessao") await aoMarcarMentoriaEstrategica(m, quando.toISOString(), MAKE);
   if (campoMarco) await recalcularSaude([m.id]);
   return NextResponse.json({ mudou, mentorada: resumo(m) });
 }

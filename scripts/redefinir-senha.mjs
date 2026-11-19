@@ -8,7 +8,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 const email = (process.argv[2] ?? "").trim().toLowerCase();
 if (!email.includes("@")) {
-  console.log("\nInforme o e-mail. Exemplo:\n  node scripts/redefinir-senha.mjs suporte@turneyacademy.com\n");
+  console.log("\nInforme o e-mail. Exemplo:\n  node scripts/redefinir-senha.mjs apoioaoaluno@turneyacademy.com\n");
   process.exit(1);
 }
 

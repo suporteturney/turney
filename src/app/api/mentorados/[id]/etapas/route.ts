@@ -4,6 +4,7 @@ import { exigirUsuario, semPermissao } from "@/lib/auth";
 import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
 import { nomeEtapa } from "@/lib/jornada";
 import { recalcularSaude } from "@/lib/saude-servidor";
+import { aoMarcarMentoriaEstrategica } from "@/lib/pipeline-servidor";
 
 export async function PUT(
   req: NextRequest,
@@ -18,7 +19,7 @@ export async function PUT(
     return NextResponse.json({ erro: "Etapa inválida" }, { status: 400 });
   }
 
-  const mentorada = await prisma.mentorada.findUnique({ where: { id }, select: { tipo: true } });
+  const mentorada = await prisma.mentorada.findUnique({ where: { id }, select: { id: true, nome: true, tipo: true, status: true, pipelineFaseId: true } });
   if (!mentorada) return NextResponse.json({ erro: "Mentorada não encontrada" }, { status: 404 });
   const programa = mentorada.tipo ?? "";
 
@@ -38,6 +39,8 @@ export async function PUT(
     acao: "editou", entidade: "etapa", mentoradaId: id,
     resumo: `Marcou ${nomeEtapa(nome)} em ${String(data).slice(0, 10).split("-").reverse().join("/")} para ${await nomeDaMentorada(id)}`,
   });
+  // Mentoria Estratégica marcada: Pipeline + tarefa "Enviar o roadmap" (5 dias úteis).
+  if (nome === "sessao") await aoMarcarMentoriaEstrategica(mentorada, String(data), usuario);
   await recalcularSaude([id]);
   return NextResponse.json(etapa);
 }
