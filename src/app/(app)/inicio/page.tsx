@@ -1,78 +1,122 @@
 import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from "@/lib/auth";
+import { pode } from "@/lib/permissoes";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { podeOperar } from "@/lib/pipeline-servidor";
 import { hojeISO } from "@/lib/dias-uteis";
+import { casaNome } from "@/lib/nomes-equipe";
 import InicioCliente from "./InicioCliente";
 
 // "Meu painel": o que cada pessoa da equipe precisa ver ao entrar.
-// As mentoradas "dela" são as que têm o nome dela como responsável ou tutora.
-// Quem ainda não tem mentoradas próprias vê a base toda.
+// - As mentoradas "dela" são as que têm o nome dela como responsável ou tutora
+//   (quem ainda não tem mentoradas próprias vê a base toda).
+// - O dono de cada tarefa é o responsável escolhido; se não tiver, quem cuida da mentorada; se não, quem criou.
+// - Quem tem a permissão Equipe (gestora) vê também as tarefas de cada pessoa da equipe.
 
 const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação", "Congelado"];
 const DIA = 86_400_000;
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-function ehDela(nomeUsuario: string, campo: string | null) {
-  if (!campo) return false;
-  const u = norm(nomeUsuario).split(/\s+/);
-  const c = norm(campo).split(/\s+/).filter(Boolean);
-  return c.length > 0 && c.every(p => u.includes(p));
-}
+const ehDela = casaNome;
 
 export default async function InicioPage() {
   await atualizarStatusAutomatico();
   const usuario = await exigirUsuario();
   const hoje = hojeISO();
   const hora = +new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }).format(new Date());
+  const ate = (dias: number) => new Date(Date.parse(hoje) + dias * DIA).toISOString().slice(0, 10);
 
-  const [mentoradas, tarefas, fases] = await Promise.all([
+  // Semana de segunda a domingo.
+  const diaSemana = (new Date(`${hoje}T12:00:00Z`).getUTCDay() + 6) % 7; // 0 = segunda
+  const segunda = ate(-diaSemana);
+  const domingoQueVem = ate(13 - diaSemana);
+
+  const [mentoradas, tarefas, fases, usuarios, encerrando] = await Promise.all([
     prisma.mentorada.findMany({
       where: { status: { in: ATIVOS } },
       orderBy: { nome: "asc" },
       select: {
-        id: true, nome: true, tipo: true, status: true, saude: true, saudeMotivo: true,
+        id: true, nome: true, tipo: true, status: true, saude: true, saudeMotivo: true, whatsapp: true,
         resp: true, tutora: true, prazo: true, congelamentoAte: true, renovacaoStatus: true, pipelineFaseId: true,
         acompanhamentos: { orderBy: { data: "desc" }, take: 1, select: { data: true } },
       },
     }),
+    // Abertas e as concluídas nas últimas 3 semanas (para a semana mostrar o que já foi feito).
     prisma.tarefa.findMany({
-      where: { concluidaEm: null },
+      where: { OR: [{ concluidaEm: null }, { concluidaEm: { gte: new Date(Date.parse(hoje) - 21 * DIA) } }] },
       orderBy: [{ prazo: "asc" }, { createdAt: "asc" }],
-      include: { mentorada: { select: { id: true, nome: true, tipo: true, resp: true, tutora: true } }, fase: { select: { nome: true } } },
+      include: {
+        mentorada: { select: { id: true, nome: true, tipo: true, whatsapp: true, resp: true, tutora: true } },
+        fase: { select: { nome: true } },
+      },
     }),
     prisma.pipelineFase.findMany({ orderBy: { ordem: "asc" }, select: { id: true, nome: true } }),
+    prisma.usuario.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { nome: true, papel: true } }),
+    prisma.mentorada.findMany({
+      where: { prazo: { gte: new Date(segunda), lte: new Date(domingoQueVem) }, status: { notIn: ["Churn", "Congelado"] } },
+      orderBy: { prazo: "asc" },
+      select: { id: true, nome: true, tipo: true, status: true, prazo: true, renovacaoStatus: true, saude: true, whatsapp: true, resp: true, tutora: true },
+    }),
   ]);
+
+  // Equipe: acessos ativos (sem repetir nomes).
+  const equipe: { nome: string; papel: string }[] = [];
+  for (const u of usuarios) if (!equipe.some(e => norm(e.nome) === norm(u.nome))) equipe.push({ nome: u.nome, papel: u.papel });
+
+  // Nome escrito na tarefa ou na mentorada → nome completo de quem tem acesso (se achar).
+  const nomeDaEquipe = (campo: string | null) => {
+    if (!campo || /^agenda\b/i.test(campo)) return null;
+    const achados = equipe.filter(e => ehDela(e.nome, campo));
+    return achados.length === 1 ? achados[0].nome : campo.trim();
+  };
+  const dono = (t: (typeof tarefas)[number]) =>
+    nomeDaEquipe(t.responsavel) ?? nomeDaEquipe(t.mentorada?.tutora ?? null) ?? nomeDaEquipe(t.mentorada?.resp ?? null) ?? nomeDaEquipe(t.criadaPor);
+
+  // Quem aparece como responsável mas ainda não tem acesso (ex.: Daryane antes de ganhar login).
+  for (const t of tarefas) {
+    const d = dono(t);
+    if (d && !equipe.some(e => norm(e.nome) === norm(d))) equipe.push({ nome: d, papel: "sem acesso" });
+  }
+  const eu = equipe.find(e => norm(e.nome) === norm(usuario.nome))?.nome ?? usuario.nome;
+  equipe.sort((a, b) => (a.nome === eu ? -1 : b.nome === eu ? 1 : a.nome.localeCompare(b.nome, "pt-BR")));
 
   const minhas = mentoradas.filter(m => ehDela(usuario.nome, m.resp) || ehDela(usuario.nome, m.tutora));
   const carteiraPropria = minhas.length > 0;
   const base = carteiraPropria ? minhas : mentoradas;
-  const idsBase = new Set(base.map(m => m.id));
-  const minhasTarefas = tarefas.filter(t =>
-    t.mentorada ? (carteiraPropria ? idsBase.has(t.mentorada.id) : true) : (carteiraPropria ? t.criadaPor === usuario.nome : true)
-  );
 
   const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
-  const ate = (dias: number) => new Date(Date.parse(hoje) + dias * DIA).toISOString().slice(0, 10);
+  const gestora = pode(usuario, "equipe");
 
   return (
     <InicioCliente
+      eu={eu}
       nome={usuario.nome.split(" ")[0]}
       saudacao={hora < 5 ? "Boa noite" : hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite"}
       hoje={hoje}
+      segunda={segunda}
       carteiraPropria={carteiraPropria}
-      podeConcluir={podeOperar(usuario) && !usuario.trocarSenha}
+      gestora={gestora}
+      podeEditar={podeOperar(usuario) && !usuario.trocarSenha}
+      equipe={gestora ? equipe : equipe.filter(e => e.nome === eu)}
       fases={fases}
+      todasMentoradas={mentoradas.map(m => ({ id: m.id, nome: m.nome }))}
       mentoradas={base.map(m => ({
-        id: m.id, nome: m.nome, tipo: m.tipo, status: m.status, saude: m.saude, saudeMotivo: m.saudeMotivo,
+        id: m.id, nome: m.nome, tipo: m.tipo, status: m.status, saude: m.saude, saudeMotivo: m.saudeMotivo, whatsapp: m.whatsapp,
         prazo: iso(m.prazo), congelamentoAte: iso(m.congelamentoAte), renovacaoStatus: m.renovacaoStatus,
         pipelineFaseId: m.pipelineFaseId, ultimoAcompanhamento: iso(m.acompanhamentos[0]?.data ?? null),
       }))}
-      tarefas={minhasTarefas.map(t => ({
+      encerrando={encerrando
+        .filter(m => gestora || !carteiraPropria || ehDela(usuario.nome, m.resp) || ehDela(usuario.nome, m.tutora))
+        .map(m => ({
+          id: m.id, nome: m.nome, tipo: m.tipo, status: m.status, prazo: iso(m.prazo)!, renovacaoStatus: m.renovacaoStatus,
+          saude: m.saude, whatsapp: m.whatsapp, cuida: nomeDaEquipe(m.tutora) ?? nomeDaEquipe(m.resp),
+        }))}
+      tarefas={tarefas.map(t => ({
         id: t.id, titulo: t.titulo, prazo: t.prazo.toISOString().slice(0, 10), automatica: t.automatica, fase: t.fase?.nome ?? null,
-        mentorada: t.mentorada ? { id: t.mentorada.id, nome: t.mentorada.nome, tipo: t.mentorada.tipo } : null,
+        responsavel: nomeDaEquipe(t.responsavel), dono: dono(t), criadaPor: t.criadaPor,
+        concluidaEm: iso(t.concluidaEm), concluidaPor: t.concluidaPor,
+        mentorada: t.mentorada ? { id: t.mentorada.id, nome: t.mentorada.nome, tipo: t.mentorada.tipo, whatsapp: t.mentorada.whatsapp } : null,
       }))}
-      limites={{ em7: ate(7), em15: ate(15), ha30: ate(-30) }}
     />
   );
 }

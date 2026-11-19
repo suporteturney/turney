@@ -157,6 +157,7 @@ model Tarefa {
   faseId       String?    // etapa do Pipeline que criou a tarefa automática
   fase         PipelineFase? @relation(fields: [faseId], references: [id], onDelete: SetNull)
   automatica   Boolean    @default(false)
+  responsavel  String?    // nome de quem vai fazer (vazio = quem cuida da mentorada)
   criadaPor    String?
   concluidaEm  DateTime?
   concluidaPor String?
@@ -164,6 +165,7 @@ model Tarefa {
 
   @@index([concluidaEm, prazo])
   @@index([mentoradaId])
+  @@index([responsavel])
 }
 
 model Observacao {

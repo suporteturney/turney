@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { negar, podeOperar } from "@/lib/pipeline-servidor";
+import { nomeDaEquipe } from "@/lib/nomes-equipe";
+
+const equipeAtiva = async () => (await prisma.usuario.findMany({ where: { ativo: true }, select: { nome: true } })).map(u => u.nome);
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -16,7 +19,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const atual = await prisma.tarefa.findUnique({ where: { id }, include: { mentorada: { select: { nome: true } } } });
   if (!atual) return NextResponse.json({ erro: "Tarefa não encontrada." }, { status: 404 });
 
-  const data: { titulo?: string; prazo?: Date; concluidaEm?: Date | null; concluidaPor?: string | null } = {};
+  const data: { titulo?: string; prazo?: Date; responsavel?: string | null; concluidaEm?: Date | null; concluidaPor?: string | null } = {};
+  if ("responsavel" in body) {
+    data.responsavel = typeof body.responsavel === "string" && body.responsavel.trim() ? nomeDaEquipe(body.responsavel.slice(0, 80), await equipeAtiva()) : null;
+  }
   if ("titulo" in body) {
     const t = typeof body.titulo === "string" ? body.titulo.trim() : "";
     if (!t) return NextResponse.json({ erro: "A tarefa precisa de um texto." }, { status: 400 });
@@ -36,7 +42,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     acao: "editou", entidade: "tarefa", mentoradaId: atual.mentoradaId,
     resumo: "concluida" in body
       ? `${body.concluida ? "Concluiu" : "Reabriu"} a tarefa "${t.titulo}"${de}`
-      : `Editou a tarefa "${t.titulo}"${de}`,
+      : "responsavel" in body && Object.keys(body).length === 1
+        ? `Passou a tarefa "${t.titulo}"${de} para ${t.responsavel ?? "sem responsável"}`
+        : `Editou a tarefa "${t.titulo}"${de}`,
   });
   return NextResponse.json({ ...t, prazo: t.prazo.toISOString().slice(0, 10), concluidaEm: t.concluidaEm?.toISOString() ?? null });
 }

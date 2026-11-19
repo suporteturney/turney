@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from "@/lib/auth";
 import { podeOperar } from "@/lib/pipeline-servidor";
 import { hojeISO } from "@/lib/dias-uteis";
+import { nomeDaEquipe } from "@/lib/nomes-equipe";
 import TarefasCliente from "./TarefasCliente";
 
 const DIA = 86_400_000;
@@ -9,7 +10,7 @@ const DIA = 86_400_000;
 export default async function TarefasPage() {
   const usuario = await exigirUsuario();
   const desde = new Date(Date.parse(hojeISO()) - 30 * DIA);
-  const [tarefas, mentoradas] = await Promise.all([
+  const [tarefas, mentoradas, usuarios] = await Promise.all([
     // Abertas e as concluídas nos últimos 30 dias.
     prisma.tarefa.findMany({
       where: { OR: [{ concluidaEm: null }, { concluidaEm: { gte: desde } }] },
@@ -24,7 +25,12 @@ export default async function TarefasPage() {
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     }),
+    prisma.usuario.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
   ]);
+  const ativos = [...new Set(usuarios.map(u => u.nome))];
+  const resp = (t: { responsavel: string | null }) => nomeDaEquipe(t.responsavel, ativos);
+  const equipe = [...new Set([...ativos, ...tarefas.map(resp).filter((x): x is string => !!x)])]
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   return (
     <TarefasCliente
@@ -35,11 +41,14 @@ export default async function TarefasPage() {
         automatica: t.automatica,
         fase: t.fase?.nome ?? null,
         criadaPor: t.criadaPor,
+        responsavel: resp(t),
         concluidaEm: t.concluidaEm?.toISOString() ?? null,
         concluidaPor: t.concluidaPor,
         mentorada: t.mentorada,
       }))}
       mentoradas={mentoradas}
+      equipe={equipe}
+      eu={usuario.nome}
       podeEditar={podeOperar(usuario) && !usuario.trocarSenha}
     />
   );

@@ -8,7 +8,7 @@ import f from "../filtros.module.css";
 import t from "./tarefas.module.css";
 
 type Tarefa = {
-  id: string; titulo: string; prazo: string; automatica: boolean; fase: string | null; criadaPor: string | null;
+  id: string; titulo: string; prazo: string; automatica: boolean; fase: string | null; criadaPor: string | null; responsavel: string | null;
   concluidaEm: string | null; concluidaPor: string | null;
   mentorada: { id: string; nome: string; tipo: string; whatsapp: string | null } | null;
 };
@@ -41,8 +41,8 @@ async function enviar(url: string, method: string, body?: unknown) {
 }
 
 export default function TarefasCliente({
-  tarefas: tarefasIni, mentoradas, podeEditar,
-}: { tarefas: Tarefa[]; mentoradas: { id: string; nome: string }[]; podeEditar: boolean }) {
+  tarefas: tarefasIni, mentoradas, podeEditar, equipe, eu,
+}: { tarefas: Tarefa[]; mentoradas: { id: string; nome: string }[]; podeEditar: boolean; equipe: string[]; eu: string }) {
   const router = useRouter();
   const [tarefas, setTarefas] = useState(tarefasIni);
   const [origem, setOrigem] = useState(tarefasIni);
@@ -50,6 +50,7 @@ export default function TarefasCliente({
 
   const [busca, setBusca] = useState("");
   const [filtTipo, setFiltTipo] = useState("");
+  const [filtResp, setFiltResp] = useState("");
   const [verConcluidas, setVerConcluidas] = useState(false);
   const [cadastro, setCadastro] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export default function TarefasCliente({
   const [novoTitulo, setNovoTitulo] = useState("");
   const [novaMentorada, setNovaMentorada] = useState("");
   const [novoPrazo, setNovoPrazo] = useState(hojeISO());
+  const [novoResp, setNovoResp] = useState(eu);
   const [criando, setCriando] = useState(false);
 
   useEffect(() => {
@@ -76,9 +78,10 @@ export default function TarefasCliente({
     const q = busca.trim().toLowerCase();
     return tarefas.filter(x =>
       (!filtTipo || (x.mentorada && casaTipo(x.mentorada.tipo, filtTipo))) &&
+      (!filtResp || (filtResp === "-" ? !x.responsavel : x.responsavel === filtResp)) &&
       (!q || x.titulo.toLowerCase().includes(q) || (x.mentorada?.nome ?? "").toLowerCase().includes(q))
     );
-  }, [tarefas, busca, filtTipo]);
+  }, [tarefas, busca, filtTipo, filtResp]);
 
   const abertas = filtradas.filter(x => !x.concluidaEm);
   const atrasadas = abertas.filter(x => x.prazo < hoje);
@@ -110,6 +113,14 @@ export default function TarefasCliente({
     catch (e) { trocar(x.id, { prazo: x.prazo }); setErro((e as Error).message); }
   }
 
+  async function mudarResp(x: Tarefa, responsavel: string) {
+    const novo = responsavel.trim() || null;
+    if (novo === x.responsavel) return;
+    trocar(x.id, { responsavel: novo });
+    try { await enviar(`/api/tarefas/${x.id}`, "PATCH", { responsavel: novo ?? "" }); router.refresh(); }
+    catch (e) { trocar(x.id, { responsavel: x.responsavel }); setErro((e as Error).message); }
+  }
+
   async function excluir(x: Tarefa) {
     if (!window.confirm(`Excluir a tarefa "${x.titulo}"${x.mentorada ? ` de ${x.mentorada.nome}` : ""}?`)) return;
     try {
@@ -126,8 +137,8 @@ export default function TarefasCliente({
     if (nome && !m) { setErro("Escolha a mentorada pela lista (ou deixe em branco para uma tarefa geral)."); return; }
     setCriando(true);
     try {
-      await enviar("/api/tarefas", "POST", { titulo: novoTitulo, prazo: novoPrazo, mentoradaId: m?.id ?? null });
-      setNovoTitulo(""); setNovaMentorada(""); setNovoPrazo(hojeISO());
+      await enviar("/api/tarefas", "POST", { titulo: novoTitulo, prazo: novoPrazo, mentoradaId: m?.id ?? null, responsavel: novoResp });
+      setNovoTitulo(""); setNovaMentorada(""); setNovoPrazo(hojeISO()); setNovoResp(eu);
       router.refresh();
     } catch (err) { setErro((err as Error).message); }
     setCriando(false);
@@ -158,6 +169,7 @@ export default function TarefasCliente({
             ) : (
               <span>Tarefa geral</span>
             )}
+            <span className={t.origem}>Responsável: {x.responsavel ?? "não definido"}</span>
             <span className={t.origem}>
               {x.automatica ? `Automática${x.fase ? ` · ${x.fase}` : ""}` : x.criadaPor ? `Criada por ${x.criadaPor}` : "Manual"}
             </span>
@@ -170,6 +182,17 @@ export default function TarefasCliente({
           {!feita && <span className={t.prazo}>{textoPrazo(x.prazo, hoje)}</span>}
           <div className={t.acoes}>
             {whats && <a className={t.whats} href={whats} target="_blank" rel="noreferrer">WhatsApp</a>}
+            {podeEditar && !feita && (
+              <select
+                className={t.data}
+                value={x.responsavel ?? ""}
+                onChange={e => mudarResp(x, e.target.value)}
+                aria-label={`Responsável por "${x.titulo}"`}
+              >
+                <option value="">Sem responsável</option>
+                {equipe.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            )}
             {podeEditar && !feita && (
               <input
                 type="date"
@@ -247,6 +270,17 @@ export default function TarefasCliente({
             <datalist id="tarefas-mentoradas">
               {mentoradas.map(m => <option key={m.id} value={m.nome} />)}
             </datalist>
+            <input
+              className={t.novaMentorada}
+              list="tarefas-equipe"
+              value={novoResp}
+              onChange={e => setNovoResp(e.target.value)}
+              placeholder="Responsável"
+              aria-label="Responsável"
+            />
+            <datalist id="tarefas-equipe">
+              {equipe.map(n => <option key={n} value={n} />)}
+            </datalist>
             <input type="date" value={novoPrazo} onChange={e => setNovoPrazo(e.target.value)} aria-label="Prazo" />
             <button type="submit" className={t.btnPrim} disabled={!novoTitulo.trim() || !novoPrazo || criando}>
               {criando ? "Criando…" : "Criar tarefa"}
@@ -267,6 +301,11 @@ export default function TarefasCliente({
             <option value="">Todas as mentorias</option>
             {tipos.grupos.map(g => <option key={`g-${g}`} value={g}>{g} (todos)</option>)}
             {tipos.set.map(x => <option key={x} value={x}>{x}</option>)}
+          </select>
+          <select className={f.select} value={filtResp} onChange={e => setFiltResp(e.target.value)} aria-label="Filtrar por responsável">
+            <option value="">Todos os responsáveis</option>
+            {equipe.map(n => <option key={n} value={n}>{n}</option>)}
+            <option value="-">Sem responsável</option>
           </select>
           <label className={t.toggle}>
             <input type="checkbox" checked={verConcluidas} onChange={e => setVerConcluidas(e.target.checked)} />
