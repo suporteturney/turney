@@ -602,3 +602,8 @@
   border-radius: 8px;
   padding: 1px 6px;
 }
+
+/* Avisos automáticos da Hubla no registro de acompanhamento */
+.entryHubla { background: #FBF8FF; border-color: #E9DDFB; border-left: 3px solid #7C3AED; }
+.hublaIcone { font-size: 13px; }
+.chipHubla { font-size: 10px; font-weight: 700; color: #5B21B6; background: #F3ECFE; border: 1px solid #E4CCFD; border-radius: 5px; padding: 1px 6px; white-space: nowrap; }

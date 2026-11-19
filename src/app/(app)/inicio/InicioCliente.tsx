@@ -11,7 +11,11 @@ import s from "./inicio.module.css";
 type M = {
   id: string; nome: string; tipo: string; status: string; saude: string | null; saudeMotivo: string | null; whatsapp: string | null;
   prazo: string | null; congelamentoAte: string | null; renovacaoStatus: string | null;
-  pipelineFaseId: string | null; ultimoAcompanhamento: string | null;
+  pipelineFaseId: string | null; ultimoAcompanhamento: string | null; acessoRemovidoEm: string | null;
+};
+type EvHubla = {
+  id: string; tipo: string; produto: string | null; modulo: string | null; data: string;
+  mentorada: { id: string; nome: string; tipo: string; whatsapp: string | null };
 };
 type T = {
   id: string; titulo: string; prazo: string; automatica: boolean; fase: string | null;
@@ -58,6 +62,11 @@ const linkWhats = (n: string | null) => {
 };
 const juntar = (xs: string[]) => xs.join(", ").replace(/, ([^,]*)$/, " e $1");
 const tipoEv = (t: string): TipoEv => (["individual", "grupo", "onboarding", "pessoal"].includes(t) ? (t as TipoEv) : "outro");
+const TEXTO_HUBLA = (e: { tipo: string; produto: string | null; modulo: string | null }) =>
+  e.tipo === "modulo_concluido" ? { icone: "✅", txt: `Concluiu o módulo “${e.modulo ?? "—"}”${e.produto ? ` · ${e.produto}` : ""}` }
+  : e.tipo === "curso_concluido" ? { icone: "🎓", txt: `Concluiu o curso${e.produto ? ` ${e.produto}` : ""}` }
+  : e.tipo === "acesso_removido" ? { icone: "🔒", txt: `Perdeu o acesso à área de membros${e.produto ? ` · ${e.produto}` : ""}` }
+  : { icone: "🔓", txt: `Acesso liberado${e.produto ? ` · ${e.produto}` : ""}` };
 const deTrabalho = (t: string) => !["pessoal", "outro"].includes(tipoEv(t));
 
 async function enviar(url: string, method: string, body?: unknown) {
@@ -82,6 +91,9 @@ function motivosDe(m: M, hoje: string, tarefas: T[]): Motivo[] {
       if (!m.renovacaoStatus) r.push({ txt: "Renovação não iniciada", peso: 10, tom: "amarelo" });
     }
   }
+  if (m.acessoRemovidoEm && m.status !== "Encerrado") {
+    r.push({ txt: `Acesso à área de membros removido em ${fmt(m.acessoRemovidoEm).slice(0, 5)}`, peso: 35, tom: "vermelho" });
+  }
   if (congelada && m.congelamentoAte && diasEntre(hoje, m.congelamentoAte) <= 7) {
     r.push({ txt: `Volta do congelamento em ${fmt(m.congelamentoAte).slice(0, 5)}`, peso: 30, tom: "azul" });
   }
@@ -101,12 +113,13 @@ function motivosDe(m: M, hoje: string, tarefas: T[]): Motivo[] {
 
 export default function InicioCliente({
   eu, nome, saudacao, hoje, segunda, agora: agoraIni, agendaLigada, carteiraPropria, gestora, podeEditar, podePresenca, equipe, fases,
-  todasMentoradas, mentoradas, encerrando, encontros: encontrosIni, tarefas: tarefasIni,
+  todasMentoradas, mentoradas, encerrando, encontros: encontrosIni, tarefas: tarefasIni, hubla,
 }: {
   eu: string; nome: string; saudacao: string; hoje: string; segunda: string; agora: number; agendaLigada: boolean;
   carteiraPropria: boolean; gestora: boolean; podeEditar: boolean; podePresenca: boolean;
   equipe: Pessoa[]; fases: { id: string; nome: string }[]; todasMentoradas: { id: string; nome: string }[];
   mentoradas: M[]; encerrando: Enc[]; encontros: Ev[]; tarefas: T[];
+  hubla: { ligada: boolean; soltos: number; eventos: EvHubla[] };
 }) {
   const router = useRouter();
   const conteudo = useRef<HTMLDivElement>(null);
@@ -205,6 +218,18 @@ export default function InicioCliente({
   });
   const semDono = tarefas.filter(t => !t.concluidaEm && !t.dono).length;
   const euNum = porPessoa.find(p => p.nome === eu);
+
+  // ── Área de membros (Hubla) ──
+  const [hublaTodos, setHublaTodos] = useState(false);
+  const fimSemana7 = somar(hoje, -6);
+  const hublaSemana = hubla.eventos.filter(e => diaDe(e.data) >= fimSemana7);
+  const nMod = hublaSemana.filter(e => e.tipo === "modulo_concluido").length;
+  const nCurso = hublaSemana.filter(e => e.tipo === "curso_concluido").length;
+  const nRemov = hubla.eventos.filter(e => e.tipo === "acesso_removido").length;
+  const quandoRel = (iso: string) => {
+    const d = diasEntre(diaDe(iso), hoje);
+    return d === 0 ? "hoje" : d === 1 ? "ontem" : `há ${d} dias`;
+  };
 
   // ── Carteira ──
   const contar = (f: (m: M) => boolean) => mentoradas.filter(f).length;
@@ -459,6 +484,7 @@ export default function InicioCliente({
             {(atrasadas.length > 0 || deHoje.length > 0) && <ul className={s.dLista}>{[...atrasadas, ...deHoje].map(linhaTarefa)}</ul>}
           </section>
 
+          <div className={s.coluna}>
           <section className={s.bloco} aria-labelledby="prio-titulo" id="prioridade">
             <div className={s.blocoTopo}>
               <h2 id="prio-titulo" className={s.blocoTitulo}><span className={s.marca} />Acompanhar hoje</h2>
@@ -500,6 +526,54 @@ export default function InicioCliente({
               </button>
             )}
           </section>
+
+          <section className={s.bloco} aria-labelledby="hubla-titulo" id="hubla">
+            <div className={s.blocoTopo}>
+              <h2 id="hubla-titulo" className={s.blocoTitulo}><span className={s.marca} />Área de membros</h2>
+              {gestora && <Link href="/hubla" className={s.link}>Hubla →</Link>}
+            </div>
+            {!hubla.ligada ? (
+              <div className={s.cta}>
+                <p>Ligue a Hubla para ver aqui quem concluiu módulos e cursos e quem perdeu o acesso.</p>
+                {gestora && <Link href="/hubla" className={s.ctaBtn}>Ligar a Hubla →</Link>}
+              </div>
+            ) : (
+              <>
+                <div className={s.hublaNums}>
+                  <div><strong>{nMod}</strong><span>{nMod === 1 ? "módulo concluído" : "módulos concluídos"} em 7 dias</span></div>
+                  <div><strong>{nCurso}</strong><span>{nCurso === 1 ? "curso concluído" : "cursos concluídos"} em 7 dias</span></div>
+                  <div className={nRemov ? s.hublaAlerta : ""}><strong>{nRemov}</strong><span>{nRemov === 1 ? "acesso removido" : "acessos removidos"} em 14 dias</span></div>
+                </div>
+                {!hubla.eventos.length && <p className={s.vazio}>Nenhuma novidade da área de membros nos últimos 14 dias.</p>}
+                <ul className={s.hublaLista}>
+                  {(hublaTodos ? hubla.eventos : hubla.eventos.slice(0, 6)).map(e => {
+                    const t = TEXTO_HUBLA(e);
+                    const whats = (e.tipo === "modulo_concluido" || e.tipo === "curso_concluido") ? linkWhats(e.mentorada.whatsapp) : null;
+                    return (
+                      <li key={e.id} className={`${s.hublaItem} ${s[`hb_${e.tipo}`] ?? ""}`}>
+                        <span className={s.hublaIcone} aria-hidden="true">{t.icone}</span>
+                        <div className={s.pCorpo}>
+                          <button className={s.nome} onClick={() => setJornada(e.mentorada.id)}>{e.mentorada.nome}</button>
+                          <p className={s.hublaTxt}>{t.txt}</p>
+                        </div>
+                        <span className={s.hublaQuando}>{quandoRel(e.data)}</span>
+                        {whats && <a className={s.whats} href={whats} target="_blank" rel="noreferrer" title="Mandar parabéns">Parabenizar</a>}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {hubla.eventos.length > 6 && (
+                  <button className={s.mais} onClick={() => setHublaTodos(v => !v)}>{hublaTodos ? "Mostrar menos" : `Ver todas as ${hubla.eventos.length}`}</button>
+                )}
+                {gestora && hubla.soltos > 0 && (
+                  <p className={s.legenda} style={{ marginTop: 8, marginBottom: 0 }}>
+                    {hubla.soltos === 1 ? "1 aviso" : `${hubla.soltos} avisos`} da Hubla sem mentorada (e-mail diferente do cadastro) — <Link href="/hubla" className={s.link}>ligar</Link>.
+                  </p>
+                )}
+              </>
+            )}
+          </section>
+          </div>
         </div>
 
         {/* ── Semana ── */}

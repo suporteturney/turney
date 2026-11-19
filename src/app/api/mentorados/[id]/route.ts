@@ -24,11 +24,14 @@ export async function GET(
       acompanhamentos: { orderBy: { data: "desc" } },
       observacoes: { orderBy: { data: "desc" } },
       renovacoes: { orderBy: { data: "desc" } },
+      eventosHubla: { orderBy: { data: "desc" }, select: { id: true, tipo: true, produto: true, modulo: true, data: true } },
     },
   });
 
   if (!mentorado) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
-  return NextResponse.json(mentorado);
+  // Avisos da Hubla chegam com hora exata (UTC): mostra no dia de Brasília, como as outras datas da jornada.
+  const diaBR = (d: Date) => `${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d)}T12:00:00.000Z`;
+  return NextResponse.json({ ...mentorado, eventosHubla: mentorado.eventosHubla.map(h => ({ ...h, data: diaBR(h.data) })) });
 }
 
 const CAMPOS_TEXTO = [

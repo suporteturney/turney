@@ -26,7 +26,17 @@ export type Detalhe = {
   saudeNota?: number | null; saudeCalculada?: string | null; saudeAjusteEm?: string | null;
   saudeDetalhe?: { partes?: Record<string, { nota: number | null; detalhe: string }>; trava?: string | null } | null;
   etapas: Etapa[]; presencas: Presenca[]; acompanhamentos: Acomp[]; observacoes: Obs[]; renovacoes: Renov[];
+  eventosHubla?: EventoHubla[];
 };
+
+// Avisos da área de membros da Hubla (entram sozinhos, não contam como acompanhamento da equipe).
+export type EventoHubla = { id: string; tipo: string; produto: string | null; modulo: string | null; data: string };
+export function textoHubla(h: EventoHubla) {
+  if (h.tipo === "modulo_concluido") return { titulo: `Concluiu o módulo “${h.modulo ?? "—"}”`, texto: h.produto ?? undefined, icone: "✅" };
+  if (h.tipo === "curso_concluido") return { titulo: `Concluiu o curso${h.produto ? ` ${h.produto}` : ""}`, texto: undefined, icone: "🎓" };
+  if (h.tipo === "acesso_removido") return { titulo: "Acesso à área de membros removido", texto: h.produto ?? undefined, icone: "🔒" };
+  return { titulo: "Acesso à área de membros liberado", texto: h.produto ?? undefined, icone: "🔓" };
+}
 
 import {
   MUDANCAS, dataEtapa, diasEntre, ehExtra, etapaFields, extrasDoPrograma, fmt, hojeISO, inicioCiclo, mudancaDePrograma,
@@ -93,6 +103,13 @@ function montarJornada(d: Detalhe): Evento[] {
       meta: [a.marco && a.tipo ? a.tipo : null, a.autor].filter(Boolean).join(" · ") || undefined,
       nivel: a.marco ? "marco" : "rotina",
       acompId: a.id,
+    });
+  }
+  for (const h of d.eventosHubla ?? []) {
+    const t = textoHubla(h);
+    ev.push({
+      key: `hb-${h.id}`, data: h.data, titulo: `${t.icone} ${t.titulo}`, texto: t.texto, meta: "Hubla · automático",
+      nivel: h.tipo === "curso_concluido" ? "marco" : h.tipo === "acesso_removido" ? "alerta" : "rotina",
     });
   }
   for (const o of d.observacoes) {

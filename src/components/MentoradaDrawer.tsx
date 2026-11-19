@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Jornada, {
-  type Acomp, type CampoEtapa, type Detalhe, dataEtapa, diasEntre, etapaFields, etapasDoPrograma, fmt, hojeISO,
+  type Acomp, type CampoEtapa, type Detalhe, type EventoHubla, textoHubla, dataEtapa, diasEntre, etapaFields, etapasDoPrograma, fmt, hojeISO,
   ehExtra, encontrosGrupo, extrasDoPrograma, inicioCiclo, mudancaDePrograma, nomeEtapa, toInput,
 } from "./Jornada";
 import RenovarModal from "./RenovarModal";
@@ -898,7 +898,20 @@ export default function MentoradaDrawer({
                   Salvar acompanhamento
                 </button>
               </div>
-              {d.acompanhamentos.map(a => (
+              {[
+                ...d.acompanhamentos.map(a => ({ data: a.data, a, h: null as EventoHubla | null })),
+                ...(d.eventosHubla ?? []).map(h => ({ data: h.data, a: null as Acomp | null, h })),
+              ].sort((x, y) => y.data.localeCompare(x.data)).map(({ a, h }) => h ? (
+                <div key={`hb-${h.id}`} className={`${s.entry} ${s.entryHubla}`}>
+                  <div className={s.entryHead}>
+                    <span className={s.hublaIcone} aria-hidden="true">{textoHubla(h).icone}</span>
+                    <span className={s.entryDate}>{fmt(h.data)}</span>
+                    <span className={s.chipHubla}>Hubla · automático</span>
+                    <span className={s.entryStrong}>{textoHubla(h).titulo}</span>
+                  </div>
+                  {textoHubla(h).texto && <div className={s.entryText}>{textoHubla(h).texto}</div>}
+                </div>
+              ) : a && (
                 <div key={a.id} className={`${s.entry} ${a.marco ? s.entryMarco : ""}`}>
                   <div className={s.entryHead}>
                     <button
@@ -918,7 +931,7 @@ export default function MentoradaDrawer({
                   <div className={s.entryText}>{a.texto}</div>
                 </div>
               ))}
-              {d.acompanhamentos.length === 0 && <div className={s.empty}>Nenhum acompanhamento registrado ainda.</div>}
+              {d.acompanhamentos.length === 0 && !(d.eventosHubla ?? []).length && <div className={s.empty}>Nenhum acompanhamento registrado ainda.</div>}
             </div>
           )}
         </div>

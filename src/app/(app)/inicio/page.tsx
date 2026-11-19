@@ -32,7 +32,7 @@ export default async function InicioPage() {
   const segunda = ate(-diaSemana);
   const domingoQueVem = ate(13 - diaSemana);
 
-  const [mentoradas, tarefas, fases, usuarios, encerrando, eventos, fontes] = await Promise.all([
+  const [mentoradas, tarefas, fases, usuarios, encerrando, eventos, fontes, hublaRecentes, hublaAcessos, hublaSoltos, hublaLigada] = await Promise.all([
     prisma.mentorada.findMany({
       where: { status: { in: ATIVOS } },
       orderBy: { nome: "asc" },
@@ -65,7 +65,20 @@ export default async function InicioPage() {
       include: { mentorada: { select: { id: true, nome: true, tipo: true } } },
     }).catch(() => []),
     prisma.agendaFonte.count({ where: { ativo: true } }).catch(() => 0),
+    // Área de membros (Hubla): novidades dos últimos 14 dias e a situação de acesso mais recente de cada mentorada.
+    prisma.eventoHubla.findMany({
+      where: { data: { gte: new Date(Date.parse(hoje) - 14 * DIA) }, mentoradaId: { not: null } },
+      orderBy: { data: "desc" }, take: 80,
+      include: { mentorada: { select: { id: true, nome: true, tipo: true, whatsapp: true } } },
+    }).catch(() => []),
+    prisma.eventoHubla.findMany({
+      where: { tipo: { in: ["acesso_liberado", "acesso_removido"] }, mentoradaId: { not: null } },
+      orderBy: { data: "desc" }, distinct: ["mentoradaId"], select: { mentoradaId: true, tipo: true, data: true },
+    }).catch(() => []),
+    prisma.eventoHubla.count({ where: { mentoradaId: null } }).catch(() => 0),
+    prisma.configuracao.count({ where: { chave: "hubla_webhook_token" } }).catch(() => 0),
   ]);
+  const acessoRemovido = new Map(hublaAcessos.filter(a => a.tipo === "acesso_removido").map(a => [a.mentoradaId!, a.data.toISOString().slice(0, 10)]));
 
   // O mesmo encontro pode estar em mais de uma agenda (ex.: agenda do grupo + convite na agenda pessoal):
   // mostra uma vez só, ficando com a cópia que tem mais informação (a pessoal às vezes só diz "Busy").
@@ -137,7 +150,15 @@ export default async function InicioPage() {
         id: m.id, nome: m.nome, tipo: m.tipo, status: m.status, saude: m.saude, saudeMotivo: m.saudeMotivo, whatsapp: m.whatsapp,
         prazo: iso(m.prazo), congelamentoAte: iso(m.congelamentoAte), renovacaoStatus: m.renovacaoStatus,
         pipelineFaseId: m.pipelineFaseId, ultimoAcompanhamento: iso(m.acompanhamentos[0]?.data ?? null),
+        acessoRemovidoEm: acessoRemovido.get(m.id) ?? null,
       }))}
+      hubla={{
+        ligada: hublaLigada > 0 || !!process.env.HUBLA_WEBHOOK_TOKEN,
+        soltos: hublaSoltos,
+        eventos: hublaRecentes
+          .filter(e => !carteiraPropria || base.some(m => m.id === e.mentoradaId))
+          .map(e => ({ id: e.id, tipo: e.tipo, produto: e.produto, modulo: e.modulo, data: e.data.toISOString(), mentorada: e.mentorada! })),
+      }}
       encerrando={encerrando
         .filter(m => gestora || !carteiraPropria || ehDela(usuario.nome, m.resp) || ehDela(usuario.nome, m.tutora))
         .map(m => ({
