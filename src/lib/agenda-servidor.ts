@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { registrarAtividade } from "@/lib/atividade";
 import { recalcularSaude } from "@/lib/saude-servidor";
@@ -26,11 +27,30 @@ export type ResultadoAgenda = {
 };
 
 const DIA = 86_400_000;
-const INTERVALO = 2 * 60 * 60_000; // no máximo a cada 2 horas por servidor
+const INTERVALO = 2 * 60 * 60_000; // no máximo a cada 2 horas (guardado no banco, vale para todos os servidores)
 const JANELA_MENTORIA = 120; // dias para trás que marcam a Jornada
 const GUARDAR_ANTES = 21;
 const GUARDAR_DEPOIS = 56;
 let ultimaVez = 0;
+
+// Código fixo de cada encontro (agenda + UID do Google): relendo a agenda, o encontro continua com o mesmo código,
+// então a tela aberta não perde a referência (antes dava "Encontro não encontrado").
+const idDoEncontro = (agenda: string, uid: string) => `ev_${createHash("sha1").update(`${agenda}|${uid}`).digest("hex").slice(0, 24)}`;
+
+// Trava entre servidores: só um lê as agendas a cada INTERVALO.
+async function podeLerAgora() {
+  if (Date.now() - ultimaVez < INTERVALO) return false;
+  ultimaVez = Date.now();
+  const limite = new Date(Date.now() - INTERVALO);
+  const conf = await prisma.configuracao.findUnique({ where: { chave: "agenda_ultima_leitura" } }).catch(() => null);
+  if (conf && new Date(conf.valor) > limite) return false;
+  await prisma.configuracao.upsert({
+    where: { chave: "agenda_ultima_leitura" },
+    update: { valor: new Date().toISOString() },
+    create: { chave: "agenda_ultima_leitura", valor: new Date().toISOString() },
+  }).catch(() => {});
+  return true;
+}
 
 function fontesDaVercel(): Fonte[] {
   return (process.env.AGENDAS_ICS ?? "")
@@ -73,10 +93,7 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
   const fontes = await fontesConfiguradas();
   const r: ResultadoAgenda = { configurado: fontes.length > 0, lidos: 0, encontros: 0, aplicados: [], naoEncontrados: [], erros: [] };
   if (!fontes.length) return r;
-  if (!forcar) {
-    if (Date.now() - ultimaVez < INTERVALO) return r;
-    ultimaVez = Date.now();
-  }
+  if (!forcar && !(await podeLerAgora())) return r;
 
   const agora = Date.now();
   const hoje = Date.parse(hojeISO());
@@ -100,19 +117,20 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
     }
     const dona = { nome: fonte.nome, email: fonte.email };
 
-    // 1. Guarda os encontros da janela (troca tudo o que havia dessa agenda nessa janela).
+    // 1. Guarda os encontros da janela (troca tudo o que havia dessa agenda nessa janela, mantendo o código de cada encontro).
     const daJanela = eventos.filter(ev => ev.inicio >= guardarDe && ev.inicio <= ate);
     const linhas = daJanela.map(ev => {
       const convidados = ev.emails.filter(e => e !== dona.email.toLowerCase()).length;
       const tipo = tipoFinal(ev, convidados, manuais);
       return {
+        id: idDoEncontro(fonte.nome, ev.uid),
         agenda: fonte.nome, uid: ev.uid, titulo: ev.titulo.slice(0, 300), inicio: ev.inicio, fim: ev.fim, tipo,
         link: ev.link, convidados, mentoradaId: mentoradaDoEncontro(ev, dona, lista, tipo)?.id ?? null,
       };
     });
     await prisma.$transaction([
       prisma.eventoAgenda.deleteMany({ where: { agenda: fonte.nome, inicio: { gte: guardarDe, lte: ate } } }),
-      prisma.eventoAgenda.createMany({ data: linhas }),
+      prisma.eventoAgenda.createMany({ data: linhas, skipDuplicates: true }),
     ]);
     r.encontros += linhas.length;
     if (fonte.id) {
