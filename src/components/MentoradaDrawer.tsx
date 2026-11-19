@@ -92,12 +92,13 @@ function paraForm(d: Detalhe): Form {
   return f;
 }
 
-export type Aba = "jornada" | "dados" | "etapas" | "presenca" | "renovacoes" | "acomp";
+export type Aba = "jornada" | "dados" | "etapas" | "presenca" | "aulas" | "renovacoes" | "acomp";
 const ABAS: { k: Aba; label: string }[] = [
   { k: "jornada", label: "Jornada" },
   { k: "dados", label: "Dados" },
   { k: "etapas", label: "Etapas do Programa" },
   { k: "presenca", label: "Presença nos Encontros" },
+  { k: "aulas", label: "Aulas (Hubla)" },
   { k: "renovacoes", label: "Renovações" },
   { k: "acomp", label: "Acompanhamento" },
 ];
@@ -854,6 +855,8 @@ export default function MentoradaDrawer({
             </div>
           )}
 
+          {d && aba === "aulas" && <AulasHubla d={d} />}
+
           {d && aba === "acomp" && (
             <div>
               <div className={s.formBox}>
@@ -939,6 +942,73 @@ export default function MentoradaDrawer({
         {toast && <div className={s.toast} role="status">{toast}</div>}
       </aside>
     </>
+  );
+}
+
+// Aulas assistidas na área de membros da Hubla (relatório importado).
+function AulasHubla({ d }: { d: Detalhe }) {
+  const [aberto, setAberto] = useState<string | null>(null);
+  const aulas = d.consumoHubla ?? [];
+  if (!d.consumoImportadoEm) {
+    return <div className={s.empty}>O relatório de aulas da Hubla ainda não foi importado. Em Administração › Hubla, importe o “Consumo do membro por conteúdo”.</div>;
+  }
+  if (!aulas.length) {
+    return (
+      <div className={s.empty}>
+        Nenhuma aula desta mentorada no relatório de {fmt(d.consumoImportadoEm)}. Ela ainda não assistiu nada ou usa outro e-mail na Hubla
+        {d.email ? ` (no cadastro: ${d.email})` : ""}.
+      </div>
+    );
+  }
+  const hoje = Date.parse(hojeISO());
+  const ultimoMs = Math.max(...aulas.map(a => (a.ultimo ? Date.parse(a.ultimo) : 0)));
+  const diasSem = ultimoMs ? Math.max(0, Math.floor((hoje - Date.parse(new Date(ultimoMs).toISOString().slice(0, 10))) / 86_400_000)) : null;
+  const concluidas = aulas.filter(a => a.conclusao >= 90).length;
+  const em30 = aulas.filter(a => a.ultimo && hoje - Date.parse(a.ultimo) <= 30 * 86_400_000).length;
+  const porModulo = new Map<string, typeof aulas>();
+  for (const a of aulas) porModulo.set(a.modulo, [...(porModulo.get(a.modulo) ?? []), a]);
+  const modulos = [...porModulo.entries()]
+    .map(([nome, lista]) => {
+      const total = Math.max(d.aulasPorModulo?.[nome] ?? lista.length, lista.length);
+      const feitas = lista.filter(a => a.conclusao >= 90).length;
+      const ult = Math.max(...lista.map(a => (a.ultimo ? Date.parse(a.ultimo) : 0)));
+      return { nome, lista, total, feitas, pct: Math.round((feitas / total) * 100), ult };
+    })
+    .sort((a, b) => b.ult - a.ult);
+  const cor = diasSem === null ? "var(--txt3)" : diasSem > 30 ? "var(--danger)" : diasSem > 14 ? "var(--warn)" : "var(--ok)";
+
+  return (
+    <div>
+      <div className={s.aulasResumo}>
+        <div><strong style={{ color: cor }}>{diasSem === null ? "—" : diasSem === 0 ? "hoje" : `há ${diasSem}d`}</strong><span>última aula{ultimoMs ? ` · ${fmt(new Date(ultimoMs).toISOString())}` : ""}</span></div>
+        <div><strong>{concluidas}</strong><span>aulas assistidas (90%+)</span></div>
+        <div><strong>{aulas.length - concluidas}</strong><span>começadas e não terminadas</span></div>
+        <div><strong>{em30}</strong><span>aulas nos últimos 30 dias</span></div>
+      </div>
+      <div className={s.hint} style={{ marginBottom: 10 }}>Relatório da Hubla importado em {fmt(d.consumoImportadoEm)}. O total de aulas de cada módulo é estimado pelo que as alunas já abriram.</div>
+      <ul className={s.modulos}>
+        {modulos.map(m => (
+          <li key={m.nome}>
+            <button className={s.moduloTopo} onClick={() => setAberto(x => (x === m.nome ? null : m.nome))} aria-expanded={aberto === m.nome}>
+              <span className={s.moduloNome}>{m.nome}</span>
+              <span className={s.moduloBarra}><span style={{ width: `${m.pct}%` }} /></span>
+              <span className={s.moduloNum}>{m.feitas}/{m.total}</span>
+            </button>
+            {aberto === m.nome && (
+              <ul className={s.aulasLista}>
+                {m.lista.map(a => (
+                  <li key={a.id}>
+                    <span className={s.aulaPct} style={{ color: a.conclusao >= 90 ? "#047857" : a.conclusao >= 30 ? "#B45309" : "#B91C1C" }}>{a.conclusao}%</span>
+                    <span className={s.aulaNome}>{a.conteudo}<small>{a.tipo}{a.visualizacoes > 1 ? ` · ${a.visualizacoes} visualizações` : ""}</small></span>
+                    <span className={s.aulaData}>{a.ultimo ? fmt(a.ultimo) : "—"}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

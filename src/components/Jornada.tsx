@@ -27,6 +27,13 @@ export type Detalhe = {
   saudeDetalhe?: { partes?: Record<string, { nota: number | null; detalhe: string }>; trava?: string | null } | null;
   etapas: Etapa[]; presencas: Presenca[]; acompanhamentos: Acomp[]; observacoes: Obs[]; renovacoes: Renov[];
   eventosHubla?: EventoHubla[];
+  consumoHubla?: AulaHubla[];
+  aulasPorModulo?: Record<string, number>;
+  consumoImportadoEm?: string | null;
+};
+export type AulaHubla = {
+  id: string; modulo: string; conteudo: string; tipo: string; visualizacoes: number; conclusao: number;
+  primeiro: string | null; ultimo: string | null;
 };
 
 // Avisos da área de membros da Hubla (entram sozinhos, não contam como acompanhamento da equipe).

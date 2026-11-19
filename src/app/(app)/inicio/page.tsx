@@ -32,7 +32,7 @@ export default async function InicioPage() {
   const segunda = ate(-diaSemana);
   const domingoQueVem = ate(13 - diaSemana);
 
-  const [mentoradas, tarefas, fases, usuarios, encerrando, eventos, fontes, hublaRecentes, hublaAcessos, hublaSoltos, hublaLigada] = await Promise.all([
+  const [mentoradas, tarefas, fases, usuarios, encerrando, eventos, fontes, hublaRecentes, hublaAcessos, hublaSoltos, hublaLigada, aulasUltima, aulas7, consumoImportado] = await Promise.all([
     prisma.mentorada.findMany({
       where: { status: { in: ATIVOS } },
       orderBy: { nome: "asc" },
@@ -77,7 +77,15 @@ export default async function InicioPage() {
     }).catch(() => []),
     prisma.eventoHubla.count({ where: { mentoradaId: null } }).catch(() => 0),
     prisma.configuracao.count({ where: { chave: "hubla_webhook_token" } }).catch(() => 0),
+    // Aulas (relatório da Hubla importado): última aula e quantas nos últimos 7 dias, por mentorada.
+    prisma.consumoHubla.groupBy({ by: ["mentoradaId"], where: { mentoradaId: { not: null } }, _max: { ultimo: true } }).catch(() => []),
+    prisma.consumoHubla.groupBy({
+      by: ["mentoradaId"], where: { mentoradaId: { not: null }, ultimo: { gte: new Date(Date.parse(hoje) - 7 * DIA) } }, _count: { _all: true },
+    }).catch(() => []),
+    prisma.configuracao.count({ where: { chave: "hubla_consumo_importacao" } }).catch(() => 0),
   ]);
+  const ultimaAula = new Map(aulasUltima.map(a => [a.mentoradaId!, a._max.ultimo]));
+  const aulasSemana = new Map(aulas7.map(a => [a.mentoradaId!, a._count._all]));
   const acessoRemovido = new Map(hublaAcessos.filter(a => a.tipo === "acesso_removido").map(a => [a.mentoradaId!, a.data.toISOString().slice(0, 10)]));
 
   // O mesmo encontro pode estar em mais de uma agenda (ex.: agenda do grupo + convite na agenda pessoal):
@@ -151,9 +159,12 @@ export default async function InicioPage() {
         prazo: iso(m.prazo), congelamentoAte: iso(m.congelamentoAte), renovacaoStatus: m.renovacaoStatus,
         pipelineFaseId: m.pipelineFaseId, ultimoAcompanhamento: iso(m.acompanhamentos[0]?.data ?? null),
         acessoRemovidoEm: acessoRemovido.get(m.id) ?? null,
+        ultimaAula: ultimaAula.get(m.id) ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(ultimaAula.get(m.id)!) : null,
+        aulas7: aulasSemana.get(m.id) ?? 0,
       }))}
       hubla={{
-        ligada: hublaLigada > 0 || !!process.env.HUBLA_WEBHOOK_TOKEN,
+        ligada: hublaLigada > 0 || !!process.env.HUBLA_WEBHOOK_TOKEN || consumoImportado > 0,
+        consumoImportado: consumoImportado > 0,
         soltos: hublaSoltos,
         eventos: hublaRecentes
           .filter(e => !carteiraPropria || base.some(m => m.id === e.mentoradaId))

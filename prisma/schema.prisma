@@ -143,6 +143,7 @@ model Mentorada {
   tarefas     Tarefa[]
   eventosAgenda EventoAgenda[]
   eventosHubla  EventoHubla[]
+  consumoHubla  ConsumoHubla[]
 }
 
 // Etapas do Kanban (Pipeline), criadas e excluídas pela equipe.
@@ -399,4 +400,24 @@ model EventoHubla {
   @@index([mentoradaId, data])
   @@index([email])
   @@index([data])
+}
+
+// Aulas assistidas na área de membros (relatório "Consumo do membro por conteúdo" da Hubla, importado em planilha).
+// Cada importação substitui tudo: o relatório já traz o histórico completo.
+model ConsumoHubla {
+  id            String     @id @default(cuid())
+  email         String
+  nome          String?
+  modulo        String
+  conteudo      String
+  tipo          String     // Video, Publicação, Ebook, Live gravada, Imagem, Live
+  visualizacoes Int        @default(0)
+  conclusao     Int        @default(0) // 0 a 100
+  primeiro      DateTime?
+  ultimo        DateTime?
+  mentoradaId   String?
+  mentorada     Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
+
+  @@index([mentoradaId])
+  @@index([email])
 }

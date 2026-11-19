@@ -25,3 +25,13 @@
 @media (max-width: 640px) {
   .soltos li { grid-template-columns: 1fr; }
 }
+
+.coluna { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.arquivo { position: relative; display: flex; align-items: center; justify-content: center; padding: 16px; border: 1.5px dashed var(--champagne); border-radius: 10px; background: #FBF6EC; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--brown); text-align: center; }
+.arquivo:hover { background: #F7EEDC; }
+.arquivo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.arquivo:focus-within { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.semAulas { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.semAulas li { display: flex; flex-direction: column; padding: 6px 10px; border-radius: 8px; background: var(--linen); }
+.semAulas b { font-size: 12px; color: var(--navy-mid); }
+.semAulas small { font-size: 11px; color: var(--txt3); }

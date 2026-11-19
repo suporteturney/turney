@@ -23,14 +23,21 @@ export default async function HublaPage() {
   const protocolo = host.startsWith("localhost") ? "http" : "https";
 
   const desde = new Date(new Date().getTime() - 30 * DIA);
-  const [conf, recentes, porTipo, soltos, ultimo, mentoradas] = await Promise.all([
+  const [conf, recentes, porTipo, soltos, ultimo, mentoradas, importacao, comConsumo] = await Promise.all([
     prisma.configuracao.findUnique({ where: { chave: "hubla_webhook_token" } }),
     prisma.eventoHubla.findMany({ orderBy: { data: "desc" }, take: 40, include: { mentorada: { select: { id: true, nome: true } } } }),
     prisma.eventoHubla.groupBy({ by: ["tipo"], where: { data: { gte: desde } }, _count: { _all: true } }),
     prisma.eventoHubla.groupBy({ by: ["email"], where: { mentoradaId: null }, _count: { _all: true }, _max: { data: true, nome: true } }),
     prisma.eventoHubla.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
-    prisma.mentorada.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, status: true } }),
+    prisma.mentorada.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, status: true, email: true, tipo: true } }),
+    prisma.configuracao.findUnique({ where: { chave: "hubla_consumo_importacao" } }),
+    prisma.consumoHubla.findMany({ where: { mentoradaId: { not: null } }, distinct: ["mentoradaId"], select: { mentoradaId: true } }),
   ]);
+  const temConsumo = new Set(comConsumo.map(c => c.mentoradaId));
+  const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação", "Congelado"];
+  const semAulas = importacao
+    ? mentoradas.filter(m => ATIVOS.includes(m.status) && !temConsumo.has(m.id)).map(m => ({ id: m.id, nome: m.nome, email: m.email, tipo: m.tipo }))
+    : [];
 
   return (
     <HublaCliente
@@ -48,6 +55,8 @@ export default async function HublaPage() {
         data: e.data.toISOString(), mentorada: e.mentorada,
       }))}
       mentoradas={mentoradas.map(m => ({ id: m.id, nome: m.nome }))}
+      importacao={importacao ? JSON.parse(importacao.valor) : null}
+      semAulas={semAulas}
     />
   );
 }

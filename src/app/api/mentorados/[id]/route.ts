@@ -25,13 +25,30 @@ export async function GET(
       observacoes: { orderBy: { data: "desc" } },
       renovacoes: { orderBy: { data: "desc" } },
       eventosHubla: { orderBy: { data: "desc" }, select: { id: true, tipo: true, produto: true, modulo: true, data: true } },
+      consumoHubla: {
+        orderBy: [{ modulo: "asc" }, { ultimo: "desc" }],
+        select: { id: true, modulo: true, conteudo: true, tipo: true, visualizacoes: true, conclusao: true, primeiro: true, ultimo: true },
+      },
     },
   });
 
   if (!mentorado) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
   // Avisos da Hubla chegam com hora exata (UTC): mostra no dia de Brasília, como as outras datas da jornada.
   const diaBR = (d: Date) => `${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d)}T12:00:00.000Z`;
-  return NextResponse.json({ ...mentorado, eventosHubla: mentorado.eventosHubla.map(h => ({ ...h, data: diaBR(h.data) })) });
+  // Quantas aulas diferentes cada módulo tem (pelo que todas as alunas já abriram) — base do progresso por módulo.
+  const modulos = [...new Set(mentorado.consumoHubla.map(c => c.modulo))];
+  const catalogo = modulos.length
+    ? await prisma.consumoHubla.groupBy({ by: ["modulo", "conteudo"], where: { modulo: { in: modulos } } })
+    : [];
+  const aulasPorModulo: Record<string, number> = {};
+  for (const c of catalogo) aulasPorModulo[c.modulo] = (aulasPorModulo[c.modulo] ?? 0) + 1;
+  const importacao = await prisma.configuracao.findUnique({ where: { chave: "hubla_consumo_importacao" }, select: { valor: true } });
+  return NextResponse.json({
+    ...mentorado,
+    eventosHubla: mentorado.eventosHubla.map(h => ({ ...h, data: diaBR(h.data) })),
+    aulasPorModulo,
+    consumoImportadoEm: importacao ? diaBR(new Date(JSON.parse(importacao.valor).em as string)) : null,
+  });
 }
 
 const CAMPOS_TEXTO = [

@@ -15,6 +15,10 @@ export async function POST(req: NextRequest) {
   const m = typeof mentoradaId === "string" ? await prisma.mentorada.findUnique({ where: { id: mentoradaId }, select: { id: true, nome: true } }) : null;
   if (!e || !m) return NextResponse.json({ erro: "Escolha a mentorada pela lista." }, { status: 400 });
   const r = await prisma.eventoHubla.updateMany({ where: { email: e }, data: { mentoradaId: m.id } });
+  const c = await prisma.consumoHubla.updateMany({ where: { email: e }, data: { mentoradaId: m.id } });
+  if (!r.count && !c.count) {
+    return NextResponse.json({ erro: "Esse e-mail não apareceu em nenhum aviso nem no relatório importado." }, { status: 404 });
+  }
   await registrarAtividade(usuario, { acao: "editou", entidade: "integracao", mentoradaId: m.id, resumo: `Ligou o e-mail ${e} da Hubla a ${m.nome}` });
-  return NextResponse.json({ ok: true, ligados: r.count });
+  return NextResponse.json({ ok: true, ligados: r.count + c.count });
 }

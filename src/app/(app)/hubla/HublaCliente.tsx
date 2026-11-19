@@ -11,6 +11,7 @@ type Evento = {
   mentorada: { id: string; nome: string } | null;
 };
 type Solto = { email: string; nome: string | null; total: number; data: string | null };
+type Importacao = { em: string; por: string; linhas: number; pessoas: number; mentoradas: number; arquivo?: string };
 
 const quando = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
@@ -24,11 +25,33 @@ async function enviar(url: string, method: string, body?: unknown) {
 }
 
 export default function HublaCliente({
-  url, configurado, finalToken, configuradoEm, ultimoAviso, contagem, soltos, recentes, mentoradas,
+  url, configurado, finalToken, configuradoEm, ultimoAviso, contagem, soltos, recentes, mentoradas, importacao, semAulas,
 }: {
   url: string; configurado: boolean; finalToken: string | null; configuradoEm: string | null; ultimoAviso: string | null;
   contagem: Record<string, number>; soltos: Solto[]; recentes: Evento[]; mentoradas: { id: string; nome: string }[];
+  importacao: Importacao | null; semAulas: { id: string; nome: string; email: string | null; tipo: string }[];
 }) {
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [importando, setImportando] = useState(false);
+  const [msgImp, setMsgImp] = useState<{ txt: string; erro?: boolean } | null>(null);
+  const [verSemAulas, setVerSemAulas] = useState(false);
+
+  async function importar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!arquivo) return;
+    setImportando(true); setMsgImp(null);
+    try {
+      const fd = new FormData();
+      fd.append("arquivo", arquivo);
+      const res = await fetch("/api/hubla/consumo", { method: "POST", body: fd });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.erro ?? "Não foi possível importar.");
+      setMsgImp({ txt: `Pronto: ${j.linhas} aulas de ${j.pessoas} pessoas — ${j.mentoradas} mentoradas reconhecidas pelo e-mail.` });
+      setArquivo(null);
+      router.refresh();
+    } catch (err) { setMsgImp({ txt: (err as Error).message, erro: true }); }
+    setImportando(false);
+  }
   const router = useRouter();
   const [token, setToken] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -151,8 +174,56 @@ export default function HublaCliente({
             </ul>
           </section>
 
+          <div className={h.coluna}>
           <section className={a.bloco}>
-            <h2 className={a.titulo}>Como ligar</h2>
+            <h2 className={a.titulo}>Aulas assistidas</h2>
+            <p className={a.nota} style={{ marginTop: 0 }}>
+              O que cada mentorada já assistiu (aula, módulo, % concluído e data) vem do relatório <b>Consumo do membro por conteúdo</b>.
+              A Hubla não manda isso sozinha — importe a planilha <b>uma vez por semana</b> para manter atualizado.
+            </p>
+            {importacao && (
+              <div className={a.item} style={{ marginTop: 10 }}>
+                <div className={a.itemTopo}>
+                  <span className={`${a.status} ${a.sOk}`} aria-hidden="true" />
+                  <div className={a.itemNome}>
+                    <b>Última importação em {quando(importacao.em)}</b>
+                    <small>{importacao.linhas} aulas · {importacao.pessoas} pessoas · {importacao.mentoradas} mentoradas reconhecidas · por {importacao.por}</small>
+                  </div>
+                </div>
+              </div>
+            )}
+            <form className={a.form} onSubmit={importar} style={{ marginTop: 12 }}>
+              <label className={h.arquivo}>
+                <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
+                <span>{arquivo ? arquivo.name : "Escolher a planilha (.xlsx)"}</span>
+              </label>
+              {msgImp && <p className={msgImp.erro ? a.msgErro : a.msgOk} role={msgImp.erro ? "alert" : "status"}>{msgImp.txt}</p>}
+              <button className={a.btnPrim} disabled={!arquivo || importando}>{importando ? "Importando…" : "Importar aulas"}</button>
+            </form>
+            <ol className={a.passos}>
+              <li>Na Hubla: <b>Relatórios</b> › <b>Consumo do membro por conteúdo</b>.</li>
+              <li>Clique em <b>Exportar</b>, deixe em <b>xlsx</b> e baixe.</li>
+              <li>Escolha o arquivo aqui e clique em <b>Importar aulas</b>. A importação nova substitui a anterior.</li>
+            </ol>
+            {semAulas.length > 0 && (
+              <>
+                <button className={a.ajudaBtn} onClick={() => setVerSemAulas(v => !v)} aria-expanded={verSemAulas}>
+                  {verSemAulas ? "▾" : "▸"} {semAulas.length} {semAulas.length === 1 ? "mentorada ativa" : "mentoradas ativas"} sem nenhuma aula no relatório
+                </button>
+                {verSemAulas && (
+                  <>
+                    <p className={a.nota} style={{ marginTop: 6 }}>Ou nunca assistiram, ou usam outro e-mail na Hubla. Se for e-mail diferente, ligue na lista “E-mails que não achei” ou corrija o cadastro.</p>
+                    <ul className={h.semAulas}>
+                      {semAulas.map(m => <li key={m.id}><b>{m.nome}</b><small>{m.tipo} · {m.email ?? "sem e-mail no cadastro"}</small></li>)}
+                    </ul>
+                  </>
+                )}
+              </>
+            )}
+          </section>
+
+          <section className={a.bloco}>
+            <h2 className={a.titulo}>Como ligar os avisos</h2>
             <ol className={a.passos} style={{ marginTop: 0 }}>
               <li>
                 Copie este endereço:
@@ -180,9 +251,10 @@ export default function HublaCliente({
             </form>
             <p className={a.nota}>
               O token é uma senha: cole direto aqui, não mande por WhatsApp. A Hubla avisa só quando um <b>módulo inteiro</b> ou o
-              <b> curso</b> é concluído — aula por aula e último acesso ela não informa.
+              <b> curso</b> é concluído — aula por aula vem pela importação acima.
             </p>
           </section>
+          </div>
         </div>
       </div>
     </>

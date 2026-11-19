@@ -607,3 +607,24 @@
 .entryHubla { background: #FBF8FF; border-color: #E9DDFB; border-left: 3px solid #7C3AED; }
 .hublaIcone { font-size: 13px; }
 .chipHubla { font-size: 10px; font-weight: 700; color: #5B21B6; background: #F3ECFE; border: 1px solid #E4CCFD; border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+
+/* Aulas (Hubla) */
+.aulasResumo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.aulasResumo div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 9px; background: var(--linen); border: 1px solid var(--bdr); }
+.aulasResumo strong { font-size: 18px; font-weight: 800; color: var(--navy-mid); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.aulasResumo span { font-size: 10px; color: var(--txt3); line-height: 1.3; }
+.modulos { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.moduloTopo { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 90px 44px; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--bdr); border-radius: 9px; background: var(--surface); font: inherit; text-align: left; cursor: pointer; }
+.moduloTopo:hover { border-color: var(--champagne); }
+.moduloTopo:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.moduloNome { font-size: 12px; font-weight: 700; color: var(--navy-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.moduloBarra { height: 6px; border-radius: 4px; background: #F0E9DD; overflow: hidden; }
+.moduloBarra span { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #7C3AED, #A78BFA); }
+.moduloNum { font-size: 11px; font-weight: 700; color: var(--txt2); text-align: right; font-variant-numeric: tabular-nums; }
+.aulasLista { list-style: none; margin: 4px 0 4px 10px; border-left: 2px solid #EDE4FB; }
+.aulasLista li { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 8px; }
+.aulaPct { font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.aulaNome { display: flex; flex-direction: column; font-size: 12px; color: var(--navy-mid); min-width: 0; }
+.aulaNome small { font-size: 10px; color: var(--txt3); }
+.aulaData { font-size: 10px; color: var(--txt3); white-space: nowrap; }
+@media (max-width: 560px) { .aulasResumo { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
