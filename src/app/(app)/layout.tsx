@@ -6,6 +6,7 @@ import { hojeISO } from "@/lib/dias-uteis";
 import Sidebar from "@/components/Sidebar";
 import TrocarSenha from "@/components/TrocarSenha";
 import { urlFoto } from "@/lib/foto";
+import { temPilar } from "@/lib/permissoes";
 import styles from "./app.module.css";
 
 export default async function AppLayout({
@@ -18,7 +19,13 @@ export default async function AppLayout({
   after(() => sincronizarAgendas().catch(e => console.error("Falha ao ler as agendas", e)));
   // Contador do menu: tarefas abertas com prazo até hoje (atrasadas ou do dia).
   const tarefasVencendo = await prisma.tarefa
-    .count({ where: { concluidaEm: null, prazo: { lte: new Date(hojeISO()) } } })
+    .count({
+      where: {
+        concluidaEm: null, prazo: { lte: new Date(hojeISO()) },
+        // Fora do Pós Venda, conta só as tarefas gerais da própria pessoa.
+        ...(temPilar(usuario, "posvenda") ? {} : { mentoradaId: null, OR: [{ responsavel: usuario.nome }, { responsavel: null, criadaPor: usuario.nome }] }),
+      },
+    })
     .catch(() => 0);
 
   const foto = await prisma.fotoUsuario.findUnique({ where: { usuarioId: usuario.id }, select: { atualizadaEm: true } }).catch(() => null);

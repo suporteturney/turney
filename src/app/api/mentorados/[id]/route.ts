@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { diferencas, registrarAtividade } from "@/lib/atividade";
 import { CAMPOS_COMERCIAIS } from "@/lib/permissoes";
 import { recalcularSaude } from "@/lib/saude-servidor";
@@ -13,7 +13,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await exigirUsuario();
+  await exigirPilarApi("posvenda");
   const { id } = await params;
 
   const mentorado = await prisma.mentorada.findUnique({
@@ -64,7 +64,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const { id } = await params;
   const data = await req.json();
 

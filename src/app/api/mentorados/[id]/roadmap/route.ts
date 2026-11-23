@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { lerDocumento, TIPOS_DOCUMENTO, type DocumentoLido } from "@/lib/documentos";
 import { resumirRoadmap } from "@/lib/roadmap";
 
@@ -13,7 +13,7 @@ async function textoDo(doc: DocumentoLido) {
 
 // Lê o documento e devolve o resumo para a mentora revisar. Nada é gravado aqui.
 export async function POST(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "acompanhamento");
   if (negado) return negado;
 

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilarApi } from "@/lib/auth";
 import { TIPOS_DOCUMENTO } from "@/lib/documentos";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  await exigirUsuario();
+  await exigirPilarApi("posvenda");
   const { id } = await params;
   const doc = await prisma.documento.findUnique({ where: { id } });
   if (!doc) return NextResponse.json({ erro: "Documento não encontrado." }, { status: 404 });

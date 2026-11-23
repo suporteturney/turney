@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
-import { exigirUsuario, type UsuarioSessao } from "@/lib/auth";
+import { exigirPilar, type UsuarioSessao } from "@/lib/auth";
 import { pode } from "@/lib/permissoes";
 import AcompanhamentoCliente from "./AcompanhamentoCliente";
 import DiarioMentoradas from "./DiarioMentoradas";
@@ -12,8 +12,8 @@ export default async function AcompanhamentoPage({
 }: {
   searchParams: Promise<{ programa?: string; v?: string; visao?: string; m?: string }>;
 }) {
+  const usuario = await exigirPilar("posvenda");
   await atualizarStatusAutomatico();
-  const usuario = await exigirUsuario();
   const { programa = "", v = "", visao = "", m = "" } = await searchParams;
   if (visao !== "varreduras") return <DiarioPagina usuario={usuario} selecionadaId={m} />;
 

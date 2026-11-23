@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { exigirPilar } from "@/lib/auth";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import MentoradosCliente from "./MentoradosCliente";
 
@@ -7,6 +8,7 @@ export default async function MentoradosPage({
 }: {
   searchParams: Promise<{ tipo?: string; status?: string; q?: string }>;
 }) {
+  await exigirPilar("posvenda");
   await atualizarStatusAutomatico();
   const { tipo, status, q } = await searchParams;
 

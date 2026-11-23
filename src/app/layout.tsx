@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Turney — CS Hub · Pós Venda",
-  description: "Gestão de mentorados Turney",
+  title: "Turney Central",
+  description: "Comercial, Marketing e Pós Venda da Turney",
 };
 
 export default function RootLayout({

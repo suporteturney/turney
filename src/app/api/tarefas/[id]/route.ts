@@ -3,21 +3,28 @@ import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { negar, podeOperar } from "@/lib/pipeline-servidor";
-import { nomeDaEquipe } from "@/lib/nomes-equipe";
+import { casaNome, nomeDaEquipe } from "@/lib/nomes-equipe";
+import { temPilar } from "@/lib/permissoes";
+import type { UsuarioSessao } from "@/lib/auth";
 
 const equipeAtiva = async () => (await prisma.usuario.findMany({ where: { ativo: true }, select: { nome: true } })).map(u => u.nome);
+
+// Pós Venda cuida de todas; os outros pilares, só das tarefas gerais que são deles (responsável ou quem criou).
+const podeMexer = (u: UsuarioSessao, t: { mentoradaId: string | null; responsavel: string | null; criadaPor: string | null }) =>
+  (temPilar(u, "posvenda") && podeOperar(u)) ||
+  (!t.mentoradaId && (casaNome(u.nome, t.responsavel) || t.criadaPor === u.nome));
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 // Concluir / reabrir, mudar o texto ou o prazo.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await exigirUsuario();
-  const negado = negar(usuario, podeOperar(usuario), ["jornada", "acompanhamento"]);
-  if (negado) return negado;
   const { id } = await params;
   const body = await req.json();
   const atual = await prisma.tarefa.findUnique({ where: { id }, include: { mentorada: { select: { nome: true } } } });
   if (!atual) return NextResponse.json({ erro: "Tarefa não encontrada." }, { status: 404 });
+  const negado = negar(usuario, podeMexer(usuario, atual), ["jornada", "acompanhamento"]);
+  if (negado) return negado;
 
   const data: { titulo?: string; prazo?: Date; responsavel?: string | null; concluidaEm?: Date | null; concluidaPor?: string | null } = {};
   if ("responsavel" in body) {
@@ -51,11 +58,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await exigirUsuario();
-  const negado = negar(usuario, podeOperar(usuario), ["jornada", "acompanhamento"]);
-  if (negado) return negado;
   const { id } = await params;
   const atual = await prisma.tarefa.findUnique({ where: { id }, include: { mentorada: { select: { nome: true } } } });
   if (!atual) return NextResponse.json({ erro: "Tarefa não encontrada." }, { status: 404 });
+  const negado = negar(usuario, podeMexer(usuario, atual), ["jornada", "acompanhamento"]);
+  if (negado) return negado;
   await prisma.tarefa.delete({ where: { id } });
   await registrarAtividade(usuario, {
     acao: "excluiu", entidade: "tarefa", mentoradaId: atual.mentoradaId,

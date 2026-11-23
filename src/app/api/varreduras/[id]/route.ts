@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { recalcularSaude } from "@/lib/saude-servidor";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "excluir");
   if (negado) return negado;
   const { id } = await params;

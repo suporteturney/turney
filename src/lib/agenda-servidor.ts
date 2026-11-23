@@ -16,7 +16,7 @@ import { acharMentorada, ehMentoriaEstrategica, lerIcal, mentoradaDoEncontro, ti
 // 2. Cada Mentoria Estratégica que já aconteceu vira a data da "Mentoria Individual" na Jornada
 //    (só quando ainda estava vazia) e move o card no Pipeline.
 
-type Fonte = { id: string | null; nome: string; email: string; url: string };
+type Fonte = { id: string | null; nome: string; email: string; url: string; pilar: string };
 export type ResultadoAgenda = {
   configurado: boolean;
   lidos: number;
@@ -57,14 +57,14 @@ function fontesDaVercel(): Fonte[] {
     .split(/\n|;;/)
     .map(l => l.split("|").map(x => x.trim()))
     .filter(p => p.length >= 3 && /^https:\/\//.test(p[2]))
-    .map(([nome, email, url]) => ({ id: null, nome, email, url }));
+    .map(([nome, email, url]) => ({ id: null, nome, email, url, pilar: "posvenda" }));
 }
 
 export async function fontesConfiguradas(): Promise<Fonte[]> {
   const doBanco = await prisma.agendaFonte
     .findMany({ where: { ativo: true }, orderBy: { createdAt: "asc" } })
     .catch(() => []);
-  const lista: Fonte[] = doBanco.map(f => ({ id: f.id, nome: f.nome, email: f.email ?? "", url: f.url }));
+  const lista: Fonte[] = doBanco.map(f => ({ id: f.id, nome: f.nome, email: f.email ?? "", url: f.url, pilar: f.pilar }));
   for (const f of fontesDaVercel()) if (!lista.some(x => x.url === f.url)) lista.push(f);
   return lista;
 }
@@ -121,11 +121,12 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
     const daJanela = eventos.filter(ev => ev.inicio >= guardarDe && ev.inicio <= ate);
     const linhas = daJanela.map(ev => {
       const convidados = ev.emails.filter(e => e !== dona.email.toLowerCase()).length;
-      const tipo = tipoFinal(ev, convidados, manuais);
+      const tipo = tipoFinal(ev, convidados, manuais, fonte.pilar);
       return {
         id: idDoEncontro(fonte.nome, ev.uid),
-        agenda: fonte.nome, uid: ev.uid, titulo: ev.titulo.slice(0, 300), inicio: ev.inicio, fim: ev.fim, tipo,
-        link: ev.link, convidados, mentoradaId: mentoradaDoEncontro(ev, dona, lista, tipo)?.id ?? null,
+        agenda: fonte.nome, pilar: fonte.pilar, uid: ev.uid, titulo: ev.titulo.slice(0, 300), inicio: ev.inicio, fim: ev.fim, tipo,
+        link: ev.link, convidados,
+        mentoradaId: fonte.pilar === "posvenda" ? mentoradaDoEncontro(ev, dona, lista, tipo)?.id ?? null : null,
       };
     });
     await prisma.$transaction([
@@ -136,6 +137,8 @@ export async function sincronizarAgendas({ forcar = false } = {}): Promise<Resul
     if (fonte.id) {
       await prisma.agendaFonte.update({ where: { id: fonte.id }, data: { ultimaLeitura: new Date(), ultimoErro: null, eventos: linhas.length } }).catch(() => {});
     }
+
+    if (fonte.pilar !== "posvenda") continue; // agenda do Comercial não mexe na jornada das mentoradas
 
     // 2. Mentorias Estratégicas que já aconteceram marcam a Jornada e o Pipeline.
     const mentorias = eventos.filter(ev => ev.inicio.getTime() < agora && ev.inicio.getTime() >= agora - JANELA_MENTORIA * DIA && ehMentoriaEstrategica(ev.titulo)

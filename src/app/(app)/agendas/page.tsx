@@ -31,7 +31,7 @@ export default async function AgendasPage() {
   return (
     <AgendasCliente
       fontes={fontes.map(f => ({
-        id: f.id, nome: f.nome, email: f.email, agenda: resumoLink(f.url), ativo: f.ativo,
+        id: f.id, nome: f.nome, email: f.email, agenda: resumoLink(f.url), ativo: f.ativo, pilar: f.pilar,
         ultimaLeitura: f.ultimaLeitura?.toISOString() ?? null, ultimoErro: f.ultimoErro, eventos: f.eventos,
         proximos: Object.fromEntries(porAgenda.filter(x => x.agenda === f.nome).map(x => [x.tipo, x._count._all])),
       }))}

@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
   const nome = typeof body.nome === "string" ? body.nome.trim().slice(0, 80) : "";
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase().slice(0, 120) : "";
   const url = typeof body.url === "string" ? body.url.trim().replace(/^webcal:\/\//i, "https://") : "";
+  const pilar = body.pilar === "comercial" ? "comercial" : "posvenda";
   if (!nome) return NextResponse.json({ erro: "Escreva de quem é a agenda (ex.: Amanda Dutra)." }, { status: 400 });
   if (/calendar\/embed|calendar\/u\/\d|calendar\/r\b/i.test(url)) {
     return NextResponse.json({ erro: "Esse é o link de visualização. Precisa ser o “Endereço secreto no formato iCal” (termina em .ics)." }, { status: 400 });
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: `Não deu certo: ${(e as Error).message}.` }, { status: 400 });
   }
 
-  const fonte = await prisma.agendaFonte.create({ data: { nome, email: email || null, url, criadaPor: usuario.nome } });
+  const fonte = await prisma.agendaFonte.create({ data: { nome, email: email || null, url, pilar, criadaPor: usuario.nome } });
   await registrarAtividade(usuario, { acao: "criou", entidade: "agenda", resumo: `Ligou a agenda de ${nome} ao painel (${total} encontros encontrados)` });
   const r = await sincronizarAgendas({ forcar: true });
   return NextResponse.json({ id: fonte.id, encontrados: total, aplicados: r.aplicados.length });

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilarApi } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { negar, podeEditarEtapas } from "@/lib/pipeline-servidor";
 
 // Renomear a etapa ou mudar a tarefa automática dela.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = negar(usuario, podeEditarEtapas(usuario), ["equipe"]);
   if (negado) return negado;
   const { id } = await params;
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 // Excluir a etapa: as mentoradas dela voltam para "Sem etapa"; as tarefas continuam.
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = negar(usuario, podeEditarEtapas(usuario), ["equipe"]);
   if (negado) return negado;
   const { id } = await params;

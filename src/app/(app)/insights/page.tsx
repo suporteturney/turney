@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { exigirPilar } from "@/lib/auth";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import InsightsCliente from "./InsightsCliente";
 
 export default async function InsightsPage() {
+  await exigirPilar("posvenda");
   await atualizarStatusAutomatico();
   const mentoradas = await prisma.mentorada.findMany({
     select: {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { LISTAS, type Banda } from "@/lib/varredura";
 import { recalcularSaude } from "@/lib/saude-servidor";
@@ -19,7 +19,7 @@ function textoAcompanhamento(i: Record<string, unknown>) {
 }
 
 export async function POST(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "acompanhamento");
   if (negado) return negado;
   const body = await req.json();

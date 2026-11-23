@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilar } from "@/lib/auth";
 import { podeOperar } from "@/lib/pipeline-servidor";
 import { hojeISO } from "@/lib/dias-uteis";
 import { nomeDaEquipe } from "@/lib/nomes-equipe";
@@ -8,7 +8,7 @@ import TarefasCliente from "./TarefasCliente";
 const DIA = 86_400_000;
 
 export default async function TarefasPage() {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilar("posvenda");
   const desde = new Date(Date.parse(hojeISO()) - 30 * DIA);
   const [tarefas, mentoradas, usuarios] = await Promise.all([
     // Abertas e as concluídas nos últimos 30 dias.

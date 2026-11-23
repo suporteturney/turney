@@ -1,36 +1,60 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { UsuarioSessao } from "@/lib/auth";
-import { pode, rotuloPapel } from "@/lib/permissoes";
+import { pode, rotuloPapel, temPilar, type Pilar } from "@/lib/permissoes";
 import Isotipo from "@/components/Isotipo";
 import Avatar from "@/components/Avatar";
 import styles from "./Sidebar.module.css";
 
-const MENU = [
+type Item = { href: string; label: string; icon: string; exato?: boolean };
+type Secao = { titulo?: string; itens: Item[] };
+
+// Os três pilares da empresa: clicar abre as seções de cada um.
+const PILARES_MENU: { k: Pilar; label: string; icon: string; secoes: Secao[] }[] = [
   {
-    grupo: "PRINCIPAL",
-    itens: [
-      { href: "/inicio", label: "Meu painel", icon: "home" },
-      { href: "/dashboard", label: "Dashboard", icon: "grid" },
-      { href: "/mentorados", label: "Mentorados", icon: "users" },
-      { href: "/renovacoes", label: "Renovações", icon: "refresh" },
-      { href: "/acompanhamento", label: "Acompanhamento", icon: "file" },
-      { href: "/saude", label: "Saúde da Base", icon: "heart" },
-      { href: "/assiduidade", label: "Assiduidade", icon: "calendar" },
-      { href: "/pipeline", label: "Pipeline", icon: "kanban" },
-      { href: "/tarefas", label: "Tarefas", icon: "check" },
-      { href: "/jornada", label: "Jornada", icon: "clock" },
-      { href: "/analises", label: "Análises", icon: "bar-chart" },
-      { href: "/insights", label: "Insights", icon: "zap" },
-    ],
+    k: "comercial", label: "Comercial", icon: "target",
+    secoes: [{
+      itens: [
+        { href: "/comercial", label: "Visão geral", icon: "grid", exato: true },
+        { href: "/comercial/funil", label: "Funil de vendas", icon: "kanban" },
+        { href: "/comercial/vendas", label: "Vendas e metas", icon: "bar-chart" },
+        { href: "/comercial/calls", label: "Calls", icon: "calendar" },
+        { href: "/comercial/passagem", label: "Passagem", icon: "arrow" },
+      ],
+    }],
   },
   {
-    grupo: "POR PROGRAMA",
-    itens: [
-      { href: "/mentorados?tipo=Nexus", label: "Nexus", icon: "layers" },
-      { href: "/mentorados?tipo=Atlas", label: "Atlas", icon: "dot" },
-      { href: "/mentorados?tipo=Delta", label: "Delta", icon: "dot" },
+    k: "marketing", label: "Marketing", icon: "megaphone",
+    secoes: [{ itens: [{ href: "/marketing", label: "Visão geral", icon: "grid" }] }],
+  },
+  {
+    k: "posvenda", label: "Pós Venda", icon: "heart",
+    secoes: [
+      {
+        itens: [
+          { href: "/dashboard", label: "Dashboard", icon: "grid" },
+          { href: "/mentorados", label: "Mentorados", icon: "users" },
+          { href: "/renovacoes", label: "Renovações", icon: "refresh" },
+          { href: "/acompanhamento", label: "Acompanhamento", icon: "file" },
+          { href: "/saude", label: "Saúde da Base", icon: "heart" },
+          { href: "/assiduidade", label: "Assiduidade", icon: "calendar" },
+          { href: "/pipeline", label: "Pipeline", icon: "kanban" },
+          { href: "/tarefas", label: "Tarefas", icon: "check" },
+          { href: "/jornada", label: "Jornada", icon: "clock" },
+          { href: "/analises", label: "Análises", icon: "bar-chart" },
+          { href: "/insights", label: "Insights", icon: "zap" },
+        ],
+      },
+      {
+        titulo: "POR PROGRAMA",
+        itens: [
+          { href: "/mentorados?tipo=Nexus", label: "Nexus", icon: "layers" },
+          { href: "/mentorados?tipo=Atlas", label: "Atlas", icon: "dot" },
+          { href: "/mentorados?tipo=Delta", label: "Delta", icon: "dot" },
+        ],
+      },
     ],
   },
 ];
@@ -46,6 +70,21 @@ const MENU_ADMIN = {
 };
 
 const ICONS: Record<string, React.ReactNode> = {
+  target: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" />
+    </svg>
+  ),
+  megaphone: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 10v4a1 1 0 0 0 1 1h3l8 5V4L7 9H4a1 1 0 0 0-1 1z" /><path d="M19 9a4 4 0 0 1 0 6" />
+    </svg>
+  ),
+  arrow: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="4" y1="12" x2="20" y2="12" /><polyline points="13 5 20 12 13 19" />
+    </svg>
+  ),
   home: (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />
@@ -139,7 +178,17 @@ const ICONS: Record<string, React.ReactNode> = {
 export default function Sidebar({ usuario, tarefasVencendo = 0, foto = null }: { usuario: UsuarioSessao; tarefasVencendo?: number; foto?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
-  const menu = pode(usuario, "equipe") ? [...MENU, MENU_ADMIN] : MENU;
+  const pilares = PILARES_MENU.filter(p => temPilar(usuario, p.k));
+
+  const casa = (item: Item) => {
+    const base = item.href.split("?")[0];
+    return item.exato ? pathname === base : pathname === base || pathname.startsWith(`${base}/`);
+  };
+  // O pilar da página atual abre sozinho; clicar abre e fecha os outros.
+  const doPilar = pilares.find(p => p.secoes.some(x => x.itens.some(casa)))?.k ?? null;
+  const [aberto, setAberto] = useState<Pilar | null>(doPilar ?? (pilares.length === 1 ? pilares[0].k : null));
+  const [anterior, setAnterior] = useState(doPilar);
+  if (anterior !== doPilar) { setAnterior(doPilar); if (doPilar) setAberto(doPilar); }
 
   async function sair() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -147,10 +196,15 @@ export default function Sidebar({ usuario, tarefasVencendo = 0, foto = null }: {
     router.refresh();
   }
 
-  function isActive(href: string) {
-    if (href === "/") return pathname === "/";
-    return pathname.startsWith(href.split("?")[0]);
-  }
+  const linkItem = (item: Item, sub = false) => (
+    <Link key={item.href} href={item.href} className={`${styles.navA} ${sub ? styles.navSub : ""} ${casa(item) ? styles.active : ""}`}>
+      <span className={styles.navIcon}>{ICONS[item.icon]}</span>
+      {item.label}
+      {(item.href === "/tarefas" || (item.href === "/inicio" && !temPilar(usuario, "posvenda"))) && tarefasVencendo > 0 && (
+        <span className={styles.navBadge} title="Tarefas atrasadas ou para hoje">{tarefasVencendo}</span>
+      )}
+    </Link>
+  );
 
   return (
     <aside className={styles.sidebar}>
@@ -158,29 +212,39 @@ export default function Sidebar({ usuario, tarefasVencendo = 0, foto = null }: {
         <div className={styles.logoMark}><Isotipo size={18} /></div>
         <div>
           <div className={styles.logoName}>TURNEY</div>
-          <div className={styles.logoSub}>PÓS VENDA</div>
+          <div className={styles.logoSub}>CENTRAL</div>
         </div>
       </div>
 
       <nav className={styles.nav}>
-        {menu.map((grupo) => (
-          <div key={grupo.grupo}>
-            <div className={styles.navHead}>{grupo.grupo}</div>
-            {grupo.itens.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.navA} ${isActive(item.href) ? styles.active : ""}`}
+        {linkItem({ href: "/inicio", label: "Meu painel", icon: "home" })}
+        {pilares.map(p => {
+          const on = aberto === p.k;
+          return (
+            <div key={p.k} className={styles.pilar}>
+              <button
+                className={`${styles.pilarBtn} ${on ? styles.pilarOn : ""} ${doPilar === p.k ? styles.pilarAtual : ""}`}
+                onClick={() => setAberto(on ? null : p.k)} aria-expanded={on}
               >
-                <span className={styles.navIcon}>{ICONS[item.icon]}</span>
-                {item.label}
-                {item.href === "/tarefas" && tarefasVencendo > 0 && (
-                  <span className={styles.navBadge} title="Tarefas atrasadas ou para hoje">{tarefasVencendo}</span>
-                )}
-              </Link>
-            ))}
+                <span className={styles.navIcon}>{ICONS[p.icon]}</span>
+                {p.label}
+                <svg className={styles.seta} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg>
+              </button>
+              {on && p.secoes.map((sec, i) => (
+                <div key={i}>
+                  {sec.titulo && <div className={`${styles.navHead} ${styles.navSub}`}>{sec.titulo}</div>}
+                  {sec.itens.map(item => linkItem(item, true))}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        {pode(usuario, "equipe") && (
+          <div>
+            <div className={styles.navHead}>{MENU_ADMIN.grupo}</div>
+            {MENU_ADMIN.itens.map(item => linkItem(item))}
           </div>
-        ))}
+        )}
       </nav>
 
       <div className={styles.foot}>

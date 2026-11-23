@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
 import { recalcularSaude } from "@/lib/saude-servidor";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
@@ -8,7 +8,7 @@ import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "comercial");
   if (negado) return negado;
   const { id } = await params;
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "comercial", "excluir");
   if (negado) return negado;
   const { id } = await params;

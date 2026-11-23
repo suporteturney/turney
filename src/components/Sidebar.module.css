@@ -176,3 +176,32 @@
 }
 .contaLink { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .contaLink:hover { color: var(--champagne); }
+
+/* Pilares */
+.pilar { margin-top: 2px; }
+.pilarBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #A08F78;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+.pilarBtn:hover { background: rgba(201, 168, 118, 0.08); color: #E8DEC4; }
+.pilarAtual, .pilarOn { color: var(--champagne); }
+.pilarBtn:focus-visible { outline: 2px solid var(--champagne); outline-offset: -2px; }
+.seta { margin-left: auto; transition: transform 0.15s; }
+.pilarOn .seta { transform: rotate(90deg); }
+.navSub { padding-left: 22px; }
+@media (prefers-reduced-motion: reduce) { .seta { transition: none; } }

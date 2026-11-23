@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuario, semPermissao } from "@/lib/auth";
 import { diferencas, registrarAtividade } from "@/lib/atividade";
-import { PAPEIS, PERMISSOES } from "@/lib/permissoes";
-import { limparPermissoes, senhaProvisoria } from "@/lib/equipe";
+import { PAPEIS, PERMISSOES, PILARES } from "@/lib/permissoes";
+import { limparPermissoes, limparPilares, senhaProvisoria } from "@/lib/equipe";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await exigirUsuario();
@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const atual = await prisma.usuario.findUnique({ where: { id } });
   if (!atual) return NextResponse.json({ erro: "Acesso não encontrado." }, { status: 404 });
 
-  const dados: { nome?: string; email?: string; papel?: string; permissoes?: string[]; ativo?: boolean } = {};
+  const dados: { nome?: string; email?: string; papel?: string; permissoes?: string[]; pilares?: string[]; ativo?: boolean } = {};
   if (typeof body.nome === "string" && body.nome.trim()) dados.nome = body.nome.trim();
   if (typeof body.email === "string") {
     const email = body.email.trim().toLowerCase();
@@ -30,8 +30,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (PAPEIS.some(p => p.k === body.papel)) dados.papel = body.papel;
   if ("permissoes" in body) dados.permissoes = limparPermissoes(body.permissoes);
+  if ("pilares" in body) dados.pilares = limparPilares(body.pilares);
   if (typeof body.ativo === "boolean") dados.ativo = body.ativo;
-  if ((dados.papel ?? atual.papel) === "admin") dados.permissoes = PERMISSOES.map(p => p.k);
+  if ((dados.papel ?? atual.papel) === "admin") {
+    dados.permissoes = PERMISSOES.map(p => p.k);
+    dados.pilares = PILARES.map(p => p.k);
+  } else if (dados.pilares && !dados.pilares.length) {
+    return NextResponse.json({ erro: "Marque pelo menos um pilar (Comercial, Marketing ou Pós Venda)." }, { status: 400 });
+  }
 
   // A administradora não pode se trancar fora.
   if (id === usuario.id && (dados.ativo === false || (dados.papel && dados.papel !== "admin"))) {
@@ -47,8 +53,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const mudancas = diferencas(
-    { ...atual, permissoes: atual.permissoes.join(", ") },
-    { ...dados, ...(dados.permissoes ? { permissoes: dados.permissoes.join(", ") } : {}) },
+    { ...atual, permissoes: atual.permissoes.join(", "), pilares: atual.pilares.join(", ") },
+    {
+      ...dados,
+      ...(dados.permissoes ? { permissoes: dados.permissoes.join(", ") } : {}),
+      ...(dados.pilares ? { pilares: dados.pilares.join(", ") } : {}),
+    },
   );
   await prisma.usuario.update({ where: { id }, data: { ...dados, ...extra } });
   if (dados.ativo === false || extra.senhaHash) await prisma.sessao.deleteMany({ where: { usuarioId: id } });

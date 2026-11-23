@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
 
 type Ctx = { params: Promise<{ id: string }> };
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "jornada");
   if (negado) return negado;
   const { id } = await params;
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "jornada");
   if (negado) return negado;
   const { id } = await params;
@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "jornada", "excluir");
   if (negado) return negado;
   const { id } = await params;

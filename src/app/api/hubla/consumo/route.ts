@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilarApi } from "@/lib/auth";
 import { pode } from "@/lib/permissoes";
 import { registrarAtividade } from "@/lib/atividade";
 import { negar } from "@/lib/pipeline-servidor";
@@ -12,7 +12,7 @@ const MAX = 15 * 1024 * 1024;
 
 // Importa o relatório "Consumo do membro por conteúdo" (xlsx) e substitui o que havia.
 export async function POST(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = negar(usuario, pode(usuario, "equipe") || pode(usuario, "acompanhamento"), ["acompanhamento"]);
   if (negado) return negado;
 

@@ -174,14 +174,28 @@ const pick = (b: Bruto): EventoAgenda => ({ uid: b.uid, inicio: b.inicio, fim: b
 // ---------- Tipo do encontro ----------
 
 export type TipoEncontro = "individual" | "grupo" | "onboarding" | "outro";
-export const TIPOS_MANUAIS = ["individual", "grupo", "onboarding", "pessoal", "outro"] as const;
+export const TIPOS_MANUAIS = ["individual", "grupo", "onboarding", "pessoal", "outro", "call"] as const;
 export type TipoManual = (typeof TIPOS_MANUAIS)[number];
 
 // Escolha feita à mão: primeiro a do encontro, depois a de todos com o mesmo nome, senão a regra do título.
 export type Manuais = { porEvento: Map<string, string>; porTitulo: Map<string, string> };
 export const chaveTitulo = (titulo: string) => normalizar(titulo);
-export function tipoFinal(ev: { uid: string; titulo: string }, convidados: number, manuais?: Manuais): TipoManual {
-  return (manuais?.porEvento.get(ev.uid) ?? manuais?.porTitulo.get(chaveTitulo(ev.titulo)) ?? classificar(ev.titulo, convidados)) as TipoManual;
+// Cada pilar só aceita os seus tipos (a agenda do Comercial tem calls; a do Pós Venda tem encontros).
+export const TIPOS_DO_PILAR: Record<string, readonly string[]> = {
+  posvenda: ["individual", "grupo", "onboarding", "pessoal", "outro"],
+  comercial: ["call", "pessoal", "outro"],
+};
+// Agenda do Comercial: call de venda pelo título ou por ter de 1 a 3 convidados de fora.
+export function classificarComercial(titulo: string, convidados: number): TipoManual {
+  const t = normalizar(titulo);
+  if (/\bcall\b|diagnostico|sessao (estrategica|de clareza|de venda)|reuniao (de )?venda|aplicacao|entrevista de selecao|fechamento|proposta|apresentacao/.test(t)) return "call";
+  return convidados >= 1 && convidados <= 3 ? "call" : "outro";
+}
+export function tipoFinal(ev: { uid: string; titulo: string }, convidados: number, manuais?: Manuais, pilar = "posvenda"): TipoManual {
+  const aceitos = TIPOS_DO_PILAR[pilar] ?? TIPOS_DO_PILAR.posvenda;
+  const manual = [manuais?.porEvento.get(ev.uid), manuais?.porTitulo.get(chaveTitulo(ev.titulo))].find(t => t && aceitos.includes(t));
+  if (manual) return manual as TipoManual;
+  return pilar === "comercial" ? classificarComercial(ev.titulo, convidados) : classificar(ev.titulo, convidados);
 }
 
 export function classificar(titulo: string, convidados: number): TipoEncontro {

@@ -56,7 +56,7 @@ const TIPOS: { k: TipoEv; label: string }[] = [
   { k: "outro", label: "Outros" },
 ];
 const ROTULO_TIPO: Record<string, string> = { individual: "Individual", grupo: "Grupo", onboarding: "Onboarding", pessoal: "Pessoal", outro: "Outro" };
-const PAPEL: Record<string, string> = { admin: "Administradora", mentora: "Mentora", suporte: "Suporte", leitura: "Somente leitura", "sem acesso": "ainda sem acesso" };
+const PAPEL: Record<string, string> = { admin: "Administradora", mentora: "Mentora", suporte: "Suporte", vendas: "Vendas", marketing: "Marketing", leitura: "Somente leitura", "sem acesso": "ainda sem acesso" };
 const linkWhats = (n: string | null) => {
   const d = (n ?? "").replace(/\D/g, "");
   return d ? `https://wa.me/${d.length <= 11 ? `55${d}` : d}` : null;
@@ -121,13 +121,14 @@ function motivosDe(m: M, hoje: string, tarefas: T[], comAulas = false): Motivo[]
 
 export default function InicioCliente({
   eu, nome, saudacao, hoje, segunda, agora: agoraIni, agendaLigada, carteiraPropria, gestora, podeEditar, podePresenca, equipe, fases,
-  todasMentoradas, mentoradas, encerrando, encontros: encontrosIni, tarefas: tarefasIni, hubla,
+  todasMentoradas, mentoradas, encerrando, encontros: encontrosIni, tarefas: tarefasIni, hubla, extra,
 }: {
   eu: string; nome: string; saudacao: string; hoje: string; segunda: string; agora: number; agendaLigada: boolean;
   carteiraPropria: boolean; gestora: boolean; podeEditar: boolean; podePresenca: boolean;
   equipe: Pessoa[]; fases: { id: string; nome: string }[]; todasMentoradas: { id: string; nome: string }[];
   mentoradas: M[]; encerrando: Enc[]; encontros: Ev[]; tarefas: T[];
   hubla: { ligada: boolean; consumoImportado: boolean; soltos: number; eventos: EvHubla[] };
+  extra?: React.ReactNode;
 }) {
   const router = useRouter();
   const conteudo = useRef<HTMLDivElement>(null);
@@ -678,6 +679,8 @@ export default function InicioCliente({
             </p>
           )}
         </section>
+
+        {extra}
 
         {/* ── Encerrando · Equipe · Carteira ── */}
         <div className={s.linha3}>

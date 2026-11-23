@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from "@/lib/auth";
-import { pode } from "@/lib/permissoes";
+import { pode, temPilar } from "@/lib/permissoes";
+import { resumoComercial } from "@/lib/comercial-resumo";
+import { BlocoCalls, BlocoPassos } from "../comercial/Blocos";
+import c from "../comercial/comercial.module.css";
+import PainelGeral from "./PainelGeral";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { podeOperar } from "@/lib/pipeline-servidor";
 import { hojeISO } from "@/lib/dias-uteis";
@@ -21,10 +25,14 @@ const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCa
 const ehDela = casaNome;
 
 export default async function InicioPage() {
-  await atualizarStatusAutomatico();
   const usuario = await exigirUsuario();
   const hoje = hojeISO();
   const hora = +new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }).format(new Date());
+  const saudacao = hora < 5 ? "Boa noite" : hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
+  if (!temPilar(usuario, "posvenda")) return <PainelGeral usuario={usuario} saudacao={saudacao} />;
+  await atualizarStatusAutomatico();
+  // Quem também é do Comercial vê um resumo das vendas no fim do painel (só quando há algo para fazer).
+  const vendas = temPilar(usuario, "comercial") ? await resumoComercial(usuario, usuario.papel !== "admin") : null;
   const ate = (dias: number) => new Date(Date.parse(hoje) + dias * DIA).toISOString().slice(0, 10);
 
   // Semana de segunda a domingo.
@@ -60,11 +68,11 @@ export default async function InicioPage() {
     }),
     // Encontros das agendas do Google (semana passada até 4 semanas à frente).
     prisma.eventoAgenda.findMany({
-      where: { inicio: { gte: new Date(Date.parse(segunda) - 7 * DIA), lt: new Date(Date.parse(segunda) + 35 * DIA) } },
+      where: { pilar: "posvenda", inicio: { gte: new Date(Date.parse(segunda) - 7 * DIA), lt: new Date(Date.parse(segunda) + 35 * DIA) } },
       orderBy: { inicio: "asc" },
       include: { mentorada: { select: { id: true, nome: true, tipo: true } } },
     }).catch(() => []),
-    prisma.agendaFonte.count({ where: { ativo: true } }).catch(() => 0),
+    prisma.agendaFonte.count({ where: { ativo: true, pilar: "posvenda" } }).catch(() => 0),
     // Área de membros (Hubla): novidades dos últimos 14 dias e a situação de acesso mais recente de cada mentorada.
     prisma.eventoHubla.findMany({
       where: { data: { gte: new Date(Date.parse(hoje) - 14 * DIA) }, mentoradaId: { not: null } },
@@ -137,6 +145,9 @@ export default async function InicioPage() {
   return (
     <InicioCliente
       eu={eu}
+      extra={vendas && (vendas.passos.length > 0 || vendas.calls.length > 0)
+        ? <div className={c.grade2} style={{ marginBottom: 16 }}><BlocoPassos r={vendas} mostrarResp={usuario.papel === "admin"} /><BlocoCalls r={vendas} /></div>
+        : null}
       agora={new Date().getTime()}
       agendaLigada={fontes > 0 || !!process.env.AGENDAS_ICS?.trim()}
       encontros={encontros.map(e => ({
@@ -144,7 +155,7 @@ export default async function InicioPage() {
         link: e.link, agenda: e.agenda, convidados: e.convidados, mentorada: e.mentorada,
       }))}
       nome={usuario.nome.split(" ")[0]}
-      saudacao={hora < 5 ? "Boa noite" : hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite"}
+      saudacao={saudacao}
       hoje={hoje}
       segunda={segunda}
       carteiraPropria={carteiraPropria}

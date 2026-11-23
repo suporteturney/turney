@@ -3,26 +3,33 @@ import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { negar, podeOperar } from "@/lib/pipeline-servidor";
+import { temPilar } from "@/lib/permissoes";
 import { carregarManuais } from "@/lib/agenda-servidor";
-import { chaveTitulo, TIPOS_MANUAIS, tipoFinal } from "@/lib/agenda-regras";
+import { chaveTitulo, TIPOS_DO_PILAR, TIPOS_MANUAIS, tipoFinal } from "@/lib/agenda-regras";
 
-const NOME: Record<string, string> = { individual: "Individual", grupo: "Grupo", onboarding: "Onboarding", pessoal: "Pessoal", outro: "Outro" };
+const NOME: Record<string, string> = { individual: "Individual", grupo: "Grupo", onboarding: "Onboarding", pessoal: "Pessoal", outro: "Outro", call: "Call de venda" };
 
 // Trocar o tipo de um encontro à mão: só este (escopo "evento") ou todos com o mesmo nome ("titulo").
 // tipo "auto" volta para a regra automática.
 export async function POST(req: NextRequest) {
   const usuario = await exigirUsuario();
-  const negado = negar(usuario, podeOperar(usuario), ["jornada", "acompanhamento"]);
-  if (negado) return negado;
   const { eventoId, tipo, escopo } = await req.json();
   if (tipo !== "auto" && !TIPOS_MANUAIS.includes(tipo)) return NextResponse.json({ erro: "Tipo inválido." }, { status: 400 });
   if (escopo !== "evento" && escopo !== "titulo") return NextResponse.json({ erro: "Escolha se vale só para este encontro ou para todos." }, { status: 400 });
   const ev = await prisma.eventoAgenda.findUnique({ where: { id: String(eventoId) } });
   if (!ev) return NextResponse.json({ erro: "Encontro não encontrado. Atualize a página." }, { status: 404 });
 
+  // Agenda do Comercial: quem é do Comercial. Agenda do Pós Venda: quem cuida da jornada ou do acompanhamento.
+  const pode = ev.pilar === "comercial" ? temPilar(usuario, "comercial") : temPilar(usuario, "posvenda") && podeOperar(usuario);
+  const negado = negar(usuario, pode, ["jornada", "acompanhamento"]);
+  if (negado) return negado;
+  if (tipo !== "auto" && !(TIPOS_DO_PILAR[ev.pilar] ?? []).includes(tipo)) {
+    return NextResponse.json({ erro: "Esse tipo não vale para esta agenda." }, { status: 400 });
+  }
+
   const chaveT = chaveTitulo(ev.titulo);
   // Encontros afetados (as janelas guardadas são pequenas, então dá para filtrar aqui).
-  const mesmos = (await prisma.eventoAgenda.findMany({ select: { id: true, uid: true, titulo: true, convidados: true } }))
+  const mesmos = (await prisma.eventoAgenda.findMany({ where: { pilar: ev.pilar }, select: { id: true, uid: true, titulo: true, convidados: true, pilar: true } }))
     .filter(e => chaveTitulo(e.titulo) === chaveT);
   const afetados = escopo === "evento" ? mesmos.filter(e => e.uid === ev.uid) : mesmos;
 
@@ -46,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Atualiza na hora o que já está guardado.
   const manuais = await carregarManuais();
   for (const e of afetados) {
-    const novo = tipoFinal(e, e.convidados, manuais);
+    const novo = tipoFinal(e, e.convidados, manuais, e.pilar);
     await prisma.eventoAgenda.update({ where: { id: e.id }, data: { tipo: novo, ...(novo === "pessoal" || novo === "grupo" ? { mentoradaId: null } : {}) } });
   }
 

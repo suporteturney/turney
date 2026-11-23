@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { recalcularSaude } from "@/lib/saude-servidor";
 import { proximoCodigo } from "@/lib/codigo";
 
 export async function GET(req: NextRequest) {
-  await exigirUsuario();
+  await exigirPilarApi("posvenda");
   const { searchParams } = new URL(req.url);
   const tipo = searchParams.get("tipo");
   const status = searchParams.get("status");
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
 export async function POST(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "cadastro");
   if (negado) return negado;
   const data = await req.json();

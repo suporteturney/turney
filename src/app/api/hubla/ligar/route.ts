@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilarApi } from "@/lib/auth";
 import { pode } from "@/lib/permissoes";
 import { registrarAtividade } from "@/lib/atividade";
 import { negar } from "@/lib/pipeline-servidor";
 
 // Ligar à mão um e-mail da Hubla a uma mentorada (vale também para os próximos avisos desse e-mail).
 export async function POST(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = negar(usuario, pode(usuario, "equipe") || pode(usuario, "cadastro"), ["cadastro"]);
   if (negado) return negado;
   const { email, mentoradaId } = await req.json();

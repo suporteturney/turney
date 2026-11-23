@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilar } from "@/lib/auth";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { podeEditarEtapas, podeOperar } from "@/lib/pipeline-servidor";
 import PipelineCliente from "./PipelineCliente";
@@ -8,8 +8,8 @@ import PipelineCliente from "./PipelineCliente";
 const ATIVOS = ["Ativo", "Em Andamento", "Em Renovação", "Congelado"];
 
 export default async function PipelinePage() {
+  const usuario = await exigirPilar("posvenda");
   await atualizarStatusAutomatico();
-  const usuario = await exigirUsuario();
   const [fases, mentoradas] = await Promise.all([
     prisma.pipelineFase.findMany({ orderBy: { ordem: "asc" } }),
     prisma.mentorada.findMany({

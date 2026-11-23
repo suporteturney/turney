@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { NOME_PERMISSAO, ehAutora, pode, type Permissao } from "@/lib/permissoes";
+import { NOME_PERMISSAO, ehAutora, pode, temPilar, type Permissao, type Pilar } from "@/lib/permissoes";
 
 export const COOKIE_SESSAO = "sessao";
 const DURACAO_DIAS = 14;
@@ -16,6 +16,7 @@ export type UsuarioSessao = {
   email: string;
   papel: string;
   permissoes: string[];
+  pilares: string[];
   trocarSenha: boolean;
 };
 
@@ -57,19 +58,33 @@ export const usuarioAtual = cache(async (): Promise<UsuarioSessao | null> => {
     select: {
       expiraEm: true,
       usuario: {
-        select: { id: true, nome: true, email: true, papel: true, permissoes: true, trocarSenha: true, ativo: true },
+        select: { id: true, nome: true, email: true, papel: true, permissoes: true, pilares: true, trocarSenha: true, ativo: true },
       },
     },
   });
   if (!sessao || sessao.expiraEm < new Date() || !sessao.usuario.ativo)
     return null;
-  const { id, nome, email, papel, permissoes, trocarSenha } = sessao.usuario;
-  return { id, nome, email, papel, permissoes, trocarSenha };
+  const { id, nome, email, papel, permissoes, pilares, trocarSenha } = sessao.usuario;
+  return { id, nome, email, papel, permissoes, pilares, trocarSenha };
 });
 
 export async function exigirUsuario(): Promise<UsuarioSessao> {
   const usuario = await usuarioAtual();
   if (!usuario) redirect("/login");
+  return usuario;
+}
+
+// Páginas de um pilar: quem não tem o pilar volta para o próprio painel.
+export async function exigirPilar(pilar: Pilar): Promise<UsuarioSessao> {
+  const usuario = await exigirUsuario();
+  if (!temPilar(usuario, pilar)) redirect("/inicio");
+  return usuario;
+}
+
+// Rotas da API de um pilar: quem não tem o pilar recebe 403 (a rota /api/sem-acesso responde por qualquer método).
+export async function exigirPilarApi(pilar: Pilar): Promise<UsuarioSessao> {
+  const usuario = await exigirUsuario();
+  if (!temPilar(usuario, pilar)) redirect("/api/sem-acesso");
   return usuario;
 }
 

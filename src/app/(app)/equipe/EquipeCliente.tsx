@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PAPEIS, PERMISSOES, rotuloPapel, type Permissao } from "@/lib/permissoes";
+import { NOME_PILAR, PAPEIS, PERMISSOES, PILARES, rotuloPapel, type Permissao, type Pilar } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
 import FotoPerfil from "@/components/FotoPerfil";
 import styles from "../shared.module.css";
@@ -9,12 +9,13 @@ import m from "../acompanhamento/importar.module.css";
 import e from "./equipe.module.css";
 
 type Pessoa = {
-  id: string; nome: string; email: string; papel: string; permissoes: string[];
+  id: string; nome: string; email: string; papel: string; permissoes: string[]; pilares: string[];
   ativo: boolean; trocarSenha: boolean; ultimoAcesso: string | null; foto: string | null;
 };
-type Edicao = { id: string | null; nome: string; email: string; papel: string; permissoes: string[] };
+type Edicao = { id: string | null; nome: string; email: string; papel: string; permissoes: string[]; pilares: string[] };
 
 const presetDe = (papel: string) => [...(PAPEIS.find(p => p.k === papel)?.permissoes ?? [])] as string[];
+const pilaresDe = (papel: string) => [...(PAPEIS.find(p => p.k === papel)?.pilares ?? [])] as string[];
 const quando = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Nunca entrou";
 
@@ -36,11 +37,13 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
     if (!ed) return;
     setSalvando(true);
     setErro(null);
+    // Sem o pilar Pós Venda, as permissões de lá (que ficam escondidas) não são guardadas.
+    const permissoesFinais = ed.pilares.includes("posvenda") ? ed.permissoes : [];
     try {
       if (ed.id) {
-        await chamar(`/api/equipe/${ed.id}`, "PATCH", { nome: ed.nome, email: ed.email, papel: ed.papel, permissoes: ed.permissoes });
+        await chamar(`/api/equipe/${ed.id}`, "PATCH", { nome: ed.nome, email: ed.email, papel: ed.papel, permissoes: permissoesFinais, pilares: ed.pilares });
       } else {
-        const j = await chamar("/api/equipe", "POST", ed);
+        const j = await chamar("/api/equipe", "POST", { ...ed, permissoes: permissoesFinais });
         setSenha({ nome: ed.nome, email: ed.email.trim().toLowerCase(), senha: j.senhaProvisoria });
       }
       setEd(null);
@@ -83,7 +86,7 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
           <div className={styles.pageTitle}>Equipe</div>
           <div className={styles.pageSub}>Quem acessa a plataforma e o que cada pessoa pode fazer</div>
         </div>
-        <button className={m.btnPrimary} onClick={() => { setErro(null); setEd({ id: null, nome: "", email: "", papel: "mentora", permissoes: presetDe("mentora") }); }}>
+        <button className={m.btnPrimary} onClick={() => { setErro(null); setEd({ id: null, nome: "", email: "", papel: "mentora", permissoes: presetDe("mentora"), pilares: pilaresDe("mentora") }); }}>
           + Novo acesso
         </button>
       </div>
@@ -111,7 +114,7 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
           <div className={styles.tblWrap}>
             <table className={styles.table}>
               <thead>
-                <tr><th>Pessoa</th><th>Nível</th><th>Pode</th><th>Último acesso</th><th></th></tr>
+                <tr><th>Pessoa</th><th>Nível</th><th>Pilares</th><th>Pode no Pós Venda</th><th>Último acesso</th><th></th></tr>
               </thead>
               <tbody>
                 {inicial.map(p => (
@@ -130,6 +133,7 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
                       {!p.ativo && <div className={e.tag}>Desativado</div>}
                       {p.ativo && p.trocarSenha && <div className={e.tag}>Aguardando 1º acesso</div>}
                     </td>
+                    <td>{p.papel === "admin" ? "Todos" : p.pilares.map(k => NOME_PILAR[k as Pilar] ?? k).join(" · ") || "Nenhum"}</td>
                     <td className={e.perms}>
                       {p.papel === "admin" ? "Tudo" : p.permissoes.length
                         ? PERMISSOES.filter(x => p.permissoes.includes(x.k)).map(x => x.label).join(" · ")
@@ -137,7 +141,7 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
                     </td>
                     <td>{quando(p.ultimoAcesso)}</td>
                     <td className={e.acoes}>
-                      <button className={m.btnGhost} onClick={() => { setErro(null); setEd({ id: p.id, nome: p.nome, email: p.email, papel: p.papel, permissoes: [...p.permissoes] }); }}>Editar</button>
+                      <button className={m.btnGhost} onClick={() => { setErro(null); setEd({ id: p.id, nome: p.nome, email: p.email, papel: p.papel, permissoes: [...p.permissoes], pilares: [...p.pilares] }); }}>Editar</button>
                       {p.id !== euId && (
                         <>
                           <button className={m.btnGhost} onClick={() => redefinir(p)}>Nova senha</button>
@@ -188,7 +192,7 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
                 <select
                   value={ed.papel}
                   disabled={ed.id === euId}
-                  onChange={ev => setEd({ ...ed, papel: ev.target.value, permissoes: presetDe(ev.target.value) })}
+                  onChange={ev => setEd({ ...ed, papel: ev.target.value, permissoes: presetDe(ev.target.value), pilares: pilaresDe(ev.target.value) })}
                 >
                   {PAPEIS.map(p => <option key={p.k} value={p.k}>{p.label}</option>)}
                 </select>
@@ -196,14 +200,27 @@ export default function EquipeCliente({ inicial, euId }: { inicial: Pessoa[]; eu
               {ed.papel === "admin" ? (
                 <div className={m.sub}>Administradora pode tudo, inclusive criar acessos e ver o registro de atividades.</div>
               ) : (
-                PERMISSOES.map(p => (
+                <>
+                <div className={m.sub}><b>Pilares que aparecem para a pessoa</b></div>
+                {PILARES.map(p => (
+                  <label key={p.k} className={m.check}>
+                    <input
+                      type="checkbox" checked={ed.pilares.includes(p.k)}
+                      onChange={() => setEd(x => x && ({ ...x, pilares: x.pilares.includes(p.k) ? x.pilares.filter(k => k !== p.k) : [...x.pilares, p.k] }))}
+                    />
+                    <span><strong>{p.label}</strong><small>{p.desc}</small></span>
+                  </label>
+                ))}
+                {ed.pilares.includes("posvenda") && <div className={m.sub}><b>O que pode alterar no Pós Venda</b></div>}
+                {ed.pilares.includes("posvenda") && PERMISSOES.map(p => (
                   <label key={p.k} className={m.check}>
                     <input type="checkbox" checked={ed.permissoes.includes(p.k)} onChange={() => togglePerm(p.k)} />
                     <span><strong>{p.label}</strong><small>{p.desc}</small></span>
                   </label>
-                ))
+                ))}
+                </>
               )}
-              <div className={m.sub}>Todo mundo com acesso consegue visualizar as mentoradas. As permissões liberam o que cada pessoa pode alterar.</div>
+              <div className={m.sub}>Quem não tem o pilar Pós Venda não vê nenhum dado das mentoradas. No Comercial e no Marketing, quem tem o pilar pode ver e editar.</div>
             </div>
             <footer className={m.footer}>
               {erro && <span className={m.erro}>{erro}</span>}

@@ -39,7 +39,7 @@ export default function LoginPage() {
       <div className={styles.card}>
         <div className={styles.logoMark}><Isotipo size={26} /></div>
         <h1 className={styles.title}>TURNEY</h1>
-        <p className={styles.sub}>CS Hub · Pós Venda</p>
+        <p className={styles.sub}>Comercial · Marketing · Pós Venda</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.field}>

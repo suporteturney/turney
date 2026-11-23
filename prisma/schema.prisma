@@ -20,6 +20,7 @@ model Usuario {
   email        String    @unique
   senhaHash    String
   papel        String    @default("leitura") // admin | mentora | suporte | leitura (src/lib/permissoes.ts)
+  pilares      String[]  @default([]) // comercial | marketing | posvenda (administradora vê todos)
   permissoes   String[]  @default([]) // cadastro | jornada | presencas | acompanhamento | comercial | excluir | equipe
   trocarSenha  Boolean   @default(false) // pede nova senha no próximo acesso
   ativo        Boolean   @default(true)
@@ -144,6 +145,7 @@ model Mentorada {
   eventosAgenda EventoAgenda[]
   eventosHubla  EventoHubla[]
   consumoHubla  ConsumoHubla[]
+  vendas        Venda[]
 }
 
 // Etapas do Kanban (Pipeline), criadas e excluídas pela equipe.
@@ -332,6 +334,7 @@ model AgendaFonte {
   nome          String    // de quem é a agenda (ex.: Amanda Dutra)
   email         String?   // e-mail da dona da agenda (para não confundir com o da mentorada)
   url           String    // link iCal secreto — nunca mostrar inteiro na tela
+  pilar         String    @default("posvenda") // posvenda | comercial: onde os compromissos aparecem
   ativo         Boolean   @default(true)
   ultimaLeitura DateTime?
   ultimoErro    String?
@@ -344,11 +347,12 @@ model AgendaFonte {
 model EventoAgenda {
   id          String     @id @default(cuid())
   agenda      String     // nome de quem é a agenda
+  pilar       String     @default("posvenda")
   uid         String     // UID do Google (+ ocorrência)
   titulo      String
   inicio      DateTime
   fim         DateTime?
-  tipo        String     // individual | grupo | onboarding | outro
+  tipo        String     // individual | grupo | onboarding | pessoal | outro | call (agendas do Comercial)
   link        String?    // Google Meet
   convidados  Int        @default(0)
   mentoradaId String?
@@ -420,4 +424,119 @@ model ConsumoHubla {
 
   @@index([mentoradaId])
   @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Comercial
+// ---------------------------------------------------------------------------
+
+// Colunas do funil de vendas.
+model FunilEtapa {
+  id        String   @id @default(cuid())
+  nome      String
+  ordem     Int
+  tipo      String   @default("aberta") // aberta | ganho | perdido
+  createdAt DateTime @default(now())
+  leads     Lead[]
+}
+
+model Lead {
+  id              String     @id @default(cuid())
+  nome            String
+  whatsapp        String?
+  email           String?
+  instagram       String?
+  origem          String?
+  programa        String? // programa de interesse
+  valorCentavos   Int? // valor estimado da proposta
+  responsavel     String? // nome de quem está atendendo
+  etapaId         String
+  etapa           FunilEtapa @relation(fields: [etapaId], references: [id], onDelete: Restrict)
+  etapaEm         DateTime   @default(now())
+  proximoPasso    String?
+  proximoPassoEm  DateTime?
+  motivoPerda     String?
+  obs             String?
+  criadoPor       String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  notas           LeadNota[]
+  calls           Call[]
+  vendas          Venda[]
+
+  @@index([etapaId])
+  @@index([responsavel])
+}
+
+// Histórico do lead: anotações e movimentos.
+model LeadNota {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tipo      String   @default("nota") // nota | etapa | call | venda
+  texto     String
+  autor     String?
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+model Venda {
+  id                 String     @id @default(cuid())
+  leadId             String?
+  lead               Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  cliente            String
+  email              String?
+  whatsapp           String?
+  programa           String
+  valorCentavos      Int
+  pagamento          String? // como pagou (Pix, cartão 12x…)
+  vendedora          String
+  data               DateTime
+  origem             String?
+  inicio             DateTime? // início do contrato
+  duracao            Int? // meses
+  combinados         String? // o que foi combinado na negociação, vai para o Pós Venda
+  cancelada          Boolean    @default(false)
+  motivoCancelamento String?
+  passagem           String     @default("pendente") // pendente | enviada | nao_precisa
+  passagemEm         DateTime?
+  passagemPor        String?
+  mentoradaId        String?
+  mentorada          Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
+  criadoPor          String?
+  createdAt          DateTime   @default(now())
+
+  @@index([data])
+  @@index([passagem])
+}
+
+// Meta do mês: vendedora vazia = meta da equipe inteira.
+model MetaVenda {
+  id            String @id @default(cuid())
+  mes           String // AAAA-MM
+  vendedora     String @default("")
+  valorCentavos Int
+  quantidade    Int?
+
+  @@unique([mes, vendedora])
+}
+
+// Calls de venda: criadas à mão ou vindas da agenda do Google (guardadas quando ganham resultado ou lead).
+model Call {
+  id            String   @id @default(cuid())
+  eventoChave   String?  @unique // "agenda|uid" do compromisso do Google
+  leadId        String?
+  lead          Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  titulo        String
+  inicio        DateTime
+  link          String?
+  responsavel   String?
+  resultado     String? // compareceu | faltou | remarcou | fechou
+  obs           String?
+  registradoPor String?
+  createdAt     DateTime @default(now())
+
+  @@index([inicio])
+  @@index([leadId])
 }

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilarApi } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { hojeISO } from "@/lib/dias-uteis";
 import { criarTarefaDaEtapa, negar, podeOperar } from "@/lib/pipeline-servidor";
 
 // Move a mentorada de etapa. `data` = quando aconteceu (padrão: hoje); conta o prazo da tarefa automática.
 export async function POST(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = negar(usuario, podeOperar(usuario), ["jornada", "acompanhamento"]);
   if (negado) return negado;
   const { mentoradaId, faseId, data } = await req.json();

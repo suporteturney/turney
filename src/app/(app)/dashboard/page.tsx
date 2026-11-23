@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { exigirPilar } from "@/lib/auth";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import DashboardCliente from "./DashboardCliente";
 
 export default async function DashboardPage() {
+  await exigirPilar("posvenda");
   await atualizarStatusAutomatico();
   const [mentorados, renovacoes] = await Promise.all([
     prisma.mentorada.findMany({

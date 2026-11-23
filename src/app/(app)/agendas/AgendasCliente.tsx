@@ -5,12 +5,12 @@ import styles from "../shared.module.css";
 import a from "./agendas.module.css";
 
 type Fonte = {
-  id: string; nome: string; email: string | null; agenda: string; ativo: boolean;
+  id: string; nome: string; email: string | null; agenda: string; ativo: boolean; pilar: string;
   ultimaLeitura: string | null; ultimoErro: string | null; eventos: number | null; proximos: Record<string, number>;
 };
 
 const ROTULO: Record<string, [string, string]> = {
-  individual: ["individual", "individuais"], grupo: ["em grupo", "em grupo"], onboarding: ["onboarding", "onboardings"], pessoal: ["pessoal", "pessoais"], outro: ["outro", "outros"],
+  individual: ["individual", "individuais"], grupo: ["em grupo", "em grupo"], onboarding: ["onboarding", "onboardings"], pessoal: ["pessoal", "pessoais"], outro: ["outro", "outros"], call: ["call", "calls"],
 };
 const quando = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
@@ -27,6 +27,7 @@ export default function AgendasCliente({ fontes, vercel }: { fontes: Fonte[]; ve
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [url, setUrl] = useState("");
+  const [pilar, setPilar] = useState("posvenda");
   const [enviando, setEnviando] = useState(false);
   const [lendo, setLendo] = useState(false);
   const [msg, setMsg] = useState<{ txt: string; erro?: boolean } | null>(null);
@@ -36,7 +37,7 @@ export default function AgendasCliente({ fontes, vercel }: { fontes: Fonte[]; ve
     e.preventDefault();
     setEnviando(true); setMsg(null);
     try {
-      const r = await enviar("/api/agenda/fontes", "POST", { nome, email, url });
+      const r = await enviar("/api/agenda/fontes", "POST", { nome, email, url, pilar });
       setMsg({ txt: `Agenda de ${nome} ligada. Encontrei ${r.encontrados} encontros entre 3 semanas atrás e 8 semanas à frente.` });
       setNome(""); setEmail(""); setUrl("");
       router.refresh();
@@ -88,7 +89,7 @@ export default function AgendasCliente({ fontes, vercel }: { fontes: Fonte[]; ve
                     <span className={`${a.status} ${f.ultimoErro ? a.sErro : f.ativo ? a.sOk : a.sPausa}`} aria-hidden="true" />
                     <div className={a.itemNome}>
                       <b>{f.nome}</b>
-                      <small>{f.agenda}</small>
+                      <small>{f.pilar === "comercial" ? "Comercial" : "Pós Venda"} · {f.agenda}</small>
                     </div>
                     <div className={a.itemAcoes}>
                       <button className={a.btnMini} onClick={() => alternar(f)}>{f.ativo ? "Pausar" : "Religar"}</button>
@@ -129,6 +130,13 @@ export default function AgendasCliente({ fontes, vercel }: { fontes: Fonte[]; ve
           <section className={a.bloco}>
             <h2 className={a.titulo}>Ligar uma agenda</h2>
             <form className={a.form} onSubmit={ligar}>
+              <label className={a.campo}>
+                Para qual pilar
+                <select value={pilar} onChange={e => setPilar(e.target.value)}>
+                  <option value="posvenda">Pós Venda (encontros com mentoradas)</option>
+                  <option value="comercial">Comercial (calls de venda)</option>
+                </select>
+              </label>
               <label className={a.campo}>
                 De quem é a agenda
                 <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex.: Amanda Dutra" />

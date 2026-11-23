@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuario, semPermissao } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
-import { limparPermissoes, senhaProvisoria } from "@/lib/equipe";
-import { PAPEIS, PERMISSOES, rotuloPapel } from "@/lib/permissoes";
+import { limparPermissoes, limparPilares, senhaProvisoria } from "@/lib/equipe";
+import { PAPEIS, PERMISSOES, PILARES, rotuloPapel } from "@/lib/permissoes";
 
 export async function GET() {
   const usuario = await exigirUsuario();
@@ -33,20 +33,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: "Já existe um acesso com esse e-mail." }, { status: 409 });
   }
 
+  if (papel !== "admin" && !limparPilares(body.pilares).length) {
+    return NextResponse.json({ erro: "Marque pelo menos um pilar (Comercial, Marketing ou Pós Venda)." }, { status: 400 });
+  }
   const senha = senhaProvisoria();
   const novo = await prisma.usuario.create({
     data: {
       nome, email, papel,
       permissoes: papel === "admin" ? PERMISSOES.map(p => p.k) : limparPermissoes(body.permissoes),
+      pilares: papel === "admin" ? PILARES.map(p => p.k) : limparPilares(body.pilares),
       senhaHash: await bcrypt.hash(senha, 10),
       trocarSenha: true,
     },
-    select: { id: true, nome: true, email: true, papel: true, permissoes: true },
+    select: { id: true, nome: true, email: true, papel: true, permissoes: true, pilares: true },
   });
   await registrarAtividade(usuario, {
     acao: "criou", entidade: "usuario",
     resumo: `Criou o acesso de ${nome} (${rotuloPapel(papel)})`,
-    detalhe: { email, papel, permissoes: novo.permissoes },
+    detalhe: { email, papel, permissoes: novo.permissoes, pilares: novo.pilares },
   });
   // A senha provisória só aparece nesta resposta, para a administradora repassar.
   return NextResponse.json({ usuario: novo, senhaProvisoria: senha }, { status: 201 });

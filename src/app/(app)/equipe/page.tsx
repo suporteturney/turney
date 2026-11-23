@@ -16,7 +16,7 @@ export default async function EquipePage() {
   }
   const lista = await prisma.usuario.findMany({
     orderBy: [{ ativo: "desc" }, { nome: "asc" }],
-    select: { id: true, nome: true, email: true, papel: true, permissoes: true, ativo: true, trocarSenha: true, ultimoAcesso: true, foto: { select: { atualizadaEm: true } } },
+    select: { id: true, nome: true, email: true, papel: true, permissoes: true, pilares: true, ativo: true, trocarSenha: true, ultimoAcesso: true, foto: { select: { atualizadaEm: true } } },
   });
   return (
     <EquipeCliente

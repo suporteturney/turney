@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semAutoria, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semAutoria, semPermissao } from "@/lib/auth";
 import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "acompanhamento");
   if (negado) return negado;
   const { id } = await params;
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const { id } = await params;
   const body = await req.json();
   const { item, texto } = body;
@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const { id } = await params;
   const item = new URL(req.url).searchParams.get("item");
   if (!item) return NextResponse.json({ erro: "Item ausente" }, { status: 400 });

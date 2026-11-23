@@ -28,7 +28,7 @@
 .form { display: flex; flex-direction: column; gap: 12px; }
 .campo { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--txt2); }
 .campo small { font-weight: 500; color: var(--txt3); }
-.campo input { font: inherit; font-size: 13px; color: var(--txt); border: 1px solid var(--bdr); border-radius: 7px; padding: 8px 10px; background: var(--surface); outline: none; }
+.campo input, .campo select { font: inherit; font-size: 13px; color: var(--txt); border: 1px solid var(--bdr); border-radius: 7px; padding: 8px 10px; background: var(--surface); outline: none; }
 .campo input:focus { border-color: var(--champagne); }
 .msgOk { font-size: 12px; color: #065F46; background: #ECFDF5; border-radius: 7px; padding: 8px 10px; }
 .msgErro { font-size: 12px; color: #991b1b; background: var(--danger-bg); border-radius: 7px; padding: 8px 10px; }

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario } from "@/lib/auth";
+import { exigirPilarApi } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { negar, podeEditarEtapas } from "@/lib/pipeline-servidor";
 
 // Nova etapa no fim do Pipeline.
 export async function POST(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = negar(usuario, podeEditarEtapas(usuario), ["equipe"]);
   if (negado) return negado;
   const { nome } = await req.json();
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
 // Nova ordem das etapas: { ordem: [id, id, ...] }.
 export async function PUT(req: NextRequest) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = negar(usuario, podeEditarEtapas(usuario), ["equipe"]);
   if (negado) return negado;
   const { ordem } = await req.json();

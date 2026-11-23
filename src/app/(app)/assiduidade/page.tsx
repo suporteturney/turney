@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { exigirPilar } from "@/lib/auth";
 import { atualizarStatusAutomatico } from "@/lib/status-automatico";
 import { contaNaAssiduidade } from "@/lib/jornada";
 import AssiduidadeCliente from "./AssiduidadeCliente";
 
 export default async function AssiduidadePage() {
+  await exigirPilar("posvenda");
   await atualizarStatusAutomatico();
   const mentorados = await prisma.mentorada.findMany({
     orderBy: { nome: "asc" },

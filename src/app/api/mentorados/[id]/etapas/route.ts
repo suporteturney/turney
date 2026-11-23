@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { exigirUsuario, semPermissao } from "@/lib/auth";
+import { exigirPilarApi, semPermissao } from "@/lib/auth";
 import { nomeDaMentorada, registrarAtividade } from "@/lib/atividade";
 import { nomeEtapa } from "@/lib/jornada";
 import { recalcularSaude } from "@/lib/saude-servidor";
@@ -10,7 +10,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const usuario = await exigirUsuario();
+  const usuario = await exigirPilarApi("posvenda");
   const negado = semPermissao(usuario, "jornada");
   if (negado) return negado;
   const { id } = await params;
