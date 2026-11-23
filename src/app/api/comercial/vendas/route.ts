@@ -33,6 +33,13 @@ export async function POST(req: NextRequest) {
   const email = texto(b.email)?.toLowerCase() ?? null;
   const whatsapp = whatsappComDDI(texto(b.whatsapp, 40));
 
+  // A mesma venda já entrou pela Hubla?
+  if (!b.mesmoAssim && (email || whatsapp)) {
+    const daHubla = await prisma.venda.findFirst({
+      where: { hublaFatura: { not: null }, cancelada: false, OR: [...(email ? [{ email }] : []), ...(whatsapp ? [{ whatsapp }] : [])], data: { gte: new Date(data.getTime() - 15 * 86_400_000), lte: new Date(data.getTime() + 15 * 86_400_000) } },
+    });
+    if (daHubla) return NextResponse.json({ erro: `Essa venda já entrou pela Hubla em ${daHubla.data.toISOString().slice(0, 10).split("-").reverse().join("/")} (${daHubla.programa}, ${reais(daHubla.valorCentavos)}). Veja em Vendas e metas.`, repetido: true }, { status: 409 });
+  }
   const ganho = lead ? await prisma.funilEtapa.findFirst({ where: { tipo: "ganho" }, orderBy: { ordem: "asc" } }) : null;
   const venda = await prisma.$transaction(async tx => {
     const v = await tx.venda.create({

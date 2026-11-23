@@ -6,11 +6,12 @@ import Avatar from "@/components/Avatar";
 import { nomeMes, reais, somarMes } from "@/lib/comercial";
 import styles from "../../shared.module.css";
 import c from "../comercial.module.css";
+import { SEM_VENDEDORA } from "@/lib/hubla-vendas";
 import { Aviso, FecharVenda, Janela, enviar, type Msg } from "../ui";
 
 type Venda = {
   id: string; cliente: string; programa: string; valor: number; pagamento: string | null; vendedora: string; data: string; origem: string | null;
-  cancelada: boolean; motivo: string | null; passagem: string; leadId: string | null;
+  cancelada: boolean; motivo: string | null; passagem: string; leadId: string | null; hubla: boolean;
 };
 type Meta = { vendedora: string; valor: number; quantidade: number | null };
 const br = (iso: string) => iso.split("-").reverse().join("/");
@@ -93,9 +94,18 @@ export default function VendasCliente({ eu, mes, hoje, equipe, gestora, vendas, 
                       {vendas.map(v => (
                         <tr key={v.id} className={v.cancelada ? c.cancelada : ""}>
                           <td>{br(v.data).slice(0, 5)}</td>
-                          <td>{v.leadId ? <Link className={c.nomeBtn} href={`/comercial/funil?lead=${v.leadId}`}>{v.cliente}</Link> : <b>{v.cliente}</b>}<small>{v.cancelada ? `Cancelada: ${v.motivo}` : v.pagamento}</small></td>
+                          <td>{v.leadId ? <Link className={c.nomeBtn} href={`/comercial/funil?lead=${v.leadId}`}>{v.cliente}</Link> : <b>{v.cliente}</b>}<small>{v.cancelada ? `Cancelada: ${v.motivo}` : v.pagamento}{v.hubla && <> · <span className={`${c.tag} ${c.tAzul}`}>Hubla</span></>}</small></td>
                           <td>{v.programa}<small>{v.origem}</small></td>
-                          <td>{v.vendedora.split(" ")[0]}</td>
+                          <td>
+                            {v.vendedora === SEM_VENDEDORA && !v.cancelada
+                              ? (
+                                <select className={c.sel} value="" onChange={e => e.target.value && mudar(v, { vendedora: e.target.value }, `Venda de ${v.cliente} atribuída a ${e.target.value.split(" ")[0]}`)} aria-label={`Quem vendeu para ${v.cliente}`}>
+                                  <option value="">Quem vendeu?</option>
+                                  {equipe.map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                              )
+                              : v.vendedora.split(" ")[0]}
+                          </td>
                           <td className={`${c.direita} ${c.num} ${c.valorCel}`}>{reais(v.valor)}</td>
                           <td>{v.cancelada ? "" : v.passagem === "enviada" ? <span className={`${c.tag} ${c.tVerde}`}>passada</span> : v.passagem === "nao_precisa" ? <span className={c.tag}>não precisa</span> : <Link href="/comercial/passagem" className={`${c.tag} ${c.tAmarela}`}>pendente</Link>}</td>
                           <td className={c.direita}>

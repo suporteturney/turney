@@ -97,7 +97,7 @@ export default function HublaCliente({
       <div className={styles.topbar}>
         <div>
           <div className={styles.pageTitle}>Hubla — área de membros</div>
-          <div className={styles.pageSub}>Acesso liberado ou removido, módulos e cursos concluídos pelas mentoradas. Nada financeiro é guardado.</div>
+          <div className={styles.pageSub}>Área de membros (acessos, módulos e cursos) para o Pós Venda e vendas aprovadas para o Comercial.</div>
         </div>
       </div>
       <div className={styles.content}>
@@ -235,8 +235,8 @@ export default function HublaCliente({
               <li>Na Hubla: <b>Integrações</b> › <b>Criar nova integração</b> › <b>Webhooks</b> › <b>Configurar</b>.</li>
               <li>Cole o endereço como <b>URL</b>, dê um apelido (ex.: “Painel Turney”) e escolha os produtos das mentorias.</li>
               <li>
-                Em <b>eventos</b>, marque só os da área de membros: <b>Membro</b> (Acesso concedido, Acesso removido) e
-                <b> Área de Membros</b> (Módulo concluído, Curso concluído). Os financeiros não são usados.
+                Em <b>eventos</b>, marque: <b>Membro</b> (Acesso concedido, Acesso removido), <b>Área de Membros</b> (Módulo concluído,
+                Curso concluído) e <b>Fatura</b> (<b>Pagamento da fatura realizado</b> e <b>Fatura reembolsada</b>). Em “Como enviar seus dados”, deixe <b>Integração recomendada</b>.
               </li>
               <li>Salve. Na aba <b>Autenticação</b>, copie o <b>Token de Autenticação</b> e cole aqui embaixo.</li>
               <li>Use o <b>Ambiente de testes</b> da Hubla para mandar um aviso de exemplo — ele aparece em “Últimos avisos” (como “sem mentorada”, porque o comprador é fictício).</li>

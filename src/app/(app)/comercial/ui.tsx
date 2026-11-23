@@ -70,13 +70,14 @@ export function FecharVenda({ inicial, equipe, onFechar, onSalvo }: {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [duvida, setDuvida] = useState<{ vendaId: string; erro: string; nome: string } | null>(null);
+  const [repetido, setRepetido] = useState(false);
   const set = (k: keyof DadosVenda) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV(x => ({ ...x, [k]: e.target.value }));
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     setSalvando(true); setErro(null);
     try {
-      const r: Resposta = await enviar("/api/comercial/vendas", "POST", { ...v, passar: passar === "agora", passagem: passar === "nao" ? "nao_precisa" : "pendente" });
+      const r: Resposta = await enviar("/api/comercial/vendas", "POST", { ...v, passar: passar === "agora", passagem: passar === "nao" ? "nao_precisa" : "pendente", mesmoAssim: repetido });
       if (r.passagem && !r.passagem.ok && r.passagem.existente) {
         setDuvida({ vendaId: r.id, erro: r.passagem.erro ?? "", nome: r.passagem.existente.nome });
         setSalvando(false);
@@ -85,7 +86,10 @@ export function FecharVenda({ inicial, equipe, onFechar, onSalvo }: {
       } else {
         onSalvo({ txt: r.passagem?.ok ? `Venda registrada. ${r.passagem.nome} entrou no Pipeline do Pós Venda, em “Sem etapa”.` : "Venda registrada." });
       }
-    } catch (err) { setErro((err as Error).message); setSalvando(false); }
+    } catch (err) {
+      setErro((err as Error).message); setSalvando(false);
+      setRepetido(err instanceof ErroApi && err.dados.repetido === true);
+    }
   }
 
   async function decidir(modo: "ligar" | "novo") {
@@ -162,7 +166,7 @@ export function FecharVenda({ inicial, equipe, onFechar, onSalvo }: {
         {erro && <p className={c.msgErro} role="alert">{erro}</p>}
         <div className={c.acoes}>
           <button type="button" className={c.btn} onClick={onFechar}>Cancelar</button>
-          <button className={c.btnPrim} disabled={salvando}>{salvando ? "Salvando…" : "Registrar venda"}</button>
+          <button className={c.btnPrim} disabled={salvando}>{salvando ? "Salvando…" : repetido ? "É outra venda: registrar mesmo assim" : "Registrar venda"}</button>
         </div>
       </form>
     </Janela>

@@ -27,7 +27,7 @@ export default async function VendasPage({ searchParams }: { searchParams: Promi
       metas={metas.map(m => ({ vendedora: m.vendedora, valor: m.valorCentavos, quantidade: m.quantidade }))}
       vendas={vendas.map(v => ({
         id: v.id, cliente: v.cliente, programa: v.programa, valor: v.valorCentavos, pagamento: v.pagamento, vendedora: v.vendedora,
-        data: v.data.toISOString().slice(0, 10), origem: v.origem, cancelada: v.cancelada, motivo: v.motivoCancelamento, passagem: v.passagem, leadId: v.leadId,
+        data: v.data.toISOString().slice(0, 10), origem: v.origem, cancelada: v.cancelada, motivo: v.motivoCancelamento, passagem: v.passagem, leadId: v.leadId, hubla: !!v.hublaFatura,
       }))}
     />
   );

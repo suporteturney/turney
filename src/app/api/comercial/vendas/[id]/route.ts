@@ -6,6 +6,7 @@ import { centavos, reais } from "@/lib/comercial";
 import { dataOuNula, erro, nomeCompleto, semSenha, texto } from "@/lib/comercial-servidor";
 import { whatsappComDDI } from "@/lib/whatsapp";
 import { pode } from "@/lib/permissoes";
+import { SEM_VENDEDORA } from "@/lib/hubla-vendas";
 
 // Corrigir, cancelar (ou desfazer o cancelamento) de uma venda. Só quem registrou, quem vendeu ou uma administradora.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const b = await req.json();
   const v = await prisma.venda.findUnique({ where: { id } });
   if (!v) return erro("Venda não encontrada.", 404);
-  if (!pode(usuario, "equipe") && v.criadoPor !== usuario.nome && v.vendedora !== usuario.nome) {
+  if (!pode(usuario, "equipe") && v.criadoPor !== usuario.nome && v.vendedora !== usuario.nome && !(v.vendedora === SEM_VENDEDORA && Object.keys(b).every(k => k === "vendedora"))) {
     return erro("Só quem registrou a venda ou uma administradora pode alterar.", 403);
   }
 

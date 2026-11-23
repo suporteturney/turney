@@ -532,10 +532,13 @@ model Venda {
   mentoradaId        String?
   mentorada          Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
   criadoPor          String?
+  hublaFatura        String?    @unique // venda que entrou pela Hubla (código da fatura): evita duplicar
+  hublaProduto       String?
   createdAt          DateTime   @default(now())
 
   @@index([data])
   @@index([passagem])
+  @@index([email])
 }
 
 // Meta do mês: vendedora vazia = meta da equipe inteira.
