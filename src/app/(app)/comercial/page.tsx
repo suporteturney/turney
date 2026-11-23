@@ -2,13 +2,25 @@ import Link from "next/link";
 import { exigirPilar } from "@/lib/auth";
 import { nomeMes, reais } from "@/lib/comercial";
 import { resumoComercial } from "@/lib/comercial-resumo";
+import { inicioDasAplicacoes, resumoAplicacoes } from "@/lib/comercial-aplicacoes";
+import { hojeISO } from "@/lib/dias-uteis";
+import { FORM_HUB, FORM_PRE } from "@/lib/respondi";
+import Aplicacoes from "./Aplicacoes";
 import styles from "../shared.module.css";
 import c from "./comercial.module.css";
 import { BlocoCalls, BlocoPassos } from "./Blocos";
 
-export default async function ComercialPage() {
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+
+export default async function ComercialPage({ searchParams }: { searchParams: Promise<{ de?: string; ate?: string; form?: string }> }) {
   const usuario = await exigirPilar("comercial");
-  const r = await resumoComercial(usuario, false);
+  const q = await searchParams;
+  const hoje = hojeISO();
+  // Período das aplicações: o escolhido no calendário ou, sem escolha, este mês até hoje.
+  const valido = DATA.test(q.de ?? "") && DATA.test(q.ate ?? "") && q.de! <= q.ate! && !Number.isNaN(Date.parse(q.de!)) && !Number.isNaN(Date.parse(q.ate!));
+  const de = valido ? q.de! : `${hoje.slice(0, 7)}-01`, ate = valido ? (q.ate! > hoje ? hoje : q.ate!) : hoje;
+  const form = q.form === FORM_HUB || q.form === FORM_PRE ? q.form : "";
+  const [r, aplic, inicio] = await Promise.all([resumoComercial(usuario, false), resumoAplicacoes(de, ate, form), inicioDasAplicacoes()]);
   const pct = r.meta ? Math.round((r.vendido / r.meta) * 100) : 0;
   return (
     <>
@@ -26,6 +38,7 @@ export default async function ComercialPage() {
           <div><strong className={c.num}>{reais(r.emJogo, true)}</strong><span>em propostas no funil</span></div>
           <div><strong className={c.num}>{r.pendentes}</strong><span><Link className={c.link} href="/comercial/passagem">{r.pendentes === 1 ? "passagem pendente" : "passagens pendentes"}</Link></span></div>
         </div>
+        <Aplicacoes r={aplic} hoje={hoje} inicio={inicio} />
         <div className={c.grade2}>
           <BlocoPassos r={r} mostrarResp />
           <div className={c.pilha}>

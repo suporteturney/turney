@@ -10,7 +10,7 @@ import p from "../../pipeline/pipeline.module.css";
 import c from "../comercial.module.css";
 import { Aviso, ErroApi, FecharVenda, Janela, MotivoPerda, enviar, type DadosVenda, type Msg } from "../ui";
 import LeadPainel from "./LeadPainel";
-import PeriodoCalendario, { type Periodo } from "./PeriodoCalendario";
+import PeriodoCalendario, { type Periodo } from "@/components/PeriodoCalendario";
 import t from "./funil.module.css";
 
 export type Etapa = { id: string; nome: string; tipo: string };

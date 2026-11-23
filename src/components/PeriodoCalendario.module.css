@@ -1,0 +1,50 @@
+.periodo { position: relative; }
+.botao { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 12px; color: var(--txt); background: #fff; border: 1px solid var(--bdr); border-radius: 7px; padding: 7px 10px; cursor: pointer; white-space: nowrap; }
+.botao:hover { border-color: var(--champagne); }
+.botaoOn { border-color: var(--champagne); background: #FBF6EC; font-weight: 700; color: var(--navy-mid); }
+.botao:focus-visible, .cal button:focus-visible, .datas input:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+
+.cal { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; display: flex; background: var(--surface); border: 1px solid var(--bdr); border-radius: 14px; box-shadow: 0 22px 54px rgba(6, 10, 31, 0.22); overflow: hidden; }
+.direita { left: auto; right: 0; }
+.atalhos { display: flex; flex-direction: column; gap: 2px; padding: 10px; min-width: 196px; background: var(--linen); border-right: 1px solid var(--bdr); }
+.atalhos button { font: inherit; font-size: 13px; text-align: left; color: var(--navy-mid); background: none; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+.atalhos button:hover { background: #EFE7D8; }
+.atalhos .atalhoOn { background: var(--navy-mid); color: var(--champagne); font-weight: 700; }
+
+.direitaCal { padding: 14px 16px 12px; display: flex; flex-direction: column; }
+.datas { display: flex; align-items: center; gap: 10px; color: var(--txt3); }
+.datas input { width: 150px; font: inherit; font-size: 13px; color: var(--navy-mid); background: var(--linen); border: 1px solid var(--bdr); border-radius: 8px; padding: 7px 10px; outline: none; }
+.datas input:focus { border-color: var(--champagne); }
+.meses { display: flex; gap: 22px; margin-top: 12px; }
+.mesTopo { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 30px; margin-bottom: 6px; font-size: 13px; color: var(--navy-mid); }
+.mesTopo b::first-letter { text-transform: uppercase; }
+.mesTopo b { display: inline-block; }
+.seta { width: 30px; height: 30px; font-size: 16px; line-height: 1; color: var(--navy-mid); background: none; border: 1px solid var(--bdr); border-radius: 8px; cursor: pointer; }
+.seta:disabled { opacity: 0.35; cursor: default; }
+.setaVazia { width: 30px; }
+.setaCel { display: none; }
+.grade { display: grid; grid-template-columns: repeat(7, 34px); row-gap: 3px; }
+.semana { text-align: center; font-size: 10px; font-weight: 700; color: var(--txt3); padding: 4px 0 6px; }
+.dia { height: 32px; padding: 0; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--navy-mid); background: none; border: none; cursor: pointer; }
+.dia span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 8px; }
+.dia:hover:not(:disabled) span { background: #F3EAD9; }
+.dia:disabled { color: #CFC5B4; cursor: default; }
+.hoje span { box-shadow: inset 0 0 0 1px var(--champagne); }
+.dentro { background: #F1E7D4; }
+.iniLinha { border-radius: 8px 0 0 8px; }
+.fimLinha { border-radius: 0 8px 8px 0; }
+.iniLinha.fimLinha { border-radius: 8px; }
+.ponta span, .ponta:hover:not(:disabled) span { background: var(--navy-mid); color: var(--champagne); font-weight: 800; }
+.dica { margin-top: 8px; font-size: 11px; color: var(--txt3); }
+.limpar { align-self: center; margin-top: 8px; font: inherit; font-size: 12px; font-weight: 700; color: var(--brown); background: none; border: none; padding: 6px 10px; cursor: pointer; }
+
+@media (max-width: 760px) {
+  .periodo { position: static; }
+  .cal, .direita { position: fixed; left: 16px; right: 16px; top: 72px; max-height: calc(100vh - 90px); overflow-y: auto; flex-direction: column; }
+  .atalhos { flex-direction: row; flex-wrap: wrap; min-width: 0; border-right: none; border-bottom: 1px solid var(--bdr); }
+  .atalhos button { padding: 6px 9px; font-size: 12px; }
+  .mesAnterior { display: none; }
+  .setaCel { display: inline-block; }
+  .grade { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .datas input { width: auto; flex: 1; min-width: 0; }
+}

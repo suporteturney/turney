@@ -15,35 +15,8 @@
 .tempBtn b { margin-left: 4px; font-variant-numeric: tabular-nums; }
 .tempBtn:hover { border-color: var(--t, var(--champagne)); }
 .tempOn { color: #fff; background: var(--t, var(--navy-mid)); border-color: var(--t, var(--navy-mid)); }
-.tempBtn:focus-visible, .periodoBtn:focus-visible, .cal button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+.tempBtn:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
 .resumo { font-size: 11px; color: var(--txt3); margin-left: 4px; }
-
-/* Calendário */
-.periodo { position: relative; }
-.periodoBtn { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; color: var(--txt); background: #fff; border: 1px solid var(--bdr); border-radius: 7px; padding: 7px 10px; cursor: pointer; white-space: nowrap; }
-.periodoBtn:hover { border-color: var(--champagne); }
-.periodoOn { border-color: var(--champagne); background: #FBF6EC; font-weight: 700; color: var(--navy-mid); }
-.cal { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; display: flex; background: var(--surface); border: 1px solid var(--bdr); border-radius: 12px; box-shadow: 0 18px 44px rgba(6, 10, 31, 0.2); overflow: hidden; }
-.atalhos { display: flex; flex-direction: column; gap: 2px; padding: 10px; background: var(--linen); border-right: 1px solid var(--bdr); }
-.atalhos button { font: inherit; font-size: 12px; text-align: left; color: var(--navy-mid); background: none; border: none; border-radius: 7px; padding: 7px 10px; cursor: pointer; white-space: nowrap; }
-.atalhos button:hover { background: #EFE7D8; }
-.atalhos .atalhoOn { background: var(--navy-mid); color: var(--champagne); font-weight: 700; }
-.atalhos .atalhoLimpar { margin-top: auto; color: var(--brown); font-weight: 700; }
-.mesCal { padding: 12px 14px; }
-.mesTopo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: var(--navy-mid); }
-.mesTopo b { display: inline-block; }
-.mesTopo b::first-letter { text-transform: uppercase; }
-.mesTopo button { width: 28px; height: 28px; font-size: 16px; line-height: 1; color: var(--navy-mid); background: none; border: 1px solid var(--bdr); border-radius: 7px; cursor: pointer; }
-.mesTopo button:disabled { opacity: 0.35; cursor: default; }
-.grade { display: grid; grid-template-columns: repeat(7, 34px); row-gap: 2px; }
-.semana { text-align: center; font-size: 10px; font-weight: 800; color: var(--txt3); padding: 4px 0; }
-.diaCal { height: 32px; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--navy-mid); background: none; border: none; border-radius: 8px; cursor: pointer; }
-.diaCal:hover:not(:disabled) { background: #F3EAD9; }
-.diaCal:disabled { color: #CFC5B4; cursor: default; }
-.hojeCal { box-shadow: inset 0 0 0 1px var(--champagne); }
-.dentro { background: #F3EAD9; border-radius: 0; }
-.diaCal.ponta, .diaCal.ponta:hover { background: var(--navy-mid); color: var(--champagne); font-weight: 800; border-radius: 8px; }
-.dica { margin-top: 8px; font-size: 11px; color: var(--txt3); }
 
 /* Painel do lead */
 .escolha { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -61,10 +34,6 @@
 .respostas dd { margin: 1px 0 0; font-size: 13px; color: var(--navy-mid); line-height: 1.45; overflow-wrap: anywhere; white-space: pre-line; }
 
 @media (max-width: 640px) {
-  .periodo { position: static; }
-  .cal { left: 16px; right: 16px; top: auto; flex-direction: column; }
-  .atalhos { flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--bdr); }
-  .grade { grid-template-columns: repeat(7, 1fr); }
   .porque li { grid-template-columns: 1fr auto; }
   .porque span { grid-column: 1 / -1; }
 }

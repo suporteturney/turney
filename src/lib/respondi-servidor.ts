@@ -65,7 +65,7 @@ export type ResultadoLead = "novo" | "atualizado" | "repetido";
 // Um preenchimento vira cartão no funil (primeira etapa). Se a pessoa já tem cartão em aberto, o cartão é atualizado.
 export async function receberPreenchimento(f: Preenchimento, autor: string): Promise<ResultadoLead> {
   const { temperatura, pontuacao } = classificar(f.respostas);
-  const dados = { formulario: f.formulario, completa: f.completa, pontuacao, temperatura, respostas: f.respostas, utms: f.utms ?? undefined };
+  const dados = { formulario: f.formulario, completa: f.completa, canal: f.canal, pontuacao, temperatura, respostas: f.respostas, utms: f.utms ?? undefined };
   const contato = [...(f.email ? [{ email: f.email }] : []), ...(f.whatsapp ? [{ whatsapp: f.whatsapp }] : [])];
 
   return prisma.$transaction(async tx => {

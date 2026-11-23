@@ -16,7 +16,7 @@ export const FORM_PRE = "Pré Mentoria";
 export type Resposta = { p: string; r: string };
 export type Preenchimento = {
   id: string; formulario: string; completa: boolean; preenchidoEm: Date;
-  nome: string; email: string | null; whatsapp: string | null; origem: string | null;
+  nome: string; email: string | null; whatsapp: string | null; origem: string | null; canal: string | null;
   respostas: Resposta[]; utms: Record<string, string> | null;
 };
 
@@ -94,6 +94,7 @@ export function whatsDoForm(v: string | null): string | null {
   if (d.length === 11 && d[2] !== "9") return `+${d}`; // não é celular do Brasil: já veio com DDI (ex.: 1 415…)
   return whatsappComDDI(d);
 }
+export const RE_CANAL = /nos conheceu|chegou ate esse formulario/;
 export function origemDoForm(v: string | null): string | null {
   const t = norm(v ?? "");
   if (!t) return null;
@@ -120,7 +121,7 @@ function montar(base: { id: string; nomeForm: string; completa: boolean; preench
   const nome = achar(rs, /seu nome|^nome\b/)?.replace(/\s+/g, " ").slice(0, 120) || emailOk || whatsapp!;
   return {
     id: base.id.slice(0, 80), formulario: nomeFormulario(base.nomeForm, rs), completa: base.completa, preenchidoEm: base.preenchidoEm,
-    nome, email: emailOk, whatsapp, origem: origemDoForm(achar(rs, /nos conheceu|chegou ate esse formulario/)),
+    nome, email: emailOk, whatsapp, origem: origemDoForm(achar(rs, RE_CANAL)), canal: achar(rs, RE_CANAL)?.slice(0, 80) ?? null,
     respostas: rs, utms: base.utms,
   };
 }

@@ -1,0 +1,72 @@
+.bloco { --a-quente: #C2410C; --a-morno: #C98A06; --a-frio: #3B82C4; --a-sem: #B8AE9C; margin-bottom: 16px; }
+.topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.sub { margin-top: 3px; font-size: 12px; color: var(--txt3); }
+.filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.forms { display: inline-flex; padding: 2px; background: var(--linen); border: 1px solid var(--bdr); border-radius: 8px; }
+.forms button { font: inherit; font-size: 12px; font-weight: 700; color: var(--txt2); background: none; border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.forms .formOn { background: var(--surface); color: var(--navy-mid); box-shadow: 0 1px 2px rgba(14, 21, 47, 0.12); }
+.forms button:focus-visible, .num:focus-visible, .col:focus-visible, .verTabela:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+
+.numeros { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.num { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 1px solid var(--bdr); border-radius: 12px; background: var(--surface); color: inherit; transition: border-color 0.12s; }
+.num:hover { border-color: var(--champagne); }
+.numRot { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt3); }
+.numRot i { width: 8px; height: 8px; border-radius: 2px; }
+.num strong { font-size: 26px; line-height: 1.1; color: var(--navy-mid); letter-spacing: -0.02em; }
+.num small { font-size: 11px; font-weight: 700; color: var(--txt2); }
+.num small span { font-weight: 500; color: var(--txt3); }
+.num em { font-style: normal; font-size: 11px; color: var(--txt3); line-height: 1.35; }
+.sobe { color: #047857 !important; }
+.desce { color: #B91C1C !important; }
+.numDestaque { background: var(--navy-mid); border-color: var(--navy-mid); }
+.numDestaque .numRot, .numDestaque em, .numDestaque small span { color: #B9B3A6; }
+.numDestaque strong { color: var(--champagne); }
+.numDestaque small { color: #E9E2D3; }
+.numDestaque .sobe { color: #6EE7B7 !important; }
+.numDestaque .desce { color: #FCA5A5 !important; }
+
+.grade { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 24px; margin-top: 18px; align-items: start; }
+.graficoTopo { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.legenda { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--txt2); }
+.legenda span { display: inline-flex; align-items: center; gap: 5px; }
+.legenda i { width: 10px; height: 10px; border-radius: 2px; }
+
+.plot { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; margin-top: 6px; }
+.eixo { height: 190px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 10px; color: var(--txt3); font-variant-numeric: tabular-nums; transform: translateY(-6px); }
+.area { position: relative; min-width: 0; }
+.linhas { position: absolute; inset: 0 0 auto 0; height: 190px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+.linhas i { display: block; height: 1px; background: #EEE7DA; }
+.colunas { position: relative; height: 190px; display: grid; align-items: end; }
+.col { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; cursor: default; outline: none; }
+.colFoco { background: rgba(169, 131, 79, 0.08); border-radius: 6px 6px 0 0; }
+.pilha { width: min(24px, 70%); display: flex; flex-direction: column; gap: 2px; border-radius: 4px 4px 0 0; overflow: hidden; min-height: 0; }
+.pilha span { display: block; min-height: 2px; flex-basis: 0; }
+.rotulos { display: grid; margin-top: 6px; font-size: 10px; color: var(--txt3); font-variant-numeric: tabular-nums; }
+.rotulos span { text-align: center; white-space: nowrap; overflow: visible; }
+.dica { position: absolute; z-index: 5; bottom: calc(100% + 6px); left: 50%; transform: translateX(-20%); min-width: 150px; display: flex; flex-direction: column; gap: 3px; padding: 9px 11px; background: var(--surface); border: 1px solid var(--bdr); border-radius: 10px; box-shadow: 0 10px 28px rgba(6, 10, 31, 0.16); font-size: 11px; color: var(--txt2); pointer-events: none; white-space: nowrap; }
+.col .dica { bottom: auto; top: 0; }
+.dicaEsq { left: auto; right: 50%; transform: translateX(20%); }
+.dica b { font-size: 11px; color: var(--txt3); font-weight: 700; }
+.dica strong { color: var(--navy-mid); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dicaTotal { padding-bottom: 3px; border-bottom: 1px solid #F0E9DD; }
+.dicaLinha { display: flex; align-items: center; gap: 6px; }
+.dicaLinha i { width: 10px; height: 2px; border-radius: 1px; }
+.verTabela { margin-top: 10px; font: inherit; font-size: 11px; font-weight: 700; color: var(--brown); background: none; border: none; padding: 0; cursor: pointer; }
+
+.origens { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.origemTopo { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+.origemTopo b { color: var(--navy-mid); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.origemTopo span { color: var(--navy-mid); font-weight: 700; white-space: nowrap; }
+.origemTopo small { color: var(--txt3); font-weight: 500; }
+.trilho { height: 6px; margin: 5px 0 3px; border-radius: 3px; background: #F0E9DD; overflow: hidden; }
+.trilho span { display: block; height: 100%; border-radius: 3px; background: #A9834F; }
+.origemQuali { font-size: 11px; color: var(--txt3); }
+.forms2 { list-style: none; display: flex; flex-direction: column; }
+.forms2 li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 7px 0; border-top: 1px solid #F0E9DD; font-size: 12px; }
+.forms2 li:first-child { border-top: none; }
+.forms2 b { color: var(--navy-mid); }
+.forms2 span { font-weight: 700; color: var(--navy-mid); }
+.forms2 small { grid-column: 1 / -1; font-size: 11px; color: var(--txt3); }
+
+@media (max-width: 1100px) { .numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grade { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); } .numDestaque { grid-column: 1 / -1; } }

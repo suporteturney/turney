@@ -483,6 +483,7 @@ model RespostaFormulario {
   lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   formulario   String // HUB | Pré Mentoria | nome do formulário
   completa     Boolean  @default(true)
+  canal        String? // resposta de "onde nos conheceu" / "chegou através do", como a pessoa marcou
   preenchidoEm DateTime
   pontuacao    Int?
   temperatura  String?
@@ -491,6 +492,7 @@ model RespostaFormulario {
   createdAt    DateTime @default(now())
 
   @@index([leadId, preenchidoEm])
+  @@index([preenchidoEm])
 }
 
 // Histórico do lead: anotações e movimentos.
