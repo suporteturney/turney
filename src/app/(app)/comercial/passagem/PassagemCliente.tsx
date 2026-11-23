@@ -26,7 +26,7 @@ export default function PassagemCliente({ vendas, verCadastro }: { vendas: V[]; 
       <div className={styles.topbar}>
         <div>
           <div className={styles.pageTitle}>Passagem para o Pós Venda</div>
-          <div className={styles.pageSub}>A venda vira cadastro de mentorada, com os combinados, e a equipe recebe a tarefa de boas-vindas</div>
+          <div className={styles.pageSub}>Quem fecha no funil vai direto para o Pipeline do Pós Venda, em “Sem etapa”. Aqui ficam as que precisam de uma decisão</div>
         </div>
       </div>
       <div className={styles.content}>
@@ -39,7 +39,7 @@ export default function PassagemCliente({ vendas, verCadastro }: { vendas: V[]; 
                 <li key={v.id} className={c.item}>
                   <div className={c.itemCorpo}>
                     <b>{v.cliente}</b> <span className={c.tag}>{v.programa}</span>
-                    <small>Vendida em {br(v.data)} por {v.vendedora}{!v.email && !v.whatsapp ? " · falta e-mail ou WhatsApp" : ""}{!v.combinados ? " · sem combinados" : ""}</small>
+                    <small>Vendida em {br(v.data)} por {v.vendedora}{!v.email && !v.whatsapp ? " · sem e-mail e WhatsApp" : ""}{!v.combinados ? " · sem combinados" : ""}</small>
                   </div>
                   <button className={c.btnPrim} onClick={() => setAbrir(v)}>Passar</button>
                 </li>
@@ -60,7 +60,7 @@ export default function PassagemCliente({ vendas, verCadastro }: { vendas: V[]; 
                         <td>{v.programa}</td>
                         <td>{br(v.data)}<small>{v.vendedora}</small></td>
                         <td>{v.passagemEm ? new Date(v.passagemEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}<small>{v.passagemPor}</small></td>
-                        <td>{v.fase ? <span className={`${c.tag} ${c.tAzul}`}>{v.fase}</span> : <span className={c.tag}>{v.status === "Ativo" ? "aguardando onboarding" : v.status ?? "—"}</span>}</td>
+                        <td>{v.fase ? <span className={`${c.tag} ${c.tAzul}`}>{v.fase}</span> : <span className={c.tag}>{v.status === "Ativo" ? "Sem etapa" : v.status ?? "—"}</span>}</td>
                         <td className={c.direita}>{verCadastro && v.mentoradaId && <button className={c.btnMini} onClick={() => setCadastro(v.mentoradaId)}>Cadastro</button>}</td>
                       </tr>
                     ))}
@@ -85,12 +85,12 @@ function Passar({ v, onFechar, onSalvo }: { v: V; onFechar: () => void; onSalvo:
   const [salvando, setSalvando] = useState(false);
   const set = (k: keyof typeof d) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD(x => ({ ...x, [k]: e.target.value }));
 
-  async function passar(ligar: boolean) {
+  async function passar(modo: "auto" | "ligar" | "novo") {
     setSalvando(true); setErro(null);
     try {
       await enviar(`/api/comercial/vendas/${v.id}`, "PATCH", d);
-      const r = await enviar(`/api/comercial/vendas/${v.id}/passar`, "POST", { ligar });
-      onSalvo({ txt: r.criada ? `${r.nome} já está no Pós Venda, com a tarefa de boas-vindas.` : `Venda ligada ao cadastro de ${r.nome}. O Pós Venda recebeu a tarefa.` });
+      const r = await enviar(`/api/comercial/vendas/${v.id}/passar`, "POST", { modo });
+      onSalvo({ txt: r.criada ? `${r.nome} entrou no Pipeline do Pós Venda, em “Sem etapa”.` : `Venda ligada ao cadastro de ${r.nome}. O Pós Venda recebeu a tarefa.` });
     } catch (e) {
       setErro((e as Error).message);
       if (e instanceof ErroApi && e.dados.existente) setExistente(e.dados.existente as { nome: string; tipo: string });
@@ -103,7 +103,7 @@ function Passar({ v, onFechar, onSalvo }: { v: V; onFechar: () => void; onSalvo:
   }
   return (
     <Janela titulo={`Passar ${v.cliente}`} sub={`${v.programa} · vendida em ${br(v.data)} por ${v.vendedora}`} onFechar={onFechar} larga>
-      <form className={c.form} onSubmit={e => { e.preventDefault(); passar(false); }}>
+      <form className={c.form} onSubmit={e => { e.preventDefault(); passar("auto"); }}>
         <div className={c.linha}>
           <label className={c.campo}>E-mail<input type="email" value={d.email} onChange={set("email")} /></label>
           <label className={c.campo}>WhatsApp<input value={d.whatsapp} onChange={set("whatsapp")} /></label>
@@ -116,7 +116,10 @@ function Passar({ v, onFechar, onSalvo }: { v: V; onFechar: () => void; onSalvo:
           <button type="button" className={c.btn} onClick={naoPrecisa}>Não precisa de passagem</button>
           <span className={c.espaco} />
           {existente
-            ? <button type="button" className={c.btnPrim} disabled={salvando} onClick={() => passar(true)}>Ligar ao cadastro de {existente.nome.split(" ")[0]}</button>
+            ? <>
+                <button type="button" className={c.btn} disabled={salvando} onClick={() => passar("novo")}>É outra pessoa: criar cadastro</button>
+                <button type="button" className={c.btnPrim} disabled={salvando} onClick={() => passar("ligar")}>É ela: usar o cadastro de {existente.nome.split(" ")[0]}</button>
+              </>
             : <button className={c.btnPrim} disabled={salvando}>{salvando ? "Passando…" : "Passar para o Pós Venda"}</button>}
         </div>
       </form>

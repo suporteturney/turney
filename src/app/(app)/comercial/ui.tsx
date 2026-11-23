@@ -69,6 +69,7 @@ export function FecharVenda({ inicial, equipe, onFechar, onSalvo }: {
   const [passar, setPassar] = useState<"agora" | "depois" | "nao">("agora");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [duvida, setDuvida] = useState<{ vendaId: string; erro: string; nome: string } | null>(null);
   const set = (k: keyof DadosVenda) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV(x => ({ ...x, [k]: e.target.value }));
 
   async function salvar(e: React.FormEvent) {
@@ -76,12 +77,38 @@ export function FecharVenda({ inicial, equipe, onFechar, onSalvo }: {
     setSalvando(true); setErro(null);
     try {
       const r: Resposta = await enviar("/api/comercial/vendas", "POST", { ...v, passar: passar === "agora", passagem: passar === "nao" ? "nao_precisa" : "pendente" });
-      if (r.passagem && !r.passagem.ok) {
+      if (r.passagem && !r.passagem.ok && r.passagem.existente) {
+        setDuvida({ vendaId: r.id, erro: r.passagem.erro ?? "", nome: r.passagem.existente.nome });
+        setSalvando(false);
+      } else if (r.passagem && !r.passagem.ok) {
         onSalvo({ txt: `Venda registrada. A passagem ficou pendente: ${r.passagem.erro} Resolva em Comercial › Passagem.`, erro: true });
       } else {
-        onSalvo({ txt: r.passagem?.ok ? `Venda registrada e ${r.passagem.nome} já está no Pós Venda.` : "Venda registrada." });
+        onSalvo({ txt: r.passagem?.ok ? `Venda registrada. ${r.passagem.nome} entrou no Pipeline do Pós Venda, em “Sem etapa”.` : "Venda registrada." });
       }
     } catch (err) { setErro((err as Error).message); setSalvando(false); }
+  }
+
+  async function decidir(modo: "ligar" | "novo") {
+    if (!duvida) return;
+    setSalvando(true); setErro(null);
+    try {
+      const r = await enviar(`/api/comercial/vendas/${duvida.vendaId}/passar`, "POST", { modo });
+      onSalvo({ txt: r.criada ? `${r.nome} entrou no Pipeline do Pós Venda, em “Sem etapa”.` : `Venda ligada ao cadastro de ${r.nome}. O Pós Venda recebeu a tarefa.` });
+    } catch (err) { setErro((err as Error).message); setSalvando(false); }
+  }
+  const pendente = () => onSalvo({ txt: "Venda registrada. A passagem ficou pendente em Comercial › Passagem." });
+
+  if (duvida) {
+    return (
+      <Janela titulo="É a mesma pessoa?" sub="A venda já foi registrada" onFechar={pendente}>
+        <p className={c.msgInfo}>{duvida.erro}</p>
+        {erro && <p className={c.msgErro} role="alert">{erro}</p>}
+        <div className={c.acoes}>
+          <button className={c.btn} disabled={salvando} onClick={() => decidir("novo")}>É outra pessoa: criar cadastro</button>
+          <button className={c.btnPrim} disabled={salvando} onClick={() => decidir("ligar")}>É ela: usar o cadastro de {duvida.nome.split(" ")[0]}</button>
+        </div>
+      </Janela>
+    );
   }
 
   return (
@@ -120,14 +147,18 @@ export function FecharVenda({ inicial, equipe, onFechar, onSalvo }: {
         <label className={c.campo}>O que foi combinado na negociação
           <textarea rows={3} value={v.combinados} onChange={set("combinados")} placeholder="Objetivo dela, bônus prometidos, condições, pontos de atenção… Vai para o cadastro no Pós Venda." />
         </label>
-        <fieldset className={c.opcoes}>
-          <legend>Passagem para o Pós Venda</legend>
-          {([["agora", "Passar agora", "cria o cadastro da mentorada e a tarefa de boas-vindas"], ["depois", "Deixar pendente", "fica na lista da Passagem"], ["nao", "Não precisa", "não é mentoria"]] as const).map(([k, t, d]) => (
-            <label key={k} className={`${c.opcao} ${passar === k ? c.opcaoOn : ""}`}>
-              <input type="radio" name="passar" checked={passar === k} onChange={() => setPassar(k)} /><span><b>{t}</b><small>{d}</small></span>
-            </label>
-          ))}
-        </fieldset>
+        {v.leadId ? (
+          <p className={c.msgInfo}>Ao salvar, {v.cliente.split(" ")[0] || "a cliente"} entra direto no Pipeline do Pós Venda, em “Sem etapa”{!v.email && !v.whatsapp ? ". Se puder, preencha o e-mail ou o WhatsApp para a equipe conseguir falar com ela" : ""}.</p>
+        ) : (
+          <fieldset className={c.opcoes}>
+            <legend>Passagem para o Pós Venda</legend>
+            {([["agora", "Passar agora", "cria o cadastro da mentorada e a tarefa de boas-vindas"], ["depois", "Deixar pendente", "fica na lista da Passagem"], ["nao", "Não precisa", "não é mentoria"]] as const).map(([k, t, d]) => (
+              <label key={k} className={`${c.opcao} ${passar === k ? c.opcaoOn : ""}`}>
+                <input type="radio" name="passar" checked={passar === k} onChange={() => setPassar(k)} /><span><b>{t}</b><small>{d}</small></span>
+              </label>
+            ))}
+          </fieldset>
+        )}
         {erro && <p className={c.msgErro} role="alert">{erro}</p>}
         <div className={c.acoes}>
           <button type="button" className={c.btn} onClick={onFechar}>Cancelar</button>

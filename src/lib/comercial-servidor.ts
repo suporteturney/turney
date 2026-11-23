@@ -43,29 +43,27 @@ export type Passagem =
   | { ok: true; mentoradaId: string; nome: string; criada: boolean }
   | { ok: false; status: number; erro: string; existente?: { id: string; nome: string; tipo: string; status: string } };
 
-// Venda fechada → Pós Venda. Cria o cadastro da mentorada (ou liga ao que já existe) e avisa a equipe com uma tarefa.
-// Se já houver cadastro ativo com o mesmo contato, só liga quando `ligar` vier true (renovação, upgrade ou venda que o Make já cadastrou).
-export async function passarParaPosVenda(vendaId: string, usuario: UsuarioSessao, ligar = false): Promise<Passagem> {
+// Venda fechada → Pós Venda. Cria o cadastro da mentorada, que entra no Pipeline em "Sem etapa", e avisa a equipe com uma tarefa.
+// Se já houver cadastro ativo da mesma pessoa, devolve 409 para quem vendeu decidir:
+//   "ligar" = é ela (renovação, upgrade ou venda que o Make já cadastrou); "novo" = é outra pessoa, cria o cadastro.
+export type ModoPassagem = "auto" | "ligar" | "novo";
+const partesNome = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+export async function passarParaPosVenda(vendaId: string, usuario: UsuarioSessao, modo: ModoPassagem = "auto"): Promise<Passagem> {
   const v = await prisma.venda.findUnique({ where: { id: vendaId } });
   if (!v) return { ok: false, status: 404, erro: "Venda não encontrada." };
   if (v.cancelada) return { ok: false, status: 400, erro: "Esta venda foi cancelada." };
   if (v.passagem === "enviada") return { ok: false, status: 409, erro: "Esta venda já foi passada para o Pós Venda." };
-  if (!v.email && !v.whatsapp) return { ok: false, status: 400, erro: "Preencha o e-mail ou o WhatsApp da cliente antes de passar para o Pós Venda." };
-
   const whats = whatsappComDDI(v.whatsapp);
-  const candidatas = await prisma.mentorada.findMany({
-    where: {
-      status: { in: ATIVOS },
-      OR: [
-        ...(v.email ? [{ email: { equals: v.email, mode: "insensitive" as const } }] : []),
-        ...(whats ? [{ whatsapp: { contains: whats.slice(-4) } }] : []),
-      ],
-    },
+  const ativas = await prisma.mentorada.findMany({
+    where: { status: { in: ATIVOS } },
     select: { id: true, nome: true, tipo: true, status: true, email: true, whatsapp: true },
   });
-  const existente = candidatas.find(m =>
-    (v.email && m.email?.trim().toLowerCase() === v.email.toLowerCase()) || (whats && whatsappComDDI(m.whatsapp) === whats));
-  if (existente && !ligar) {
+  // Mesmo e-mail, mesmo WhatsApp ou mesmo nome completo.
+  const nome = partesNome(v.cliente);
+  const existente = modo === "novo" ? undefined
+    : ativas.find(m => (v.email && m.email?.trim().toLowerCase() === v.email.toLowerCase()) || (whats && whatsappComDDI(m.whatsapp) === whats))
+      ?? (nome.includes(" ") ? ativas.find(m => partesNome(m.nome) === nome) : undefined);
+  if (existente && modo !== "ligar") {
     return {
       ok: false, status: 409,
       erro: `${existente.nome} já tem cadastro ativo no ${existente.tipo}. Se for a mesma pessoa (renovação, upgrade ou cadastro feito pela automação), ligue a venda a esse cadastro.`,
@@ -106,13 +104,13 @@ export async function passarParaPosVenda(vendaId: string, usuario: UsuarioSessao
       data: {
         titulo: existente
           ? `Registrar a venda nova no cadastro (${v.programa}): renovação ou upgrade`
-          : "Dar as boas-vindas e agendar o onboarding",
+          : `Dar as boas-vindas e agendar o onboarding${!v.email && !v.whatsapp ? " (falta e-mail e WhatsApp: pedir ao Comercial)" : ""}`,
         prazo: new Date(somarDiasUteis(hojeISO(), 2)), mentoradaId: m.id, automatica: true, criadaPor: `Comercial (${usuario.nome})`,
       },
     });
     await prisma.venda.update({ where: { id: v.id }, data: { passagem: "enviada", passagemEm: new Date(), passagemPor: usuario.nome, mentoradaId: m.id } });
     if (v.leadId) {
-      await prisma.leadNota.create({ data: { leadId: v.leadId, tipo: "venda", texto: existente ? `Venda ligada ao cadastro de ${m.nome} no Pós Venda` : "Passada para o Pós Venda", autor: usuario.nome } });
+      await prisma.leadNota.create({ data: { leadId: v.leadId, tipo: "venda", texto: existente ? `Venda ligada ao cadastro de ${m.nome} no Pós Venda` : "Entrou no Pipeline do Pós Venda, em “Sem etapa”", autor: usuario.nome } });
     }
     await registrarAtividade(usuario, {
       acao: existente ? "editou" : "criou", entidade: "mentorada", mentoradaId: m.id,

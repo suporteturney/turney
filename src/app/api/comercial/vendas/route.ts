@@ -9,7 +9,7 @@ import { whatsappComDDI } from "@/lib/whatsapp";
 export const maxDuration = 30;
 
 // Registrar uma venda (do funil ou avulsa). Com leadId, o card vai para "Fechado".
-// passar: true já manda para o Pós Venda.
+// Venda de lead do funil vai sempre direto para o Pós Venda; a avulsa, quando vier passar: true.
 export async function POST(req: NextRequest) {
   const usuario = await exigirPilarApi("comercial");
   const negado = semSenha(usuario);
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         leadId: lead?.id ?? null, cliente, programa, valorCentavos: valor, data, vendedora, email, whatsapp,
         pagamento: texto(b.pagamento, 80), origem: texto(b.origem, 80) ?? lead?.origem ?? null, inicio: dataOuNula(b.inicio),
         duracao: Number.isFinite(duracao) && duracao > 0 ? duracao : null, combinados: texto(b.combinados, 4000),
-        passagem: b.passagem === "nao_precisa" ? "nao_precisa" : "pendente", criadoPor: usuario.nome,
+        passagem: !lead && b.passagem === "nao_precisa" ? "nao_precisa" : "pendente", criadoPor: usuario.nome,
       },
     });
     if (lead) {
@@ -58,6 +58,6 @@ export async function POST(req: NextRequest) {
   await registrarAtividade(usuario, { acao: "criou", entidade: "venda", resumo: `Registrou a venda de ${cliente}: ${programa}, ${reais(valor)} (${vendedora})` });
 
   // A venda fica salva mesmo se a passagem não puder ser feita agora.
-  const passagem = b.passar ? await passarParaPosVenda(venda.id, usuario) : null;
+  const passagem = lead || b.passar ? await passarParaPosVenda(venda.id, usuario) : null;
   return NextResponse.json({ id: venda.id, passagem }, { status: 201 });
 }
