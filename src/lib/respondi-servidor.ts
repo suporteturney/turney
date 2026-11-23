@@ -1,11 +1,54 @@
 import "server-only";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { classificar, type Preenchimento } from "@/lib/respondi";
+import { FORM_HUB, FORM_PRE, classificar, type Preenchimento } from "@/lib/respondi";
 
 export const CHAVE_TOKEN = "respondi_token";
 export const CHAVE_ULTIMO = "respondi_ultimo_aviso";
 export const CHAVE_IMPORTACAO = "respondi_importacao";
+
+// Repasse: o Respondi só aceita um endereço por formulário. Quando já havia um (Make etc.), o painel recebe e manda uma cópia igual para lá.
+export const FORMS_REPASSE = [{ k: "hub", formulario: FORM_HUB }, { k: "pre", formulario: FORM_PRE }] as const;
+export type Repasse = { url: string; ultimo?: { em: string; ok: boolean; detalhe?: string } };
+export const chaveRepasse = (k: string) => `respondi_repasse_${k}`;
+// Só serviços de automação conhecidos: os dados das pessoas não podem ir para qualquer endereço.
+const DESTINOS = /^(hook\.[a-z0-9-]+\.make\.com|hook\.make\.com|hook\.integromat\.com|hooks\.zapier\.com|([a-z0-9-]+\.)*pluga\.co|[a-z0-9-]+\.app\.n8n\.cloud)$/;
+export function urlRepasseValida(v: string) {
+  try {
+    const u = new URL(v);
+    if (process.env.NODE_ENV !== "production" && u.hostname === "localhost") return true;
+    return u.protocol === "https:" && !u.port && !u.username && DESTINOS.test(u.hostname);
+  } catch { return false; }
+}
+export async function lerRepasse(k: string): Promise<Repasse | null> {
+  const c = await prisma.configuracao.findUnique({ where: { chave: chaveRepasse(k) } });
+  try { return c ? JSON.parse(c.valor) : null; } catch { return null; }
+}
+export async function destinoRepasse(formulario: string) {
+  const alvo = FORMS_REPASSE.find(f => f.formulario === formulario);
+  const r = alvo && await lerRepasse(alvo.k);
+  return alvo && r?.url && urlRepasseValida(r.url) ? { k: alvo.k, url: r.url } : null;
+}
+// Só envia (não usa o banco), para poder correr junto com a gravação do lead.
+export async function enviarRepasse(url: string, corpo: string) {
+  let ok = false, detalhe = "";
+  for (let i = 0; i < 2 && !ok; i++) {
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: corpo, redirect: "error", signal: AbortSignal.timeout(8000) });
+      ok = res.ok;
+      detalhe = ok ? "" : `respondeu ${res.status}`;
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) break; // repetir não resolve
+    } catch { detalhe = "não respondeu"; }
+  }
+  return { em: new Date().toISOString(), ok, ...(detalhe ? { detalhe } : {}) };
+}
+export async function anotarRepasse(d: { k: string; url: string }, ultimo: Awaited<ReturnType<typeof enviarRepasse>>) {
+  // Só atualiza se o endereço ainda for o mesmo (pode ter sido trocado enquanto enviava).
+  await prisma.configuracao.updateMany({
+    where: { chave: chaveRepasse(d.k), valor: { contains: JSON.stringify(d.url) } },
+    data: { valor: JSON.stringify({ url: d.url, ultimo } satisfies Repasse) },
+  }).catch(() => {});
+}
 
 export const novoToken = () => randomBytes(24).toString("base64url");
 export async function tokenCerto(recebido: string) {

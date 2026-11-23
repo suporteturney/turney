@@ -145,6 +145,12 @@ export function dataDoAviso(v: unknown, agora: Date): Date {
   return brasilia.getTime() <= limite ? brasilia : utc.getTime() <= limite ? utc : agora;
 }
 
+// Nome do formulário de um aviso, mesmo quando ele não vira cartão.
+export function formularioDoAviso(corpo: unknown): string {
+  const b = obj(corpo), resp = obj(b.respondent);
+  return nomeFormulario(emTexto(obj(b.form).form_name), Object.keys(obj(resp.answers)).map(p => ({ p, r: "" })));
+}
+
 // Aviso (webhook) do Respondi.
 export function lerAvisoRespondi(corpo: unknown, agora: Date): Preenchimento | null {
   const b = obj(corpo), form = obj(b.form), resp = obj(b.respondent);

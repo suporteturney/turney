@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPilar } from "@/lib/auth";
 import { hojeISO } from "@/lib/dias-uteis";
 import { pode } from "@/lib/permissoes";
-import { CHAVE_IMPORTACAO, CHAVE_TOKEN, CHAVE_ULTIMO } from "@/lib/respondi-servidor";
+import { CHAVE_IMPORTACAO, CHAVE_TOKEN, CHAVE_ULTIMO, FORMS_REPASSE, lerRepasse } from "@/lib/respondi-servidor";
 import FormulariosCliente from "./FormulariosCliente";
 import styles from "../shared.module.css";
 
@@ -17,6 +17,11 @@ export default async function FormulariosPage() {
   const protocolo = host.startsWith("localhost") ? "http" : "https";
   const hoje = hojeISO();
   const desde = new Date(Date.parse(hoje) - 30 * 86_400_000);
+  const repasses = await Promise.all(FORMS_REPASSE.map(async f => {
+    const r = await lerRepasse(f.k);
+    // O endereço é secreto: a tela mostra só para onde vai e o final dele.
+    return { k: f.k, formulario: f.formulario, destino: r ? `${new URL(r.url).hostname} …${r.url.slice(-4)}` : null, ultimo: r?.ultimo ?? null };
+  }));
   const [conf, porForm, recentes] = await Promise.all([
     prisma.configuracao.findMany({ where: { chave: { in: [CHAVE_TOKEN, CHAVE_ULTIMO, CHAVE_IMPORTACAO] } } }),
     prisma.respostaFormulario.groupBy({ by: ["formulario", "temperatura"], where: { preenchidoEm: { gte: desde } }, _count: { _all: true } }),
@@ -31,6 +36,7 @@ export default async function FormulariosPage() {
     <FormulariosCliente
       hoje={hoje}
       url={token ? `${protocolo}://${host}/api/respondi/webhook/${token}` : null}
+      repasses={repasses}
       ultimo={ultimo ? JSON.parse(ultimo) : null}
       importacao={imp ? JSON.parse(imp) : null}
       porForm={porForm.map(x => ({ formulario: x.formulario, temperatura: x.temperatura, n: x._count._all }))}

@@ -12,8 +12,10 @@ const quando = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const br = (iso: string) => iso.split("-").reverse().join("/");
 
-export default function FormulariosCliente({ hoje, url, ultimo, importacao, porForm, recentes }: {
-  hoje: string; url: string | null; ultimo: { em: string; formulario: string | null; resultado: string } | null;
+type Repasse = { k: string; formulario: string; destino: string | null; ultimo: { em: string; ok: boolean; detalhe?: string } | null };
+
+export default function FormulariosCliente({ hoje, url, repasses, ultimo, importacao, porForm, recentes }: {
+  hoje: string; url: string | null; repasses: Repasse[]; ultimo: { em: string; formulario: string | null; resultado: string } | null;
   importacao: { em: string; por: string; formulario: string; desde: string; total: number } | null;
   porForm: { formulario: string; temperatura: string | null; n: number }[]; recentes: Recente[];
 }) {
@@ -132,7 +134,12 @@ export default function FormulariosCliente({ hoje, url, ultimo, importacao, porF
                 </li>
                 <li>No Respondi, abra o formulário e vá na aba <b>Opções</b>.</li>
                 <li>Desça até <b>Integrações</b> e clique em <b>Configurar integrações</b>.</li>
-                <li>Ligue o <b>Webhooks</b>, cole o endereço e salve.</li>
+                <li>
+                  Olhe o campo <b>Webhooks</b>. Se <b>já tiver um endereço lá</b> (do Make, por exemplo), copie e cole aqui antes de trocar.
+                  O painel passa a mandar uma cópia igual para ele, e a automação que já existia continua funcionando:
+                  {repasses.map(r => <RepasseForm key={r.k} r={r} />)}
+                </li>
+                <li>Agora sim: apague o que estiver no campo <b>Webhooks</b>, cole o endereço do passo 1 e salve.</li>
                 <li>Em <b>Quando deseja ativar as integrações?</b>, escolha <b>Ativar em respostas completas e recuperadas</b> para receber também quem não terminou (chega 1 hora depois).</li>
                 <li>Faça o mesmo no outro formulário. Não precisa mexer na planilha: ela continua recebendo normalmente.</li>
                 <li>Clique em <b>Fazer envio de teste</b> no Respondi ou preencha o formulário. O cartão aparece no funil em alguns segundos.</li>
@@ -176,5 +183,40 @@ export default function FormulariosCliente({ hoje, url, ultimo, importacao, porF
         </div>
       </div>
     </>
+  );
+}
+
+// Endereço que já estava no formulário (Make etc.): o painel manda uma cópia para ele.
+function RepasseForm({ r }: { r: Repasse }) {
+  const router = useRouter();
+  const [valor, setValor] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  async function salvar(url: string) {
+    setSalvando(true); setErro(null);
+    const res = await fetch("/api/respondi/config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ form: r.k, url }) });
+    const j = await res.json().catch(() => ({}));
+    if (res.ok) { setValor(""); router.refresh(); } else setErro(j.erro ?? "Não foi possível salvar.");
+    setSalvando(false);
+  }
+  return (
+    <form className={a.item} style={{ marginTop: 8 }} onSubmit={e => { e.preventDefault(); salvar(valor); }}>
+      <div className={a.itemTopo}>
+        <span className={`${a.status} ${!r.destino ? a.sPausa : r.ultimo && !r.ultimo.ok ? a.sErro : a.sOk}`} aria-hidden="true" />
+        <div className={a.itemNome}>
+          <b>Forms {r.formulario}</b>
+          <small>
+            {!r.destino ? "Sem cópia (deixe assim se o campo do Respondi estava vazio)"
+              : `Cópia para ${r.destino}${r.ultimo ? ` · ${r.ultimo.ok ? "último envio em" : `falhou (${r.ultimo.detalhe}) em`} ${quando(r.ultimo.em)}` : " · nenhum envio ainda"}`}
+          </small>
+        </div>
+        {r.destino && <div className={a.itemAcoes}><button type="button" className={a.btnPerigo} disabled={salvando} onClick={() => { if (window.confirm(`Parar de mandar a cópia do forms ${r.formulario}? A automação que recebia esses dados vai parar.`)) salvar(""); }}>Parar</button></div>}
+      </div>
+      <div className={a.campo} style={{ marginTop: 8 }}>
+        <input value={valor} onChange={e => setValor(e.target.value)} placeholder={r.destino ? "Cole outro endereço para trocar" : "Cole o endereço que estava no Respondi"} autoComplete="off" spellCheck={false} aria-label={`Endereço antigo do forms ${r.formulario}`} />
+      </div>
+      {erro && <p className={a.erroTxt} role="alert">{erro}</p>}
+      {valor.trim() && <button className={a.btnMini} style={{ marginTop: 8 }} disabled={salvando}>{salvando ? "Salvando…" : "Salvar"}</button>}
+    </form>
   );
 }
