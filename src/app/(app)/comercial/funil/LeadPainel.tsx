@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { NOME_RESULTADO, ORIGENS, PROGRAMAS, linkWhats, reais } from "@/lib/comercial";
+import { CORTE, NOME_TEMP, PESOS, TEMPERATURAS, criterios, notaIngles, notaInvestir, notaRenda, type Resposta } from "@/lib/respondi";
 import c from "../comercial.module.css";
+import t from "./funil.module.css";
 import { enviar, type Msg } from "../ui";
 import type { Etapa, LeadCard } from "./FunilCliente";
 
@@ -12,6 +14,8 @@ type Detalhe = {
   notas: { id: string; tipo: string; texto: string; autor: string | null; createdAt: string }[];
   calls: { id: string; titulo: string; inicio: string; resultado: string | null }[];
   vendas: { id: string; programa: string; valorCentavos: number; data: string; cancelada: boolean }[];
+  formularios: string[]; preenchidoEm: string | null; temperatura: string | null; temperaturaManual: boolean; pontuacao: number | null;
+  respostas: { id: string; formulario: string; completa: boolean; preenchidoEm: string; pontuacao: number | null; temperatura: string | null; respostas: Resposta[]; utms: Record<string, string> | null }[];
 };
 const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
@@ -54,6 +58,10 @@ export default function LeadPainel({ id, eu, hoje, equipe, etapas, onFechar, onM
     } catch (e) { onMsg({ txt: (e as Error).message, erro: true }); }
     setSalvando(false);
   }
+  async function mudarTemp(temperatura: string) {
+    try { await enviar(`/api/comercial/leads/${id}`, "PATCH", { temperatura }); await carregar(); onMudou(); }
+    catch (err) { onMsg({ txt: (err as Error).message, erro: true }); }
+  }
   async function anotar(e: React.FormEvent) {
     e.preventDefault();
     if (!nota.trim()) return;
@@ -68,10 +76,12 @@ export default function LeadPainel({ id, eu, hoje, equipe, etapas, onFechar, onM
 
   const etapa = etapas.find(e => e.id === d?.etapaId);
   const whats = linkWhats(d?.whatsapp);
+  const principal = d?.respostas.find(x => x.completa) ?? d?.respostas[0];
   const ig = d?.instagram?.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/.*$/, "");
   const card = (): LeadCard => ({
     id: d!.id, nome: d!.nome, whatsapp: d!.whatsapp, email: d!.email, instagram: d!.instagram, origem: d!.origem, programa: d!.programa, valor: d!.valorCentavos,
     responsavel: d!.responsavel, etapaId: d!.etapaId, etapaEm: d!.etapaEm, proximoPasso: d!.proximoPasso, proximoPassoEm: d!.proximoPassoEm, motivoPerda: d!.motivoPerda,
+    formularios: d!.formularios, preenchido: d!.preenchidoEm, temperatura: d!.temperatura, pontuacao: d!.pontuacao, incompleto: false,
   });
 
   return (
@@ -114,6 +124,47 @@ export default function LeadPainel({ id, eu, hoje, equipe, etapas, onFechar, onM
                   <label className={c.campo}>Quando<input type="date" value={v.proximoPassoEm} onChange={set("proximoPassoEm")} min={hoje} /></label>
                   <button className={c.btnPrim} disabled={salvando}>Salvar</button>
                 </form>
+              </section>
+            )}
+            <section>
+              <h3 className={c.subTitulo}>Temperatura</h3>
+              <div className={t.escolha}>
+                {TEMPERATURAS.map(x => (
+                  <button key={x.k} className={`${t.tempBtn} ${t[x.k]} ${d.temperatura === x.k ? t.tempOn : ""}`} aria-pressed={d.temperatura === x.k} onClick={() => mudarTemp(x.k)}>{x.icone} {x.label}</button>
+                ))}
+                {d.temperaturaManual && d.respostas.length > 0 && <button className={c.btnMini} onClick={() => mudarTemp("auto")}>Voltar para a do formulário</button>}
+              </div>
+              {principal && (() => {
+                const k = criterios(principal.respostas);
+                const linhas = [
+                  { l: "Renda atual", r: k.renda, n: notaRenda(k.renda), p: PESOS.renda },
+                  { l: "Disposição a investir", r: k.investir, n: notaInvestir(k.investir), p: PESOS.investir },
+                  { l: "Inglês", r: k.ingles, n: notaIngles(k.ingles), p: PESOS.ingles },
+                ];
+                return (
+                  <>
+                    <ul className={t.porque}>
+                      {linhas.map(x => <li key={x.l}><span>{x.l}</span><b>{x.r ?? "não respondeu"}</b><small className={c.num}>{Math.round((x.n ?? 0) * x.p)}/{x.p}</small></li>)}
+                    </ul>
+                    <p className={c.nota}>
+                      {principal.pontuacao === null ? "Sem respostas para classificar." : `${principal.pontuacao} pontos de 100. Quente a partir de ${CORTE.quente}, morno a partir de ${CORTE.morno}.`}
+                      {principal.pontuacao !== null && principal.pontuacao >= CORTE.quente && !notaInvestir(k.investir) && " Fica em morno porque não disse que está disposta a investir."}
+                      {d.temperaturaManual && ` A temperatura foi escolhida à mão${principal.temperatura ? ` (pelo formulário seria ${NOME_TEMP[principal.temperatura]})` : ""}.`}
+                    </p>
+                  </>
+                );
+              })()}
+            </section>
+            {d.respostas.length > 0 && (
+              <section>
+                <h3 className={c.subTitulo}>Respostas do formulário</h3>
+                {d.respostas.map((x, i) => (
+                  <details key={x.id} className={t.respostas} open={i === 0}>
+                    <summary><b>Forms {x.formulario}</b> · {quando(x.preenchidoEm)}{x.completa ? "" : " · não terminou"}</summary>
+                    <dl>{x.respostas.map(y => <div key={y.p}><dt>{y.p}</dt><dd>{y.r}</dd></div>)}</dl>
+                    {x.utms && <p className={c.nota}>Veio de: {Object.entries(x.utms).map(([a, b]) => `${a.replace("utm_", "")} ${b}`).join(" · ")}</p>}
+                  </details>
+                ))}
               </section>
             )}
             {d.vendas.length > 0 && (

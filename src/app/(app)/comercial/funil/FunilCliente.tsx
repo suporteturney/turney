@@ -2,20 +2,25 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
-import { ORIGENS, PROGRAMAS, duracaoPadrao, reais } from "@/lib/comercial";
+import { ORIGENS, PROGRAMAS, duracaoPadrao, linkWhats, reais } from "@/lib/comercial";
+import { FORM_HUB, FORM_PRE, NOME_TEMP, ORDEM_TEMP, TEMPERATURAS } from "@/lib/respondi";
 import styles from "../../shared.module.css";
 import f from "../../filtros.module.css";
 import p from "../../pipeline/pipeline.module.css";
 import c from "../comercial.module.css";
 import { Aviso, ErroApi, FecharVenda, Janela, MotivoPerda, enviar, type DadosVenda, type Msg } from "../ui";
 import LeadPainel from "./LeadPainel";
+import PeriodoCalendario, { type Periodo } from "./PeriodoCalendario";
+import t from "./funil.module.css";
 
 export type Etapa = { id: string; nome: string; tipo: string };
 export type LeadCard = {
   id: string; nome: string; whatsapp: string | null; email: string | null; instagram: string | null; origem: string | null; programa: string | null;
   valor: number | null; responsavel: string | null; etapaId: string; etapaEm: string;
   proximoPasso: string | null; proximoPassoEm: string | null; motivoPerda: string | null;
+  formularios: string[]; preenchido: string | null; temperatura: string | null; pontuacao: number | null; incompleto: boolean; // preenchido: "AAAA-MM-DD HH:mm" de Brasília
 };
+const POR_COLUNA = 40;
 
 const br = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 export const vendaDoLead = (l: LeadCard, eu: string, hoje: string): DadosVenda => ({
@@ -24,8 +29,9 @@ export const vendaDoLead = (l: LeadCard, eu: string, hoje: string): DadosVenda =
   data: hoje, origem: l.origem ?? "", inicio: hoje, duracao: String(duracaoPadrao(l.programa ?? "")), combinados: "",
 });
 
-export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads: leadsIni, leadInicial, novoInicial }: {
+export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads: leadsIni, leadInicial, novoInicial, periodoInicial, tempInicial }: {
   eu: string; hoje: string; equipe: string[]; gestora: boolean; etapas: Etapa[]; leads: LeadCard[]; leadInicial: string | null; novoInicial: boolean;
+  periodoInicial: Periodo | null; tempInicial: string;
 }) {
   const router = useRouter();
   const [leads, setLeads] = useState(leadsIni);
@@ -34,6 +40,10 @@ export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads:
   const [busca, setBusca] = useState("");
   const [resp, setResp] = useState("");
   const [prog, setProg] = useState("");
+  const [temp, setTemp] = useState(tempInicial);
+  const [form, setForm] = useState("");
+  const [periodo, setPeriodo] = useState<Periodo | null>(periodoInicial);
+  const [limite, setLimite] = useState<Record<string, number>>({});
   const [aberto, setAberto] = useState<string | null>(leadInicial);
   const [novo, setNovo] = useState<string | null>(novoInicial ? "" : null); // id da etapa ("" = primeira)
   const [gerenciar, setGerenciar] = useState(false);
@@ -44,12 +54,28 @@ export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads:
   const [msg, setMsg] = useState<Msg>(null);
   const fecharMsg = useCallback(() => setMsg(null), []);
 
-  const filtrados = useMemo(() => {
+  // O período vai para o endereço: o servidor traz também os fechados e perdidos daquelas datas.
+  function mudarPeriodo(p2: Periodo | null) {
+    setPeriodo(p2); setLimite({});
+    router.replace(p2 ? `/comercial/funil?de=${p2.de}&ate=${p2.ate}` : "/comercial/funil", { scroll: false });
+  }
+  const forms = useMemo(() => [...new Set([FORM_HUB, FORM_PRE, ...leads.flatMap(l => l.formularios)])], [leads]);
+  // Tudo menos a temperatura: é o que alimenta os números de quente, morno e frio.
+  const semTemp = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return leads.filter(l =>
+      (!form || (form === "-" ? !l.formularios.length : l.formularios.includes(form))) &&
+      (!periodo || (!!l.preenchido && l.preenchido.slice(0, 10) >= periodo.de && l.preenchido.slice(0, 10) <= periodo.ate)) &&
       (!resp || (resp === "-" ? !l.responsavel : l.responsavel === resp)) && (!prog || l.programa === prog) &&
       (!q || [l.nome, l.email, l.instagram, l.whatsapp].some(x => x?.toLowerCase().includes(q))));
-  }, [leads, busca, resp, prog]);
+  }, [leads, busca, resp, prog, form, periodo]);
+  // Com próximo passo marcado primeiro (pela data); depois os mais quentes e, entre eles, os mais recentes.
+  const filtrados = useMemo(() => semTemp.filter(l => !temp || (temp === "-" ? !l.temperatura : l.temperatura === temp)).sort((a, b) =>
+    (a.proximoPassoEm ?? "9").localeCompare(b.proximoPassoEm ?? "9") ||
+    (ORDEM_TEMP[a.temperatura ?? ""] ?? 3) - (ORDEM_TEMP[b.temperatura ?? ""] ?? 3) ||
+    (b.preenchido ?? b.etapaEm).localeCompare(a.preenchido ?? a.etapaEm)), [semTemp, temp]);
+  const conta = (k: string) => semTemp.filter(l => (k === "-" ? !l.temperatura : l.temperatura === k)).length;
+  const filtrando = !!(busca || resp || prog || temp || form || periodo);
   const abertas = filtrados.filter(l => etapas.find(e => e.id === l.etapaId)?.tipo === "aberta");
   const emJogo = abertas.reduce((n, l) => n + (l.valor ?? 0), 0);
 
@@ -76,6 +102,7 @@ export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads:
   }
 
   const card = (l: LeadCard, tipo: string) => {
+    const whats = linkWhats(l.whatsapp);
     const cls = !l.proximoPassoEm ? c.passoFalta : l.proximoPassoEm < hoje ? c.passoAtrasado : l.proximoPassoEm === hoje ? c.passoHoje : "";
     return (
       <article
@@ -85,9 +112,17 @@ export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads:
         onDragStart={e => { e.dataTransfer.setData("text/plain", l.id); e.dataTransfer.effectAllowed = "move"; setArrastando(l.id); }}
         onDragEnd={() => { setArrastando(null); setSobre(null); }}
       >
+        {(l.temperatura || l.preenchido) && (
+          <div className={t.topoCard}>
+            {l.temperatura && <span className={`${t.temp} ${t[l.temperatura]}`}>{NOME_TEMP[l.temperatura]}</span>}
+            {l.preenchido && <time className={t.quando} dateTime={l.preenchido} title={`Preencheu em ${br(l.preenchido)} às ${l.preenchido.slice(11)}`}>{br(l.preenchido).slice(0, 5)} {l.preenchido.slice(11)}</time>}
+          </div>
+        )}
         <button className={c.nomeBtn} onClick={() => setAberto(l.id)}>{l.nome}</button>
-        {(l.programa || l.origem) && (
+        {(l.programa || l.origem || l.formularios.length > 0) && (
           <div className={p.tags}>
+            {l.formularios.map(x => <span key={x} className={`${t.form} ${x === FORM_HUB ? t.formHub : ""}`}>Forms {x}</span>)}
+            {l.incompleto && <span className={t.incompleto} title="A pessoa não terminou o formulário">incompleto</span>}
             {l.programa && <span className={p.tipo}>{l.programa}</span>}
             {l.origem && <span className={p.tempo}>{l.origem}</span>}
           </div>
@@ -100,6 +135,9 @@ export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads:
           </div>
         )}
         {tipo === "perdido" && l.motivoPerda && <div className={c.passo}>{l.motivoPerda}</div>}
+        {whats && tipo !== "ganho" && (
+          <a className={`${c.whats} ${t.whatsCard}`} href={whats} target="_blank" rel="noreferrer" draggable={false}>Chamar no WhatsApp</a>
+        )}
         <div className={c.rodape}>
           <span className={`${c.valorCard} ${c.num}`}>{l.valor ? reais(l.valor) : ""}</span>
           {l.responsavel && <Avatar nome={l.responsavel} tamanho={20} />}
@@ -133,9 +171,26 @@ export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads:
             {equipe.map(n => <option key={n} value={n}>{n === eu ? "Meus leads" : n}</option>)}
             <option value="-">Sem responsável</option>
           </select>
+          <select className={f.select} value={form} onChange={e => setForm(e.target.value)} aria-label="Formulário">
+            <option value="">Todos os formulários</option>
+            {forms.map(x => <option key={x} value={x}>Forms {x}</option>)}
+            <option value="-">Cadastrados à mão</option>
+          </select>
+          <PeriodoCalendario valor={periodo} hoje={hoje} onMudar={mudarPeriodo} />
           <select className={f.select} value={prog} onChange={e => setProg(e.target.value)} aria-label="Programa">
             <option value="">Todos os programas</option>{PROGRAMAS.map(x => <option key={x}>{x}</option>)}
           </select>
+          {filtrando && <button className={f.clear} onClick={() => { setBusca(""); setResp(""); setProg(""); setTemp(""); setForm(""); if (periodo) mudarPeriodo(null); }}>Limpar filtros</button>}
+        </div>
+        <div className={t.temps} role="group" aria-label="Temperatura">
+          <button className={`${t.tempBtn} ${!temp ? t.tempOn : ""}`} aria-pressed={!temp} onClick={() => setTemp("")}>Todos <b>{semTemp.length}</b></button>
+          {TEMPERATURAS.map(x => (
+            <button key={x.k} className={`${t.tempBtn} ${t[x.k]} ${temp === x.k ? t.tempOn : ""}`} aria-pressed={temp === x.k} onClick={() => setTemp(temp === x.k ? "" : x.k)}>
+              {x.icone} {x.label}s <b>{conta(x.k)}</b>
+            </button>
+          ))}
+          {conta("-") > 0 && <button className={`${t.tempBtn} ${temp === "-" ? t.tempOn : ""}`} aria-pressed={temp === "-"} onClick={() => setTemp(temp === "-" ? "" : "-")}>Sem classificação <b>{conta("-")}</b></button>}
+          {periodo && <span className={t.resumo}>preenchidos {periodo.de === periodo.ate ? `em ${br(periodo.de)}` : `de ${br(periodo.de)} a ${br(periodo.ate)}`}</span>}
         </div>
         <div className={p.board}>
           {etapas.map(e => {
@@ -152,10 +207,15 @@ export default function FunilCliente({ eu, hoje, equipe, gestora, etapas, leads:
               >
                 <header className={p.colHead}>
                   <div className={p.colNome}><span>{e.nome}</span><span className={p.colCount}>{lista.length}</span></div>
-                  <span className={c.somaCol}>{soma ? reais(soma) : e.tipo === "aberta" ? "" : "últimos 45 dias"}</span>
+                  <span className={c.somaCol}>{soma ? reais(soma) : e.tipo === "aberta" ? "" : periodo ? "no período" : "últimos 45 dias"}</span>
                 </header>
                 <div className={p.colBody}>
-                  {lista.map(l => card(l, e.tipo))}
+                  {lista.slice(0, limite[e.id] ?? POR_COLUNA).map(l => card(l, e.tipo))}
+                  {lista.length > (limite[e.id] ?? POR_COLUNA) && (
+                    <button className={c.btnMini} onClick={() => setLimite(x => ({ ...x, [e.id]: (x[e.id] ?? POR_COLUNA) + POR_COLUNA }))}>
+                      Mostrar mais ({lista.length - (limite[e.id] ?? POR_COLUNA)})
+                    </button>
+                  )}
                   {!lista.length && <p className={p.vazio}>{e.tipo === "ganho" ? "Arraste para cá quando fechar" : "Nenhum lead"}</p>}
                   {e.tipo === "aberta" && <button className={c.btnMini} onClick={() => setNovo(e.id)}>+ Lead</button>}
                 </div>

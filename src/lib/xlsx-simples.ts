@@ -45,9 +45,9 @@ export function lerXlsx(buf: Buffer): string[][] {
     ? [...zip.get("xl/sharedStrings.xml")!.toString("utf8").matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m => textos(m[1]))
     : [];
   const linhas: string[][] = [];
-  for (const r of folha.toString("utf8").matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const r of folha.toString("utf8").matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
     const linha: string[] = [];
-    for (const c of r[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const c of (r[1] ?? "").matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = c[1], corpo = c[2] ?? "";
       const ref = attrs.match(/\br="([A-Z]+\d+)"/)?.[1];
       const tipo = attrs.match(/\bt="([^"]+)"/)?.[1];

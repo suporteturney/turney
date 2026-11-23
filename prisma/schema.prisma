@@ -75,20 +75,20 @@ model Sessao {
 // ---------------------------------------------------------------------------
 
 model Mentorada {
-  id   String @id @default(cuid())
+  id     String  @id @default(cuid())
   // Código legado do HTML (ex: NX001, AT001)
   codigo String? @unique
 
-  nome      String
-  email     String?
-  whatsapp  String?
-  tipo      String  // Nexus | Atlas | ...
-  status    String  // Ativo | Encerrado | Churn | Em Renovação | Congelado
-  saude     String? // Ativo | Risco | Crítico | Encerrado
+  nome     String
+  email    String?
+  whatsapp String?
+  tipo     String // Nexus | Atlas | ...
+  status   String // Ativo | Encerrado | Churn | Em Renovação | Congelado
+  saude    String? // Ativo | Risco | Crítico | Encerrado
 
   inicio  DateTime?
   prazo   DateTime?
-  duracao Int?      // meses
+  duracao Int? // meses
 
   area            String?
   localizacao     String?
@@ -109,43 +109,43 @@ model Mentorada {
   pipelineFase   PipelineFase? @relation(fields: [pipelineFaseId], references: [id], onDelete: SetNull)
   pipelineFaseEm DateTime?
 
-  linkedin     String?
-  drive        String?
-  asana        String?
-  disc         String?
-  mesesAntes   Int?
-  cancelamento DateTime?
+  linkedin           String?
+  drive              String?
+  asana              String?
+  disc               String?
+  mesesAntes         Int?
+  cancelamento       DateTime?
   congelamentoPedido DateTime? // quando a mentorada pediu o congelamento
   congelamentoAte    DateTime? // até quando vai o congelamento
-  congelamentoMotivo String?   // por que a mentorada congelou
-  vagaCargo    String?
-  vagaEmpresa  String?
-  vagaData     DateTime?
-  renovacaoStatus String? // Não iniciado | Call ofertada | Call agendada | Follow-up | Sem perspectiva
-  negociacao   String?
-  negociacaoEm DateTime?
-  saudeMotivo   String?
-  saudeMotivoEm DateTime?
-  saudeNota      Int?      // nota calculada 0-100 (src/lib/saude.ts)
-  saudeCalculada String?   // nível que o cálculo indica
-  saudeDetalhe   Json?     // notas de cada parte do cálculo
-  saudeAjusteEm  DateTime? // ajuste manual da saúde (vale até a próxima varredura)
+  congelamentoMotivo String? // por que a mentorada congelou
+  vagaCargo          String?
+  vagaEmpresa        String?
+  vagaData           DateTime?
+  renovacaoStatus    String? // Não iniciado | Call ofertada | Call agendada | Follow-up | Sem perspectiva
+  negociacao         String?
+  negociacaoEm       DateTime?
+  saudeMotivo        String?
+  saudeMotivoEm      DateTime?
+  saudeNota          Int? // nota calculada 0-100 (src/lib/saude.ts)
+  saudeCalculada     String? // nível que o cálculo indica
+  saudeDetalhe       Json? // notas de cada parte do cálculo
+  saudeAjusteEm      DateTime? // ajuste manual da saúde (vale até a próxima varredura)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  etapas    Etapa[]
-  presencas Presenca[]
+  etapas          Etapa[]
+  presencas       Presenca[]
   acompanhamentos Acompanhamento[]
-  observacoes Observacao[]
-  renovacoes  Renovacao[]
-  varreduraItens VarreduraItem[]
-  saudeRegistros SaudeRegistro[]
-  tarefas     Tarefa[]
-  eventosAgenda EventoAgenda[]
-  eventosHubla  EventoHubla[]
-  consumoHubla  ConsumoHubla[]
-  vendas        Venda[]
+  observacoes     Observacao[]
+  renovacoes      Renovacao[]
+  varreduraItens  VarreduraItem[]
+  saudeRegistros  SaudeRegistro[]
+  tarefas         Tarefa[]
+  eventosAgenda   EventoAgenda[]
+  eventosHubla    EventoHubla[]
+  consumoHubla    ConsumoHubla[]
+  vendas          Venda[]
 }
 
 // Etapas do Kanban (Pipeline), criadas e excluídas pela equipe.
@@ -154,8 +154,8 @@ model PipelineFase {
   id              String   @id @default(cuid())
   nome            String
   ordem           Int
-  tarefaTexto     String?  // ex: "Enviar o roadmap"
-  tarefaDiasUteis Int?     // prazo contado a partir da data em que entrou na etapa
+  tarefaTexto     String? // ex: "Enviar o roadmap"
+  tarefaDiasUteis Int? // prazo contado a partir da data em que entrou na etapa
   createdAt       DateTime @default(now())
 
   mentoradas Mentorada[]
@@ -164,19 +164,19 @@ model PipelineFase {
 
 // Tarefas da equipe (criadas à mão ou automáticas pelo Pipeline).
 model Tarefa {
-  id           String     @id @default(cuid())
+  id           String        @id @default(cuid())
   titulo       String
   prazo        DateTime
   mentoradaId  String?
-  mentorada    Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
-  faseId       String?    // etapa do Pipeline que criou a tarefa automática
+  mentorada    Mentorada?    @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  faseId       String? // etapa do Pipeline que criou a tarefa automática
   fase         PipelineFase? @relation(fields: [faseId], references: [id], onDelete: SetNull)
-  automatica   Boolean    @default(false)
-  responsavel  String?    // nome de quem vai fazer (vazio = quem cuida da mentorada)
+  automatica   Boolean       @default(false)
+  responsavel  String? // nome de quem vai fazer (vazio = quem cuida da mentorada)
   criadaPor    String?
   concluidaEm  DateTime?
   concluidaPor String?
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime      @default(now())
 
   @@index([concluidaEm, prazo])
   @@index([mentoradaId])
@@ -197,16 +197,16 @@ model Observacao {
 }
 
 model Renovacao {
-  id          String    @id @default(cuid())
-  mentoradaId String
-  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
-  acao        String    // RENOVAÇÃO | UPGRADE | DOWNGRADE | CROSS
-  destino     String
-  data        DateTime
-  novoPrazo   DateTime?
+  id               String    @id @default(cuid())
+  mentoradaId      String
+  mentorada        Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  acao             String // RENOVAÇÃO | UPGRADE | DOWNGRADE | CROSS
+  destino          String
+  data             DateTime
+  novoPrazo        DateTime?
   programaAnterior String?
-  obs         String?
-  createdAt   DateTime  @default(now())
+  obs              String?
+  createdAt        DateTime  @default(now())
 
   @@index([mentoradaId])
 }
@@ -216,8 +216,8 @@ model Etapa {
   mentoradaId String
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
   programa    String    @default("") // programa da jornada a que a etapa pertence (muda no upgrade)
-  nome        String    // onboarding | sessao | correcao | analise | entrevista | devolutiva | extra:<id> ...
-  titulo      String?   // nome exibido dos encontros extras personalizados
+  nome        String // onboarding | sessao | correcao | analise | entrevista | devolutiva | extra:<id> ...
+  titulo      String? // nome exibido dos encontros extras personalizados
   obs         String?
   data        DateTime?
   createdAt   DateTime  @default(now())
@@ -230,7 +230,7 @@ model Presenca {
   id          String    @id @default(cuid())
   mentoradaId String
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
-  encontro    String    // chave do encontro (ex: e1, e2, ...)
+  encontro    String // chave do encontro (ex: e1, e2, ...)
   presente    Boolean   @default(false)
   data        DateTime?
   createdAt   DateTime  @default(now())
@@ -240,20 +240,20 @@ model Presenca {
 }
 
 model Acompanhamento {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   mentoradaId String
-  mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
+  mentorada   Mentorada  @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
   data        DateTime
   tipo        String?
-  marco       Boolean   @default(false)
+  marco       Boolean    @default(false)
   marcoTitulo String?
   texto       String
   autor       String?
   varreduraId String?
   varredura   Varredura? @relation(fields: [varreduraId], references: [id], onDelete: Cascade)
-  fixado      Boolean   @default(false)
+  fixado      Boolean    @default(false)
   documento   Documento?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime   @default(now())
 
   @@index([mentoradaId])
   @@index([varreduraId])
@@ -295,7 +295,7 @@ model VarreduraItem {
   mentoradaId      String?
   mentorada        Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
   nome             String
-  banda            String     // vermelho | amarelo | verde
+  banda            String // vermelho | amarelo | verde
   tag              String?
   etapa            String?
   status           String?
@@ -321,7 +321,7 @@ model SaudeRegistro {
   mentorada   Mentorada @relation(fields: [mentoradaId], references: [id], onDelete: Cascade)
   saude       String
   motivo      String?
-  origem      String    // inicial | cadastro | varredura | importacao | calculo
+  origem      String // inicial | cadastro | varredura | importacao | calculo
   data        DateTime  @default(now())
 
   @@index([mentoradaId, data])
@@ -331,14 +331,14 @@ model SaudeRegistro {
 // Agendas do Google lidas pelo painel (link iCal secreto de cada agenda).
 model AgendaFonte {
   id            String    @id @default(cuid())
-  nome          String    // de quem é a agenda (ex.: Amanda Dutra)
-  email         String?   // e-mail da dona da agenda (para não confundir com o da mentorada)
-  url           String    // link iCal secreto — nunca mostrar inteiro na tela
+  nome          String // de quem é a agenda (ex.: Amanda Dutra)
+  email         String? // e-mail da dona da agenda (para não confundir com o da mentorada)
+  url           String // link iCal secreto — nunca mostrar inteiro na tela
   pilar         String    @default("posvenda") // posvenda | comercial: onde os compromissos aparecem
   ativo         Boolean   @default(true)
   ultimaLeitura DateTime?
   ultimoErro    String?
-  eventos       Int?      // quantos encontros vieram na última leitura
+  eventos       Int? // quantos encontros vieram na última leitura
   criadaPor     String?
   createdAt     DateTime  @default(now())
 }
@@ -346,14 +346,14 @@ model AgendaFonte {
 // Encontros da agenda (janela de algumas semanas para trás e para frente), relidos a cada sincronização.
 model EventoAgenda {
   id          String     @id @default(cuid())
-  agenda      String     // nome de quem é a agenda
+  agenda      String // nome de quem é a agenda
   pilar       String     @default("posvenda")
-  uid         String     // UID do Google (+ ocorrência)
+  uid         String // UID do Google (+ ocorrência)
   titulo      String
   inicio      DateTime
   fim         DateTime?
-  tipo        String     // individual | grupo | onboarding | pessoal | outro | call (agendas do Comercial)
-  link        String?    // Google Meet
+  tipo        String // individual | grupo | onboarding | pessoal | outro | call (agendas do Comercial)
+  link        String? // Google Meet
   convidados  Int        @default(0)
   mentoradaId String?
   mentorada   Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
@@ -369,8 +369,8 @@ model TipoEncontroManual {
   id        String   @id @default(cuid())
   escopo    String
   chave     String
-  tipo      String   // individual | grupo | onboarding | pessoal | outro
-  titulo    String   // título como estava na agenda (para mostrar)
+  tipo      String // individual | grupo | onboarding | pessoal | outro
+  titulo    String // título como estava na agenda (para mostrar)
   criadaPor String?
   createdAt DateTime @default(now())
 
@@ -390,7 +390,7 @@ model Configuracao {
 model EventoHubla {
   id          String     @id @default(cuid())
   chave       String     @unique // evita duplicar o mesmo aviso (a Hubla manda um por oferta)
-  tipo        String     // acesso_liberado | acesso_removido | modulo_concluido | curso_concluido
+  tipo        String // acesso_liberado | acesso_removido | modulo_concluido | curso_concluido
   email       String
   nome        String?
   produtoId   String?
@@ -414,7 +414,7 @@ model ConsumoHubla {
   nome          String?
   modulo        String
   conteudo      String
-  tipo          String     // Video, Publicação, Ebook, Live gravada, Imagem, Live
+  tipo          String // Video, Publicação, Ebook, Live gravada, Imagem, Live
   visualizacoes Int        @default(0)
   conclusao     Int        @default(0) // 0 a 100
   primeiro      DateTime?
@@ -441,31 +441,56 @@ model FunilEtapa {
 }
 
 model Lead {
-  id              String     @id @default(cuid())
-  nome            String
-  whatsapp        String?
-  email           String?
-  instagram       String?
-  origem          String?
-  programa        String? // programa de interesse
-  valorCentavos   Int? // valor estimado da proposta
-  responsavel     String? // nome de quem está atendendo
-  etapaId         String
-  etapa           FunilEtapa @relation(fields: [etapaId], references: [id], onDelete: Restrict)
-  etapaEm         DateTime   @default(now())
-  proximoPasso    String?
-  proximoPassoEm  DateTime?
-  motivoPerda     String?
-  obs             String?
-  criadoPor       String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  notas           LeadNota[]
-  calls           Call[]
-  vendas          Venda[]
+  id                String               @id @default(cuid())
+  nome              String
+  whatsapp          String?
+  email             String?
+  instagram         String?
+  origem            String?
+  programa          String? // programa de interesse
+  valorCentavos     Int? // valor estimado da proposta
+  responsavel       String? // nome de quem está atendendo
+  etapaId           String
+  etapa             FunilEtapa           @relation(fields: [etapaId], references: [id], onDelete: Restrict)
+  etapaEm           DateTime             @default(now())
+  proximoPasso      String?
+  proximoPassoEm    DateTime?
+  motivoPerda       String?
+  obs               String?
+  criadoPor         String?
+  // Vindo dos formulários (Respondi): quais, quando preencheu pela última vez e se é quente, morno ou frio.
+  formularios       String[]             @default([])
+  preenchidoEm      DateTime?
+  temperatura       String? // quente | morno | frio
+  temperaturaManual Boolean              @default(false) // escolhida à mão: novos preenchimentos não mudam
+  pontuacao         Int? // 0 a 100
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  notas             LeadNota[]
+  calls             Call[]
+  vendas            Venda[]
+  respostas         RespostaFormulario[]
 
   @@index([etapaId])
   @@index([responsavel])
+  @@index([preenchidoEm])
+}
+
+// Cada preenchimento de formulário (Respondi) ligado ao lead.
+model RespostaFormulario {
+  id           String   @id // código da resposta no Respondi
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  formulario   String // HUB | Pré Mentoria | nome do formulário
+  completa     Boolean  @default(true)
+  preenchidoEm DateTime
+  pontuacao    Int?
+  temperatura  String?
+  respostas    Json // [{ p: pergunta, r: resposta }]
+  utms         Json?
+  createdAt    DateTime @default(now())
+
+  @@index([leadId, preenchidoEm])
 }
 
 // Histórico do lead: anotações e movimentos.

@@ -65,6 +65,7 @@ const MENU_ADMIN = {
     { href: "/equipe", label: "Equipe", icon: "shield" },
     { href: "/agendas", label: "Agendas", icon: "calendar" },
     { href: "/hubla", label: "Hubla", icon: "layers" },
+    { href: "/formularios", label: "Formulários", icon: "file" },
     { href: "/atividades", label: "Atividades", icon: "list" },
   ],
 };

@@ -50,5 +50,5 @@ export function fimDoContrato(inicio: string, meses: number) {
 }
 export const linkWhats = (n: string | null | undefined) => {
   const d = (n ?? "").replace(/\D/g, "");
-  return d ? `https://wa.me/${d.length <= 11 ? `55${d}` : d}` : null;
+  return d ? `https://wa.me/${d.length <= 11 && !n!.trim().startsWith("+") ? `55${d}` : d}` : null;
 };

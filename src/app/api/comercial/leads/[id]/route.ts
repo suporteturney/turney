@@ -5,6 +5,7 @@ import { registrarAtividade } from "@/lib/atividade";
 import { centavos } from "@/lib/comercial";
 import { dataOuNula, erro, nomeCompleto, semSenha, texto } from "@/lib/comercial-servidor";
 import { pode } from "@/lib/permissoes";
+import { TEMPERATURAS } from "@/lib/respondi";
 import { whatsappComDDI } from "@/lib/whatsapp";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -17,6 +18,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     include: {
       notas: { orderBy: { createdAt: "desc" } },
       calls: { orderBy: { inicio: "desc" }, select: { id: true, titulo: true, inicio: true, resultado: true, responsavel: true } },
+      respostas: { orderBy: { preenchidoEm: "desc" }, select: { id: true, formulario: true, completa: true, preenchidoEm: true, pontuacao: true, temperatura: true, respostas: true, utms: true } },
       vendas: { orderBy: { data: "desc" }, select: { id: true, programa: true, valorCentavos: true, data: true, cancelada: true, passagem: true } },
     },
   });
@@ -45,6 +47,19 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if ("proximoPasso" in b) data.proximoPasso = texto(b.proximoPasso);
   if ("proximoPassoEm" in b) data.proximoPassoEm = dataOuNula(b.proximoPassoEm);
   if ("obs" in b) data.obs = texto(b.obs, 4000);
+
+  // Temperatura escolhida à mão; "auto" volta para a do último formulário.
+  if ("temperatura" in b) {
+    if (b.temperatura === "auto") {
+      const ultima = await prisma.respostaFormulario.findFirst({ where: { leadId: id }, orderBy: [{ completa: "desc" }, { preenchidoEm: "desc" }] });
+      data.temperatura = ultima?.temperatura ?? null;
+      data.pontuacao = ultima?.pontuacao ?? null;
+      data.temperaturaManual = false;
+    } else if (TEMPERATURAS.some(t => t.k === b.temperatura)) {
+      data.temperatura = b.temperatura;
+      data.temperaturaManual = true;
+    } else return erro("Escolha quente, morno ou frio.");
+  }
 
   let nota: string | null = null;
   if (typeof b.etapaId === "string" && b.etapaId !== atual.etapaId) {
