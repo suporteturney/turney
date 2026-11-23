@@ -14,6 +14,11 @@ const SERIES = [
   { k: "frio", label: "Frios", icone: "❄️", cor: "var(--a-frio)" },
   { k: "sem", label: "Sem classificação", icone: "", cor: "var(--a-sem)" },
 ] as const;
+const ABAS = [
+  { k: "resposta", label: "Resposta", nota: "Como a pessoa respondeu “onde nos conheceu” no formulário." },
+  { k: "source", label: "utm_source", nota: "Pelo link que a pessoa usou (utm_source). Em verde, as fontes com mais quentes que a média." },
+  { k: "campaign", label: "utm_campaign", nota: "Pelo link que a pessoa usou (utm_campaign). Em verde, as campanhas com mais quentes que a média." },
+] as const;
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 const fmt = (n: number) => n.toLocaleString("pt-BR");
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -49,7 +54,10 @@ export default function Aplicacoes({ r, hoje, inicio }: { r: ResumoAplicacoes; h
   const max = topo(Math.max(1, ...r.serie.map(b => b.quente + b.morno + b.frio + b.sem)));
   const temSem = r.serie.some(b => b.sem > 0);
   const series = SERIES.filter(x => x.k !== "sem" || temSem);
-  const maxOrigem = Math.max(1, ...r.origens.map(o => o.total));
+  const [aba, setAba] = useState<"resposta" | "source" | "campaign">("resposta");
+  const lista: { nome: string; total: number; quentes: number; naoTerminaram?: number }[] =
+    aba === "source" ? r.utmSource : aba === "campaign" ? r.utmCampaign : r.origens;
+  const maxOrigem = Math.max(1, ...lista.map(o => o.total));
   const passoNome = r.passo === "dia" ? "por dia" : r.passo === "semana" ? "por semana" : "por mês";
 
   return (
@@ -154,20 +162,29 @@ export default function Aplicacoes({ r, hoje, inicio }: { r: ResumoAplicacoes; h
           </div>
 
           <div className={s.lado}>
-            <h3 className={c.subTitulo}>De onde vieram</h3>
+            <div className={s.ladoTopo}>
+              <h3 className={c.subTitulo}>De onde vieram</h3>
+              <div className={s.abas} role="tablist" aria-label="Ver origem por">
+                {ABAS.map(x => <button key={x.k} role="tab" aria-selected={aba === x.k} className={aba === x.k ? s.abaOn : ""} onClick={() => setAba(x.k)}>{x.label}</button>)}
+              </div>
+            </div>
+            <p className={s.abaNota}>{ABAS.find(x => x.k === aba)!.nota}</p>
             <ol className={s.origens}>
-              {r.origens.slice(0, 12).map(o => (
+              {lista.slice(0, 12).map(o => (
                 <li key={o.nome}>
                   <div className={s.origemTopo}>
                     <b>{o.nome}</b>
                     <span className={c.num}>{fmt(o.total)} <small>· {pct(o.total, r.total)}%</small></span>
                   </div>
                   <div className={s.trilho}><span style={{ width: `${(o.total / maxOrigem) * 100}%` }} /></div>
-                  <small className={s.origemQuali}>{fmt(o.quentes)} {o.quentes === 1 ? "qualificado" : "qualificados"} · {pct(o.quentes, o.total)}% de quentes</small>
+                  <small className={s.origemQuali}>
+                    {fmt(o.quentes)} {o.quentes === 1 ? "qualificado" : "qualificados"} · <b className={pct(o.quentes, o.total) >= quali && o.total >= 5 ? s.bom : ""}>{pct(o.quentes, o.total)}% de quentes</b>
+                    {!!o.naoTerminaram && <> · {fmt(o.naoTerminaram)} não terminaram</>}
+                  </small>
                 </li>
               ))}
             </ol>
-            {r.origens.length > 12 && <p className={c.nota}>+ {r.origens.length - 12} outras origens com poucas aplicações.</p>}
+            {lista.length > 12 && <p className={c.nota}>+ {lista.length - 12} outras com poucas aplicações.</p>}
             {!r.form && (
               <>
                 <h3 className={c.subTitulo} style={{ marginTop: 16 }}>Por formulário</h3>

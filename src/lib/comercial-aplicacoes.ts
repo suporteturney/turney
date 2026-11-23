@@ -24,7 +24,7 @@ export async function inicioDasAplicacoes() {
 async function linhas(de: string, ate: string, form: string) {
   return prisma.respostaFormulario.findMany({
     where: { preenchidoEm: limites(de, ate), ...(form ? { formulario: form } : {}) },
-    select: { leadId: true, formulario: true, completa: true, temperatura: true, canal: true, preenchidoEm: true },
+    select: { leadId: true, formulario: true, completa: true, temperatura: true, canal: true, utms: true, preenchidoEm: true },
   });
 }
 
@@ -39,7 +39,8 @@ export async function resumoAplicacoes(de: string, ate: string, form: string) {
     const comCompleta = new Set(completas.map(r => r.leadId));
     const t = zero();
     for (const r of completas) t[chaveTemp(r.temperatura)]++;
-    return { total: completas.length, incompletas: new Set(rs.filter(r => !r.completa && !comCompleta.has(r.leadId)).map(r => r.leadId)).size, temps: t, completas };
+    const soComecou = rs.filter(r => !r.completa && !comCompleta.has(r.leadId)).filter((r, i, l) => l.findIndex(x => x.leadId === r.leadId) === i);
+    return { total: completas.length, incompletas: soComecou.length, temps: t, completas, soComecou };
   };
   const a = conta(atual), b = conta(anterior);
 
@@ -57,6 +58,20 @@ export async function resumoAplicacoes(de: string, ate: string, form: string) {
   const listaOrigens = [...origens.entries()].map(([k, o]) => ({
     nome: k ? [...o.grafias.entries()].sort((x, y) => y[1] - x[1])[0][0] : "Não informou", total: o.total, quentes: o.quentes,
   })).sort((x, y) => y.total - x.total || x.nome.localeCompare(y.nome, "pt-BR"));
+
+  // UTMs (do link que a pessoa usou): fonte e campanha. Quem começou e não terminou conta à parte, para ver onde se perde gente.
+  const utm = (r: (typeof atual)[number], k: string) => {
+    const u = r.utms && typeof r.utms === "object" && !Array.isArray(r.utms) ? (r.utms as Record<string, unknown>)[k] : null;
+    return typeof u === "string" && u.trim() ? u.trim().toLowerCase().slice(0, 80) : "";
+  };
+  const porUtm = (k: string) => {
+    const m = new Map<string, { total: number; quentes: number; naoTerminaram: number }>();
+    const pegar = (v: string) => { const o = m.get(v) ?? { total: 0, quentes: 0, naoTerminaram: 0 }; m.set(v, o); return o; };
+    for (const r of a.completas) { const o = pegar(utm(r, k)); o.total++; if (r.temperatura === "quente") o.quentes++; }
+    for (const r of a.soComecou) pegar(utm(r, k)).naoTerminaram++;
+    return [...m.entries()].map(([nome, o]) => ({ nome: nome || "Sem UTM", ...o }))
+      .sort((x, y) => y.total - x.total || y.naoTerminaram - x.naoTerminaram || x.nome.localeCompare(y.nome, "pt-BR"));
+  };
 
   // Por formulário.
   const porForm = [FORM_HUB, FORM_PRE, ...new Set(a.completas.map(r => r.formulario))]
@@ -85,7 +100,7 @@ export async function resumoAplicacoes(de: string, ate: string, form: string) {
     de, ate, form, passo,
     total: a.total, incompletas: a.incompletas, temps: a.temps,
     anterior: { de: antesDe, ate: antesAte, total: b.total, quentes: b.temps.quente },
-    origens: listaOrigens, porForm,
+    origens: listaOrigens, porForm, utmSource: porUtm("utm_source"), utmCampaign: porUtm("utm_campaign"),
     serie: chaves.map(k => ({ k, ...serie.get(k)! })),
   };
 }
