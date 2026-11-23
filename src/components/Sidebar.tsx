@@ -19,6 +19,7 @@ const PILARES_MENU: { k: Pilar; label: string; icon: string; secoes: Secao[] }[]
       itens: [
         { href: "/comercial", label: "Visão geral", icon: "grid", exato: true },
         { href: "/comercial/funil", label: "Funil de vendas", icon: "kanban" },
+        { href: "/comercial/inteligencia", label: "Inteligência comercial", icon: "zap" },
         { href: "/comercial/vendas", label: "Vendas e metas", icon: "bar-chart" },
         { href: "/comercial/calls", label: "Calls", icon: "calendar" },
         { href: "/comercial/passagem", label: "Passagem", icon: "arrow" },
