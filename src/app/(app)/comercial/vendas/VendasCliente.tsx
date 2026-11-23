@@ -23,6 +23,7 @@ export default function VendasCliente({ eu, mes, hoje, equipe, gestora, vendas, 
   const router = useRouter();
   const [nova, setNova] = useState(false);
   const [editarMetas, setEditarMetas] = useState(false);
+  const [importar, setImportar] = useState(false);
   const [cancelar, setCancelar] = useState<Venda | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const fecharMsg = useCallback(() => setMsg(null), []);
@@ -62,6 +63,7 @@ export default function VendasCliente({ eu, mes, hoje, equipe, gestora, vendas, 
             <b>{nomeMes(mes)}</b>
             <button className={c.setinha} onClick={() => ir(1)} aria-label="Próximo mês">›</button>
           </div>
+          {gestora && <button className={c.btn} onClick={() => setImportar(true)}>Importar da Hubla</button>}
           {gestora && <button className={c.btn} onClick={() => setEditarMetas(true)}>Metas</button>}
           <button className={c.btnPrim} onClick={() => setNova(true)}>+ Venda</button>
         </div>
@@ -164,6 +166,7 @@ export default function VendasCliente({ eu, mes, hoje, equipe, gestora, vendas, 
       )}
       {cancelar && <CancelarVenda v={cancelar} onFechar={() => setCancelar(null)} onConfirmar={motivo => mudar(cancelar, { cancelada: true, motivoCancelamento: motivo }, "Venda cancelada")} />}
       {editarMetas && <Metas mes={mes} metas={metas} equipe={equipe} onFechar={() => setEditarMetas(false)} onSalvo={m => { setMsg(m); router.refresh(); }} />}
+      {importar && <ImportarHubla onFechar={() => setImportar(false)} onFeito={m => { setImportar(false); setMsg(m); router.refresh(); }} />}
       <Aviso msg={msg} fechar={fecharMsg} />
     </>
   );
@@ -220,6 +223,51 @@ function Metas({ mes, metas, equipe, onFechar, onSalvo }: { mes: string; metas: 
         <p className={c.nota}>Deixe o valor vazio para tirar a meta.</p>
         {erro && <p className={c.msgErro} role="alert">{erro}</p>}
         <div className={c.acoes}><button type="button" className={c.btn} onClick={onFechar}>Cancelar</button><button className={c.btnPrim} disabled={salvando}>{salvando ? "Salvando…" : "Salvar metas"}</button></div>
+      </form>
+    </Janela>
+  );
+}
+
+// Relatório de Vendas exportado da Hubla → vendas do mês (sem duplicar).
+function ImportarHubla({ onFechar, onFeito }: { onFechar: () => void; onFeito: (m: Msg) => void }) {
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  async function importar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!arquivo) return;
+    setEnviando(true); setErro(null);
+    try {
+      const fd = new FormData();
+      fd.append("arquivo", arquivo);
+      const res = await fetch("/api/comercial/vendas/hubla", { method: "POST", body: fd });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.erro ?? "Não foi possível importar.");
+      const partes = [
+        j.criada && `${j.criada} ${j.criada === 1 ? "venda nova" : "vendas novas"}`,
+        j.ligada && `${j.ligada} ${j.ligada === 1 ? "já registrada à mão (confirmada)" : "já registradas à mão (confirmadas)"}`,
+        j.repetida && `${j.repetida} que já ${j.repetida === 1 ? "estava" : "estavam"} aqui`,
+        j.cancelada && `${j.cancelada} ${j.cancelada === 1 ? "reembolsada (cancelada)" : "reembolsadas (canceladas)"}`,
+      ].filter(Boolean);
+      onFeito({ txt: `Importado: ${partes.join(", ") || "nada novo"}.${j.faltaram ? ` Faltaram ${j.faltaram}: importe o mesmo arquivo de novo.` : ""}` });
+    } catch (err) { setErro((err as Error).message); setEnviando(false); }
+  }
+  return (
+    <Janela titulo="Importar vendas da Hubla" sub="Para vendas de antes da integração. As novas já chegam sozinhas." onFechar={onFechar}>
+      <form className={c.form} onSubmit={importar}>
+        <ol className={c.nota} style={{ margin: "0 0 0 16px", fontSize: 12, lineHeight: 1.6 }}>
+          <li>Na Hubla, em <b>Vendas</b>, escolha o período e clique em <b>Exportar</b>.</li>
+          <li>Escolha o arquivo aqui. Pode importar o mesmo arquivo mais de uma vez: nada é duplicado.</li>
+        </ol>
+        <label className={c.campo}>Relatório de vendas (.xlsx)
+          <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
+        </label>
+        <p className={c.nota}>Quem estiver no funil vai para Fechado. Vendas de quem não estava no funil entram com “A definir” em quem vendeu. A passagem para o Pós Venda fica pendente.</p>
+        {erro && <p className={c.msgErro} role="alert">{erro}</p>}
+        <div className={c.acoes}>
+          <button type="button" className={c.btn} onClick={onFechar}>Cancelar</button>
+          <button className={c.btnPrim} disabled={!arquivo || enviando}>{enviando ? "Importando…" : "Importar"}</button>
+        </div>
       </form>
     </Janela>
   );

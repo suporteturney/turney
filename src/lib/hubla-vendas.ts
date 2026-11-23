@@ -79,3 +79,48 @@ export function lerVendaHubla(corpo: unknown): VendaHubla | null {
     utm: utm.source || utm.medium || utm.campaign ? utm : null,
   };
 }
+
+// Relatório "Vendas" exportado da Hubla (xlsx). Uma linha por fatura.
+const normH = (s: string) => norm(s).replace(/\s+/g, " ").trim();
+export function lerVendasPlanilhaHubla(linhas: string[][]): { vendas: VendaHubla[]; ignoradas: number; erro?: string } {
+  const cab = (linhas[0] ?? []).map(normH);
+  const col = (nome: string) => cab.indexOf(normH(nome));
+  const iId = col("ID da fatura"), iStatus = col("Status da fatura"), iTotal = col("Valor total");
+  if (iId < 0 || iStatus < 0 || iTotal < 0) return { vendas: [], ignoradas: 0, erro: "Essa planilha não parece ser o relatório de Vendas da Hubla (faltam as colunas ID da fatura, Status da fatura ou Valor total)." };
+  const pega = (l: string[], nome: string) => { const i = col(nome); return i >= 0 ? (l[i] ?? "").trim() : ""; };
+  const dataBr = (t: string) => {
+    const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    return m ? new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4] ?? "12"}:${m[5] ?? "00"}:${m[6] ?? "00"}-03:00`) : null;
+  };
+  const vendas: VendaHubla[] = [];
+  let ignoradas = 0;
+  for (const l of linhas.slice(1)) {
+    const id = pega(l, "ID da fatura");
+    if (!id) continue;
+    const status = normH(pega(l, "Status da fatura"));
+    const tipo = normH(pega(l, "Tipo de fatura"));
+    const parcela = Number(pega(l, "Parcela do parcelamento inteligente")) || null;
+    const pagou = /^paga|reembols/.test(status);
+    if (!pagou || (tipo && !/compra|venda/.test(tipo)) || (parcela && parcela > 1)) { ignoradas++; continue; }
+    const total = Number(pega(l, "Valor total").replace(",", "."));
+    const nParcSmart = Number(pega(l, "Total de parcelas do parcelamento inteligente")) || null;
+    const metodo = normH(pega(l, "Método de pagamento"));
+    const parcelas = Number(pega(l, "Parcelas")) || 1;
+    const pagamento = nParcSmart ? `Parcelamento inteligente ${nParcSmart}x`
+      : /pix/.test(metodo) ? "Pix à vista" : /boleto/.test(metodo) ? "Boleto"
+      : /cartao|credito|apple|google/.test(metodo) ? `Cartão ${parcelas > 1 ? `em ${parcelas}x` : "à vista"}` : pega(l, "Método de pagamento") || null;
+    const produto = [pega(l, "Nome do produto"), pega(l, "Nome do produto de orderbump")].filter(Boolean).join(" + ") || "Produto Hubla";
+    const data = dataBr(pega(l, "Data de pagamento")) ?? dataBr(pega(l, "Data de criação")) ?? new Date();
+    const utm = { source: pega(l, "UTM Origem") || undefined, medium: pega(l, "UTM Mídia") || undefined, campaign: pega(l, "UTM Campanha") || undefined };
+    const base: VendaHubla = {
+      tipo: "paga", fatura: (pega(l, "Fatura original") || id).slice(0, 80), cliente: (pega(l, "Nome do cliente") || pega(l, "Email do cliente") || "Cliente Hubla").slice(0, 120),
+      email: pega(l, "Email do cliente").toLowerCase() || null, whatsapp: pega(l, "Telefone do cliente") || null,
+      produto: produto.slice(0, 200), programa: programaDoProduto(pega(l, "Nome do produto") || produto),
+      valorCentavos: Math.round((Number.isFinite(total) ? total : 0) * 100 * (nParcSmart && nParcSmart > 1 ? nParcSmart : 1)),
+      pagamento, data, utm: utm.source || utm.medium || utm.campaign ? utm : null,
+    };
+    vendas.push(base);
+    if (/reembols/.test(status)) vendas.push({ ...base, tipo: "reembolsada" }); // entra e já sai cancelada
+  }
+  return { vendas, ignoradas };
+}
