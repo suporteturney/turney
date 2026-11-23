@@ -25,11 +25,12 @@ const limpar = (s: string) => s.replace(/\*\*/g, "").replace(/\r/g, "").replace(
 const achar = (rs: Resposta[], re: RegExp, nao?: RegExp) => rs.find(x => re.test(norm(x.p)) && !nao?.test(norm(x.p)))?.r ?? null;
 
 // ---- Classificação ----
-// Renda atual vale até 40 pontos, disposição a investir até 35 e inglês até 25. Quente: 65 ou mais. Morno: 35 a 64. Frio: menos de 35.
+// Renda atual vale até 40 pontos, disposição a investir até 35 e inglês até 25. Quente: 70 ou mais. Morno: 50 a 69. Frio: menos de 50.
+// (Cortes escolhidos em 22/11/2026 olhando os preenchimentos de novembro: quase todo mundo diz "Sim" para investir.)
 // Quem não disse que está disposta a investir (respondeu "não" ou não chegou nessa pergunta) fica no máximo em morno.
 const EURO = 6; // só para comparar as faixas em € com as faixas em R$
 export const PESOS = { renda: 40, investir: 35, ingles: 25 };
-export const CORTE = { quente: 65, morno: 35 };
+export const CORTE = { quente: 70, morno: 50 };
 
 export function notaRenda(r: string | null): number | null {
   if (!r) return null;

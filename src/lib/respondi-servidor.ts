@@ -76,7 +76,14 @@ export async function receberPreenchimento(f: Preenchimento, autor: string): Pro
     const igual = await tx.respostaFormulario.findUnique({ where: { id: f.id }, include: { lead: true } });
     if (igual) {
       const melhorou = f.respostas.length > (igual.respostas as unknown[]).length || (f.completa && !igual.completa);
-      if (!melhorou) return "repetido";
+      const regraMudou = igual.temperatura !== temperatura || igual.pontuacao !== pontuacao; // os cortes foram ajustados depois
+      if (!melhorou && !regraMudou) return "repetido";
+      if (!melhorou) {
+        await tx.respostaFormulario.update({ where: { id: f.id }, data: { temperatura, pontuacao } });
+        const manda = await tx.respostaFormulario.findFirst({ where: { leadId: igual.leadId }, orderBy: [{ completa: "desc" }, { preenchidoEm: "desc" }] });
+        if (manda?.id === f.id) await tx.lead.update({ where: { id: igual.leadId }, data: atualizacao(igual.lead) });
+        return "repetido";
+      }
       await tx.respostaFormulario.update({ where: { id: f.id }, data: dados });
       if (f.completa && !igual.completa) await tx.leadNota.create({ data: { leadId: igual.leadId, tipo: "form", texto: `Terminou o forms ${f.formulario}`, autor } });
       const maisNova = await tx.respostaFormulario.findFirst({ where: { leadId: igual.leadId, completa: true }, orderBy: { preenchidoEm: "desc" } });
