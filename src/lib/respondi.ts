@@ -60,7 +60,8 @@ export function notaIngles(r: string | null): number | null {
 }
 export const criterios = (rs: Resposta[]) => ({
   renda: achar(rs, /renda.*atual/, /sonha/),
-  investir: achar(rs, /dispost[oa].*investir/, /^quanto/),
+  // "Está disposta a investir?" (sim/não). A pergunta de "quanto investiria" é outra e fica de fora.
+  investir: achar(rs, /dispost[oa].*investir/, /quanto/),
   ingles: achar(rs, /nivel de ingles/),
 });
 
