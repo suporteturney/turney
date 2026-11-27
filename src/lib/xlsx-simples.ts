@@ -21,7 +21,7 @@ function arquivosDoZip(buf: Buffer): Map<string, Buffer> {
     const local = buf.readUInt32LE(p + 42);
     const nome = buf.toString("utf8", p + 46, p + 46 + lenNome);
     p += 46 + lenNome + lenExtra + lenCom;
-    if (!/^xl\/(worksheets\/sheet\d+|sharedStrings|workbook)\.xml$/.test(nome)) continue;
+    if (!/^xl\/(worksheets\/sheet\d+\.xml|sharedStrings\.xml|workbook\.xml|_rels\/workbook\.xml\.rels)$/.test(nome)) continue;
     const ini = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
     const dados = buf.subarray(ini, ini + tamComp);
     saida.set(nome, metodo === 8 ? inflateRawSync(dados) : Buffer.from(dados));
@@ -36,14 +36,13 @@ const desescapar = (s: string) =>
 const textos = (xml: string) => [...xml.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(m => desescapar(m[1])).join("");
 const coluna = (ref: string) => [...ref.replace(/\d+/g, "")].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
 
-// Linhas da primeira aba como listas de textos (a primeira linha costuma ser o cabeçalho).
-export function lerXlsx(buf: Buffer): string[][] {
-  const zip = arquivosDoZip(buf);
-  const folha = zip.get("xl/worksheets/sheet1.xml") ?? [...zip.entries()].find(([k]) => k.startsWith("xl/worksheets/"))?.[1];
-  if (!folha) throw new Error("Não achei nenhuma aba na planilha.");
-  const compartilhados = zip.has("xl/sharedStrings.xml")
+function compartilhadosDo(zip: Map<string, Buffer>) {
+  return zip.has("xl/sharedStrings.xml")
     ? [...zip.get("xl/sharedStrings.xml")!.toString("utf8").matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m => textos(m[1]))
     : [];
+}
+
+function linhasDa(folha: Buffer, compartilhados: string[]): string[][] {
   const linhas: string[][] = [];
   for (const r of folha.toString("utf8").matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
     const linha: string[] = [];
@@ -61,4 +60,33 @@ export function lerXlsx(buf: Buffer): string[][] {
     linhas.push(Array.from(linha, x => x ?? ""));
   }
   return linhas;
+}
+
+// Linhas da primeira aba como listas de textos (a primeira linha costuma ser o cabeçalho).
+export function lerXlsx(buf: Buffer): string[][] {
+  const zip = arquivosDoZip(buf);
+  const folha = zip.get("xl/worksheets/sheet1.xml") ?? [...zip.entries()].find(([k]) => k.startsWith("xl/worksheets/"))?.[1];
+  if (!folha) throw new Error("Não achei nenhuma aba na planilha.");
+  return linhasDa(folha, compartilhadosDo(zip));
+}
+
+// Todas as abas, com o nome de cada uma, na ordem da planilha.
+export function lerXlsxAbas(buf: Buffer): { nome: string; linhas: string[][] }[] {
+  const zip = arquivosDoZip(buf);
+  const compartilhados = compartilhadosDo(zip);
+  const rels = new Map(
+    [...(zip.get("xl/_rels/workbook.xml.rels")?.toString("utf8") ?? "").matchAll(/<Relationship\b[^>]*>/g)].map(m => [
+      m[0].match(/\bId="([^"]+)"/)?.[1] ?? "", (m[0].match(/\bTarget="([^"]+)"/)?.[1] ?? "").replace(/^\/?(xl\/)?/, "xl/"),
+    ]),
+  );
+  const abas: { nome: string; linhas: string[][] }[] = [];
+  const wb = zip.get("xl/workbook.xml")?.toString("utf8") ?? "";
+  [...wb.matchAll(/<sheet\b[^>]*>/g)].forEach((m, i) => {
+    const nome = desescapar(m[0].match(/\bname="([^"]*)"/)?.[1] ?? `Aba ${i + 1}`);
+    const rid = m[0].match(/\br:id="([^"]+)"/)?.[1] ?? "";
+    const folha = zip.get(rels.get(rid) ?? "") ?? zip.get(`xl/worksheets/sheet${i + 1}.xml`);
+    if (folha) abas.push({ nome, linhas: linhasDa(folha, compartilhados) });
+  });
+  if (!abas.length) throw new Error("Não achei nenhuma aba na planilha.");
+  return abas;
 }

@@ -33,6 +33,8 @@ Quem pede as mudanças é a Gestora de Operações (Eduarda). Ela não é técni
 
 ## O que existe (resumo)
 - **Pós Venda**: mentoradas, jornada por programa, saúde da base, renovações, congelamento, pipeline Kanban + tarefas, presenças, acompanhamento (varreduras), agendas do Google (iCal), Hubla área de membros (webhook + importação de aulas), Meu painel (`/inicio`).
+- **Devolutivas DISC** (Administração › Devolutivas DISC, `src/lib/devolutiva*.ts`): o painel relê a planilha da mentora de devolutiva comportamental (Natalia, .xlsx no Drive dela aberto por link; só o código do arquivo fica em Configuracao `disc_planilha`) a cada 15 min. Devolutiva com data vira data na jornada (Atlas), DISC se vazio e observação; "não apareceu" vira aviso de falta. Valor/pagamento da planilha nunca entram.
+- **Avisos** (`/avisos`, modelo `Notificacao`, `src/lib/notificacoes.ts`): item do menu com contador; cada pessoa só vê os próprios avisos.
 - **Comercial**:
   - Funil (`/comercial/funil`): lead fechado vai direto para o Pipeline do Pós Venda.
   - Vendas e metas: vendas da Hubla entram sozinhas pelo webhook (`src/lib/hubla-vendas*.ts`) e há importação do relatório xlsx da Hubla. A passagem para o Pós Venda fica pendente porque um cenário do Make já cria a mentorada.

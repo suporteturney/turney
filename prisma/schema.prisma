@@ -27,9 +27,10 @@ model Usuario {
   ultimoAcesso DateTime?
   createdAt    DateTime  @default(now())
 
-  sessoes    Sessao[]
-  atividades Atividade[]
-  foto       FotoUsuario?
+  sessoes      Sessao[]
+  atividades   Atividade[]
+  foto         FotoUsuario?
+  notificacoes Notificacao[]
 }
 
 // Foto de perfil (bolinha), já reduzida no navegador para 192×192 JPEG.
@@ -146,6 +147,7 @@ model Mentorada {
   eventosHubla    EventoHubla[]
   consumoHubla    ConsumoHubla[]
   vendas          Venda[]
+  devolutivas     DevolutivaDisc[]
 }
 
 // Etapas do Kanban (Pipeline), criadas e excluídas pela equipe.
@@ -569,4 +571,41 @@ model Call {
 
   @@index([inicio])
   @@index([leadId])
+}
+
+// Avisos do painel para uma pessoa da equipe (sino do menu).
+model Notificacao {
+  id        String    @id @default(cuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  titulo    String
+  texto     String?
+  link      String?
+  lidaEm    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([usuarioId, lidaEm])
+  @@index([usuarioId, createdAt])
+}
+
+// Linhas da planilha de devolutivas comportamentais (DISC) da mentora parceira, lidas pelo link do Drive.
+model DevolutivaDisc {
+  id          String     @id @default(cuid())
+  chave       String     @unique // e-mail (ou nome) + o que está na coluna de data
+  nome        String
+  email       String?
+  situacao    String // feita | faltou | pendente
+  textoData   String? // como estava escrito na coluna de data
+  data        DateTime?
+  perfil      String?
+  lideranca   String?
+  resumo      String?
+  mentoradaId String?
+  mentorada   Mentorada? @relation(fields: [mentoradaId], references: [id], onDelete: SetNull)
+  lancadaEm   DateTime? // quando foi lançada no cadastro da mentorada
+  avisadaEm   DateTime? // quando a equipe foi avisada
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([mentoradaId])
 }

@@ -66,12 +66,18 @@ const MENU_ADMIN = {
     { href: "/equipe", label: "Equipe", icon: "shield" },
     { href: "/agendas", label: "Agendas", icon: "calendar" },
     { href: "/hubla", label: "Hubla", icon: "layers" },
+    { href: "/devolutivas", label: "Devolutivas DISC", icon: "file" },
     { href: "/formularios", label: "Formulários", icon: "file" },
     { href: "/atividades", label: "Atividades", icon: "list" },
   ],
 };
 
 const ICONS: Record<string, React.ReactNode> = {
+  bell: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+    </svg>
+  ),
   target: (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" />
@@ -177,7 +183,7 @@ const ICONS: Record<string, React.ReactNode> = {
   dot: <span className={styles.navDot} />,
 };
 
-export default function Sidebar({ usuario, tarefasVencendo = 0, foto = null }: { usuario: UsuarioSessao; tarefasVencendo?: number; foto?: string | null }) {
+export default function Sidebar({ usuario, tarefasVencendo = 0, avisos = 0, foto = null }: { usuario: UsuarioSessao; tarefasVencendo?: number; avisos?: number; foto?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const pilares = PILARES_MENU.filter(p => temPilar(usuario, p.k));
@@ -205,6 +211,7 @@ export default function Sidebar({ usuario, tarefasVencendo = 0, foto = null }: {
       {(item.href === "/tarefas" || (item.href === "/inicio" && !temPilar(usuario, "posvenda"))) && tarefasVencendo > 0 && (
         <span className={styles.navBadge} title="Tarefas atrasadas ou para hoje">{tarefasVencendo}</span>
       )}
+      {item.href === "/avisos" && avisos > 0 && <span className={styles.navBadge} title="Avisos não lidos">{avisos}</span>}
     </Link>
   );
 
@@ -220,6 +227,7 @@ export default function Sidebar({ usuario, tarefasVencendo = 0, foto = null }: {
 
       <nav className={styles.nav}>
         {linkItem({ href: "/inicio", label: "Meu painel", icon: "home" })}
+        {linkItem({ href: "/avisos", label: "Avisos", icon: "bell" })}
         {pilares.map(p => {
           const on = aberto === p.k;
           return (
