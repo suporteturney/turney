@@ -112,7 +112,6 @@ model Mentorada {
 
   linkedin           String?
   drive              String?
-  asana              String?
   disc               String?
   mesesAntes         Int?
   cancelamento       DateTime?

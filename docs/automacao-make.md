@@ -65,20 +65,20 @@ Usar quando chega a venda da Hubla ou o formulário de Pix.
 
 - Obrigatórios: `nome`, `tipo` e `email` ou `whatsapp`.
 - `tipo`: o programa, escrito igual ao painel (Nexus 1, Nexus 2, Nexus 3, Atlas, Delta…).
-- Opcionais: `inicio` (padrão: hoje), `prazo` ou `duracao` em meses (calcula o prazo), `tutora`, `resp`, `drive`, `asana`, `origem`, `obs`, `etapa`.
+- Opcionais: `inicio` (padrão: hoje), `prazo` ou `duracao` em meses (calcula o prazo), `tutora`, `resp`, `drive`, `origem`, `obs`, `etapa`.
 - Resposta: `{ "criada": true, "mentorada": { "id": ..., "codigo": ..., "whatsappDDI": ... } }`.
 - **A Hubla manda o mesmo aviso duas vezes?** Se a aluna já está ativa no mesmo programa, o painel não duplica e responde `"criada": false`. No Make, siga só quando `criada` for `true`.
 - Se ela já está ativa em **outro** programa, o painel recusa (erro 409). Upgrade é registrado à mão no painel.
 
 ## 2. Completar o cadastro
 
-Depois que o Make cria a pasta no Drive e a task no Asana:
+Depois que o Make cria a pasta no Drive:
 
 ```json
-{ "acao": "atualizar", "id": "<id da aluna>", "drive": "https://drive.google.com/...", "asana": "https://app.asana.com/..." }
+{ "acao": "atualizar", "id": "<id da aluna>", "drive": "https://drive.google.com/..." }
 ```
 
-Campos aceitos: `email`, `whatsapp`, `tutora`, `resp`, `drive`, `asana`, `turma`, `linkedin`.
+Campos aceitos: `email`, `whatsapp`, `tutora`, `resp`, `drive`, `turma`, `linkedin`.
 Para trocar o e-mail ou o WhatsApp da própria aluna, identifique-a por `id` ou `codigo`.
 
 ## 3. Avançar a etapa da jornada

@@ -73,7 +73,7 @@ function opcoes(lista: string[], atual: string) {
 
 type Form = Record<string, string>;
 const CAMPOS_FORM = [
-  "nome", "tipo", "status", "saude", "area", "localizacao", "email", "linkedin", "drive", "asana",
+  "nome", "tipo", "status", "saude", "area", "localizacao", "email", "linkedin", "drive",
   "whatsapp", "disc", "produtoAnterior", "origem", "origemDetalhe", "resp", "tutora", "turma", "vagaCargo", "vagaEmpresa",
   "saudeMotivo", "congelamentoMotivo",
 ] as const;
@@ -456,12 +456,9 @@ export default function MentoradaDrawer({
                   <input value={form.linkedin ?? ""} onChange={set("linkedin")} placeholder="linkedin.com/in/…" />
                 </F>
               </div>
-              <div className={s.row3}>
+              <div className={s.row}>
                 <F label="Google Drive" href={linkExterno(form.drive)}>
                   <input value={form.drive ?? ""} onChange={set("drive")} placeholder="drive.google.com/…" />
-                </F>
-                <F label="Asana" href={linkExterno(form.asana)}>
-                  <input value={form.asana ?? ""} onChange={set("asana")} placeholder="app.asana.com/…" />
                 </F>
                 <F label="WhatsApp" href={linkWhats(form.whatsapp)}>
                   <input type="tel" value={form.whatsapp ?? ""} onChange={set("whatsapp")} placeholder="+55 11 99999-9999" />

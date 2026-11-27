@@ -22,7 +22,7 @@ function somarMeses(iso: string, meses: number) {
 const VAZIO = {
   nome: "", tipo: "Nexus 2", status: "Ativo", inicio: hoje(), duracao: "6", prazo: somarMeses(hoje(), 6),
   email: "", whatsapp: "", area: "", localizacao: "", origem: "", origemDetalhe: "", produtoAnterior: "",
-  linkedin: "", drive: "", asana: "", obs: "",
+  linkedin: "", drive: "", obs: "",
 };
 
 type Form = typeof VAZIO;
@@ -224,10 +224,9 @@ export default function NovoMentoradoModal({
           )}
 
           <div className={m.section}>Links</div>
-          <div className={m.row3}>
+          <div className={m.row}>
             <label className={m.field}><span>LinkedIn</span><input value={f.linkedin} onChange={set("linkedin")} placeholder="linkedin.com/in/…" /></label>
             <label className={m.field}><span>Google Drive</span><input value={f.drive} onChange={set("drive")} placeholder="drive.google.com/…" /></label>
-            <label className={m.field}><span>Asana</span><input value={f.asana} onChange={set("asana")} placeholder="app.asana.com/…" /></label>
           </div>
           <div className={m.row}>
             <label className={`${m.field} ${m.full}`}>

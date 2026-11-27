@@ -16,7 +16,7 @@ export type Detalhe = {
   email: string | null; whatsapp: string | null; area: string | null; localizacao: string | null;
   turma: string | null; produtoAnterior: string | null; origem: string | null; origemDetalhe: string | null; resp: string | null;
   tutora?: string | null; jornadaEtapa?: string | null; jornadaEtapaEm?: string | null;
-  obs: string | null; linkedin: string | null; drive: string | null; asana: string | null; disc: string | null;
+  obs: string | null; linkedin: string | null; drive: string | null; disc: string | null;
   duracao: number | null; mesesAntes: number | null;
   inicio: string | null; prazo: string | null; cancelamento: string | null;
   congelamentoPedido?: string | null; congelamentoAte?: string | null; congelamentoMotivo?: string | null;

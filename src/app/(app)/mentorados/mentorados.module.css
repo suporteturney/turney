@@ -262,8 +262,6 @@
 .icMail:hover { background: var(--champ-dim); border-color: var(--champagne); color: var(--brown); }
 .icLinkedin { color: #0A66C2; }
 .icLinkedin:hover { background: #E8F1FB; border-color: #0A66C2; }
-.icAsana { color: #F06A6A; }
-.icAsana:hover { background: #FDEEEE; border-color: #F06A6A; }
 .icDrive { color: #1A73E8; }
 .icDrive:hover { background: #E8F0FE; border-color: #1A73E8; }
 .icOff {

@@ -54,7 +54,7 @@ export async function GET(
 const CAMPOS_TEXTO = [
   "nome", "email", "whatsapp", "status", "saude", "area",
   "localizacao", "turma", "produtoAnterior", "origem", "origemDetalhe", "resp", "tutora", "obs",
-  "tipo", "linkedin", "drive", "asana", "disc", "vagaCargo", "vagaEmpresa",
+  "tipo", "linkedin", "drive", "disc", "vagaCargo", "vagaEmpresa",
   "negociacao", "saudeMotivo", "renovacaoStatus", "congelamentoMotivo",
 ];
 const CAMPOS_INT = ["duracao", "mesesAntes"];

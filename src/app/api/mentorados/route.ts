@@ -67,7 +67,6 @@ export async function POST(req: NextRequest) {
       origemDetalhe: texto(data.origemDetalhe),
       linkedin: texto(data.linkedin),
       drive: texto(data.drive),
-      asana: texto(data.asana),
       resp: texto(data.resp) ?? usuario.nome,
       obs: texto(data.obs),
     },

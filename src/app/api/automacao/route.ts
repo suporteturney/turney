@@ -42,7 +42,7 @@ function resumo(m: Mentorada) {
     id: m.id, codigo: m.codigo, nome: m.nome, email: m.email,
     whatsapp: m.whatsapp, whatsappDDI: whatsappComDDI(m.whatsapp),
     tipo: m.tipo, status: m.status, tutora: m.tutora, resp: m.resp,
-    drive: m.drive, asana: m.asana, inicio: m.inicio, prazo: m.prazo,
+    drive: m.drive, inicio: m.inicio, prazo: m.prazo,
     jornadaEtapa: m.jornadaEtapa, jornadaEtapaEm: m.jornadaEtapaEm,
     diasNaEtapa: m.jornadaEtapaEm ? Math.floor((Date.now() - m.jornadaEtapaEm.getTime()) / DIA) : null,
     saude: m.saude, saudeNota: m.saudeNota,
@@ -94,11 +94,11 @@ export async function GET(req: NextRequest) {
   return m ? NextResponse.json(resumo(m)) : naoAchou();
 }
 
-const CAMPOS_ATUALIZAVEIS = ["email", "whatsapp", "tutora", "resp", "drive", "asana", "turma", "linkedin"] as const;
+const CAMPOS_ATUALIZAVEIS = ["email", "whatsapp", "tutora", "resp", "drive", "turma", "linkedin"] as const;
 
 // Ações (campo "acao" no corpo):
 //   cadastrar  — aluna nova (venda da Hubla ou formulário de Pix)
-//   atualizar  — completa o cadastro (link da pasta, do Asana, tutora…)
+//   atualizar  — completa o cadastro (link da pasta, tutora…)
 //   avancar    — muda a etapa da jornada e, se vier "marco", marca a data de uma etapa do painel
 export async function POST(req: NextRequest) {
   const negado = chaveInvalida(req);
@@ -151,7 +151,6 @@ async function cadastrar(d: Record<string, unknown>) {
       tutora: texto(d.tutora),
       resp: texto(d.resp),
       drive: texto(d.drive),
-      asana: texto(d.asana),
       obs: texto(d.obs),
       jornadaEtapa,
       jornadaEtapaEm: jornadaEtapa ? new Date() : null,

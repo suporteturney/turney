@@ -72,13 +72,6 @@ const IconMail = () => (
     <path d="m4 7 8 6 8-6" />
   </svg>
 );
-const IconAsana = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="7" r="4" fill="currentColor" />
-    <circle cx="6" cy="16" r="4" fill="currentColor" />
-    <circle cx="18" cy="16" r="4" fill="currentColor" />
-  </svg>
-);
 const IconDrive = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
     <path d="M8.5 3h7l6 10.5-3.5 6h-12L2.5 13.5Z" />
@@ -303,7 +296,6 @@ export default function MentoradosCliente({
                 {visivel.map((m) => {
                   const dias = diasPrazo(m.prazo);
                   const wa = linkWhats(m.whatsapp);
-                  const asana = linkExterno(m.asana);
                   const linkedin = linkExterno(m.linkedin);
                   const drive = linkExterno(m.drive);
                   const abrirCadastro = () => setAberta({ id: m.id, aba: "dados" });
@@ -347,13 +339,6 @@ export default function MentoradosCliente({
                             </a>
                           ) : (
                             <button className={`${styles.ic} ${styles.icOff}`} onClick={abrirCadastro} title="LinkedIn não cadastrado — clique para adicionar" aria-label="Adicionar LinkedIn"><IconLinkedin /></button>
-                          )}
-                          {asana ? (
-                            <a href={asana} target="_blank" rel="noopener noreferrer" className={`${styles.ic} ${styles.icAsana}`} title="Abrir no Asana" aria-label="Abrir no Asana">
-                              <IconAsana />
-                            </a>
-                          ) : (
-                            <button className={`${styles.ic} ${styles.icOff}`} onClick={abrirCadastro} title="Asana não cadastrado — clique para adicionar" aria-label="Adicionar link do Asana"><IconAsana /></button>
                           )}
                           {drive ? (
                             <a href={drive} target="_blank" rel="noopener noreferrer" className={`${styles.ic} ${styles.icDrive}`} title="Abrir pasta no Drive" aria-label="Abrir pasta no Drive">
